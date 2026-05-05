@@ -983,7 +983,8 @@ func resolveObjectInclusions[T symbolResolver](resolver T, unresolvedInclusions 
 			case *model.ClassSymbol:
 				carrier = s
 			case *model.ObjectTypeSymbol:
-				if s.Type() == nil || !semtypes.IsSubtypeSimple(s.Type(), semtypes.OBJECT) {
+				incTy := ctx.SymbolType(symRef)
+				if incTy == nil || !semtypes.IsSubtypeSimple(incTy, semtypes.OBJECT) {
 					ctx.SemanticError("type inclusion must be an object type or class", inc.GetPosition())
 					continue
 				}
@@ -1028,8 +1029,12 @@ func resolveRecordTypeInclusions[T symbolResolver](resolver T, typeInclusions []
 			}
 		} else {
 			sym := ctx.GetSymbol(symRef)
-			recSym, ok := sym.(*model.RecordSymbol)
-			if !ok || recSym.Type() == nil || !semtypes.IsSubtypeSimple(recSym.Type(), semtypes.MAPPING) {
+			if _, ok := sym.(*model.RecordSymbol); !ok {
+				ctx.SemanticError("included type is not a record type", udt.GetPosition())
+				continue
+			}
+			incTy := ctx.SymbolType(symRef)
+			if incTy == nil || !semtypes.IsSubtypeSimple(incTy, semtypes.MAPPING) {
 				ctx.SemanticError("included type is not a record type", udt.GetPosition())
 				continue
 			}

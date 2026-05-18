@@ -359,7 +359,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		"getHeaders":       getHeadersRef,
 		"getHeaderNames":   getHeaderNamesRef,
 	})
-	space.AddSymbol("Response", &responseSym)
+	space.AddSymbol("Response", responseSym)
 
 	// Member-level signatures: self is NOT included here because the BIR gen prepends
 	// the receiver object automatically. The type checker only sees user-provided args.
@@ -633,5 +633,5 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		model.RemoteMethodName("delete"):  deleteRef,
 		model.RemoteMethodName("execute"): executeRef,
 	})
-	space.AddSymbol("Client", &clientSym)
+	space.AddSymbol("Client", clientSym)
 }

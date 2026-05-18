@@ -27,7 +27,6 @@ import (
 	"ballerina-lang-go/semtypes"
 	"ballerina-lang-go/tools/diagnostics"
 
-	bHttp "ballerina-lang-go/lib/http/compile"
 	"ballerina-lang-go/lib/registry"
 )
 
@@ -487,11 +486,7 @@ func ResolveImports(ctx *context.CompilerContext, pkg *ast.BLangPackage, implici
 				result[key] = symbols
 				continue
 			}
-			// HTTP is not yet migrated to .bal-based embedding; use the Go compile package.
-			if len(imp.PkgNameComps) == 1 && imp.PkgNameComps[0].GetValue() == "http" {
-				result[key] = bHttp.GetHttpSymbols(ctx)
-				continue
-			}
+
 			sym, ok, err := loadEmbeddedBallerinaSymbols(ctx, id)
 			if err != nil {
 				ctx.InternalError("embedded ballerina/"+id.ModuleName+": "+err.Error(), imp.GetPosition())
@@ -1106,7 +1101,8 @@ func resolveClassDefinition(ms *moduleSymbolResolver, classDef *ast.BLangClassDe
 			semanticError(classResolver, "redeclared symbol '"+model.StripRemotePrefix(methodName)+"'", method.Name.GetPosition())
 			continue
 		}
-		isPublic := method.IsPublic()
+		// Remote methods are always implicitly public in Ballerina, even without a public qualifier.
+		isPublic := method.IsPublic() || method.IsRemote()
 		symbol := ms.allocateFunctionSymbol(method, methodName, isPublic)
 		if isPublicClass && isPublic {
 			moduleName := className + "." + methodName

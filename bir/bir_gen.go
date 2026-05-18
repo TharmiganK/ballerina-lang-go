@@ -1458,8 +1458,20 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 		})
 	}
 
-	initFunc := transformFunctionInner(&stmtContext{birCx: ctx, scopeCtx: &scopeContext{varMap: make(map[model.SymbolRef]*BIROperand), isFunctionBoundary: true}}, class.InitFunction, &selfRef)
-	initFunc.FunctionLookupKey = buildMethodLookupKeyFromSymbol(ctx, className.Value(), class.InitFunction.Symbol())
+	initLookupKey := buildMethodLookupKeyFromSymbol(ctx, className.Value(), class.InitFunction.Symbol())
+	var initFunc *BIRFunction
+	if class.InitFunction.IsNative() {
+		initFunc = &BIRFunction{
+			Name:              model.Name(class.InitFunction.GetName().GetValue()),
+			OriginalName:      model.Name(class.InitFunction.GetName().GetValue()),
+			Flags:             class.InitFunction.FlagsAsInt64(),
+			FunctionLookupKey: initLookupKey,
+		}
+		initFunc.Pos = birLoc(ctx.CompilerContext.DiagnosticEnv(), class.InitFunction.GetPosition())
+	} else {
+		initFunc = transformFunctionInner(&stmtContext{birCx: ctx, scopeCtx: &scopeContext{varMap: make(map[model.SymbolRef]*BIROperand), isFunctionBoundary: true}}, class.InitFunction, &selfRef)
+		initFunc.FunctionLookupKey = initLookupKey
+	}
 	birClassDef.VTable["init"] = initFunc
 
 	for methodName, method := range class.Methods {

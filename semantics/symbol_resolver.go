@@ -1126,7 +1126,16 @@ func resolveClassDefinition(ms *moduleSymbolResolver, classDef *ast.BLangClassDe
 	if classDef.InitFunction != nil {
 		signature := model.FunctionSignature{}
 		symbol := model.NewFunctionSymbol("init", signature, false)
-		addSymbolAndSetOnNode(classResolver, "init", symbol, classDef.InitFunction)
+		if isPublicClass {
+			// Add init to the module scope so its SymbolRef is serializable in .sym exports.
+			moduleName := classDef.Name.Value + ".init"
+			ms.scope.AddSymbol(moduleName, symbol)
+			moduleRef, _ := ms.scope.GetSymbol(moduleName)
+			classResolver.AddSymbol("init", symbol)
+			classDef.InitFunction.SetSymbol(moduleRef)
+		} else {
+			addSymbolAndSetOnNode(classResolver, "init", symbol, classDef.InitFunction)
+		}
 	}
 
 	selfSymbol := model.NewValueSymbol("self", false, false, false)
@@ -1151,9 +1160,12 @@ func resolveClassDefinition(ms *moduleSymbolResolver, classDef *ast.BLangClassDe
 	}
 
 	classSym := ms.ctx.GetSymbol(classDef.Symbol()).(*model.ClassSymbol)
-	methodTable := make(map[string]model.SymbolRef, len(classDef.Methods))
+	methodTable := make(map[string]model.SymbolRef, len(classDef.Methods)+1)
 	for name, method := range classDef.Methods {
 		methodTable[name] = method.Symbol()
+	}
+	if classDef.InitFunction != nil {
+		methodTable["init"] = classDef.InitFunction.Symbol()
 	}
 	classSym.SetMethods(methodTable)
 }

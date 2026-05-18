@@ -225,6 +225,11 @@ func (sr *symbolReader) readSymbolRef(space *model.SymbolSpace) model.SymbolRef 
 	read(sr.r, &index)
 	read(sr.r, &spaceIndex)
 	_ = spaceIndex // use the current space's index instead of the serialized one
+	// A zero-valued ref (empty package, index 0) means "no ref"; return the true zero value
+	// so callers can use != model.SymbolRef{} as a nil-check.
+	if org == "" && pkg == "" && index == 0 {
+		return model.SymbolRef{}
+	}
 	return model.SymbolRef{
 		Package: model.PackageIdentifier{
 			Organization: org,

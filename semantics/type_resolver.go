@@ -1566,6 +1566,10 @@ func classMembers(t typeResolver, classDef *ast.BLangClassDefinition) []model.In
 		md := classMethodDescriptor(t, name, method)
 		members = append(members, &md)
 	}
+	if classDef.InitFunction != nil {
+		md := classMethodDescriptor(t, "init", classDef.InitFunction)
+		members = append(members, &md)
+	}
 	return members
 }
 

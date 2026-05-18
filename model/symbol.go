@@ -512,6 +512,8 @@ func mapToLangPrefixIfNeeded(prefix string) string {
 	switch prefix {
 	case "int":
 		return "lang.int"
+	case "float":
+		return "lang.float"
 	case "array":
 		return "lang.array"
 	case "map":
@@ -1039,6 +1041,18 @@ func (s *dependentlyTypedFunctionSymbol) Monomorphize(ctx semtypes.Context, name
 }
 
 func (m *monomorphicFunctionSymbol) PolymorphicSymbol() SymbolRef { return m.polymorhpicFn }
+
+// NewMonomorphicFromPolymorphic wraps a module-level polymorphic symbol (e.g. a wide langlib external)
+// with a call-site-specific signature. BIR dispatch uses the polymorphic symbol's package and name.
+func NewMonomorphicFromPolymorphic(polyRef SymbolRef, instanceName string, sig FunctionSignature, isPublic bool) MonomorphicFunctionSymbol {
+	return &monomorphicFunctionSymbol{
+		functionSymbol: functionSymbol{
+			symbolBase: symbolBase{name: instanceName, ty: nil, isPublic: isPublic},
+			signature:  sig,
+		},
+		polymorhpicFn: polyRef,
+	}
+}
 
 func (m *monomorphicFunctionSymbol) Copy() Symbol {
 	cp := *m

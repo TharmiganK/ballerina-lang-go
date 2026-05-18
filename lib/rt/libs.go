@@ -17,12 +17,14 @@
 package rt
 
 import (
-	_ "ballerina-lang-go/lib/array/runtime"
-	_ "ballerina-lang-go/lib/error/runtime"
+	_ "ballerina-lang-go/langlib/array/externs"
+	_ "ballerina-lang-go/langlib/error/externs"
+	_ "ballerina-lang-go/langlib/float/externs"
+	_ "ballerina-lang-go/langlib/int/externs"
+	_ "ballerina-lang-go/langlib/lang_internal/externs"
+	_ "ballerina-lang-go/langlib/map/externs"
+	_ "ballerina-lang-go/langlib/string/externs"
 	_ "ballerina-lang-go/lib/http/runtime"
-	_ "ballerina-lang-go/lib/int/runtime"
-	_ "ballerina-lang-go/lib/io/runtime"
-	_ "ballerina-lang-go/lib/langinternal/runtime"
-	_ "ballerina-lang-go/lib/map/runtime"
-	_ "ballerina-lang-go/lib/string/runtime"
+	_ "ballerina-lang-go/lib/registry" // embedded platform module symbols (langlib, standard library)
+	_ "ballerina-lang-go/stdlib/io/externs"
 )

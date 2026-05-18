@@ -18,7 +18,6 @@ package compile
 
 import (
 	"ballerina-lang-go/context"
-	libcommon "ballerina-lang-go/lib/common"
 	"ballerina-lang-go/model"
 	"ballerina-lang-go/semtypes"
 )
@@ -71,7 +70,7 @@ func addParseHeader(ctx *context.CompilerContext, space *model.SymbolSpace) {
 	sym := model.NewFunctionSymbol("parseHeader", sig, true)
 	space.AddSymbol("parseHeader", sym)
 	ref, _ := space.GetSymbol("parseHeader")
-	ctx.SetSymbolType(ref, libcommon.FunctionSignatureToSemType(env, &sig))
+	ctx.SetSymbolType(ref, functionSignatureToSemType(env, &sig))
 }
 
 func addClientConfiguration(ctx *context.CompilerContext, space *model.SymbolSpace) semtypes.SemType {
@@ -184,7 +183,7 @@ func registerDefaultLambda(ctx *context.CompilerContext, space *model.SymbolSpac
 	sym := model.NewFunctionSymbol(name, sig, false)
 	space.AddSymbol(name, sym)
 	ref, _ := space.GetSymbol(name)
-	ctx.SetSymbolType(ref, libcommon.FunctionSignatureToSemType(ctx.GetTypeEnv(), &sig))
+	ctx.SetSymbolType(ref, functionSignatureToSemType(ctx.GetTypeEnv(), &sig))
 	return ref
 }
 
@@ -229,7 +228,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.STRING,
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	gtpFnSemType := libcommon.FunctionSignatureToSemType(env, &gtpSig)
+	gtpFnSemType := functionSignatureToSemType(env, &gtpSig)
 
 	hasHeaderSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{semtypes.STRING, headerPositionSemType},
@@ -237,7 +236,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.BOOLEAN,
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	hasHeaderFnSemType := libcommon.FunctionSignatureToSemType(env, &hasHeaderSig)
+	hasHeaderFnSemType := functionSignatureToSemType(env, &hasHeaderSig)
 
 	getHeaderSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{semtypes.STRING, headerPositionSemType},
@@ -245,7 +244,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(semtypes.STRING, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	getHeaderFnSemType := libcommon.FunctionSignatureToSemType(env, &getHeaderSig)
+	getHeaderFnSemType := functionSignatureToSemType(env, &getHeaderSig)
 
 	getHeadersSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{semtypes.STRING, headerPositionSemType},
@@ -253,7 +252,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(semtypes.LIST, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	getHeadersFnSemType := libcommon.FunctionSignatureToSemType(env, &getHeadersSig)
+	getHeadersFnSemType := functionSignatureToSemType(env, &getHeadersSig)
 
 	getHeaderNamesSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{headerPositionSemType},
@@ -261,21 +260,21 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.LIST,
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	getHeaderNamesFnSemType := libcommon.FunctionSignatureToSemType(env, &getHeaderNamesSig)
+	getHeaderNamesFnSemType := functionSignatureToSemType(env, &getHeaderNamesSig)
 
 	gjpSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{},
 		ReturnType: semtypes.Union(jsonType, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	gjpFnSemType := libcommon.FunctionSignatureToSemType(env, &gjpSig)
+	gjpFnSemType := functionSignatureToSemType(env, &gjpSig)
 
 	gbpSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{},
 		ReturnType: semtypes.Union(semtypes.LIST, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	gbpFnSemType := libcommon.FunctionSignatureToSemType(env, &gbpSig)
+	gbpFnSemType := functionSignatureToSemType(env, &gbpSig)
 
 	responseOd := semtypes.NewObjectDefinition()
 	responseTy := responseOd.Define(env,
@@ -366,7 +365,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(semtypes.NIL, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	initFnSemType := libcommon.FunctionSignatureToSemType(env, &initSig)
+	initFnSemType := functionSignatureToSemType(env, &initSig)
 
 	getSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{semtypes.STRING, headersOptType},
@@ -374,7 +373,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	getFnSemType := libcommon.FunctionSignatureToSemType(env, &getSig)
+	getFnSemType := functionSignatureToSemType(env, &getSig)
 
 	// post: path(string), message(json), headers?(map<string|string[]>?), mediaType?(string?)
 	mediaTypeOptType := semtypes.Union(semtypes.STRING, semtypes.NIL)
@@ -384,7 +383,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	postFnSemType := libcommon.FunctionSignatureToSemType(env, &postSig)
+	postFnSemType := functionSignatureToSemType(env, &postSig)
 
 	// head / options — body-less, like get
 	headSig := model.FunctionSignature{
@@ -393,7 +392,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	headFnSemType := libcommon.FunctionSignatureToSemType(env, &headSig)
+	headFnSemType := functionSignatureToSemType(env, &headSig)
 
 	optionsSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{semtypes.STRING, headersOptType},
@@ -401,7 +400,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	optionsFnSemType := libcommon.FunctionSignatureToSemType(env, &optionsSig)
+	optionsFnSemType := functionSignatureToSemType(env, &optionsSig)
 
 	// put / patch — body required, like post
 	putSig := model.FunctionSignature{
@@ -410,7 +409,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	putFnSemType := libcommon.FunctionSignatureToSemType(env, &putSig)
+	putFnSemType := functionSignatureToSemType(env, &putSig)
 
 	patchSig := model.FunctionSignature{
 		ParamTypes: []semtypes.SemType{semtypes.STRING, jsonType, headersOptType, mediaTypeOptType},
@@ -418,7 +417,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	patchFnSemType := libcommon.FunctionSignatureToSemType(env, &patchSig)
+	patchFnSemType := functionSignatureToSemType(env, &patchSig)
 
 	// delete — message is optional (defaults to ())
 	deleteMessageType := semtypes.Union(jsonType, semtypes.NIL)
@@ -428,7 +427,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	deleteFnSemType := libcommon.FunctionSignatureToSemType(env, &deleteSig)
+	deleteFnSemType := functionSignatureToSemType(env, &deleteSig)
 
 	// execute — explicit httpVerb as first param, message required
 	executeSig := model.FunctionSignature{
@@ -437,7 +436,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		ReturnType: semtypes.Union(responseTy, semtypes.ERROR),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	executeFnSemType := libcommon.FunctionSignatureToSemType(env, &executeSig)
+	executeFnSemType := functionSignatureToSemType(env, &executeSig)
 
 	// Build a proper client-qualified object semtype so the type checker
 	// accepts c->get(...), c->post(...), and new http:Client(...) correctly.
@@ -632,4 +631,16 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		model.RemoteMethodName("execute"): executeRef,
 	})
 	space.AddSymbol("Client", &clientSym)
+}
+
+func functionSignatureToSemType(env semtypes.Env, fs *model.FunctionSignature) semtypes.SemType {
+	restTy := fs.RestParamType
+	if restTy == nil {
+		restTy = semtypes.NEVER
+	}
+	paramListDefn := semtypes.NewListDefinition()
+	paramListTy := paramListDefn.DefineListTypeWrapped(env, fs.ParamTypes, len(fs.ParamTypes), restTy, semtypes.CellMutability_CELL_MUT_NONE)
+	functionDefn := semtypes.NewFunctionDefinition()
+	return functionDefn.Define(env, paramListTy, fs.ReturnType,
+		semtypes.FunctionQualifiersFrom(env, fs.IsIsolated(), fs.IsTransactional()))
 }

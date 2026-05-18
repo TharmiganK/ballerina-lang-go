@@ -202,6 +202,10 @@ func buildGlobalVarLookupKey(pkgId *model.PackageID, name model.Name) string {
 	return pkgId.OrgName.Value() + "/" + pkgId.PkgName.Value() + ":" + name.Value()
 }
 
+func samePackageID(a, b *model.PackageID) bool {
+	return a.OrgName.Value() == b.OrgName.Value() && a.PkgName.Value() == b.PkgName.Value()
+}
+
 func GenBir(ctx *context.CompilerContext, ast *ast.BLangPackage) *BIRPackage {
 	birPkg := &BIRPackage{}
 	birPkg.PackageID = ast.PackageID
@@ -246,7 +250,7 @@ func processImports(compilerCtx *context.CompilerContext, genCtx *Context, impor
 			var orgName model.Name
 			if importPkg.OrgName != nil && importPkg.OrgName.Value != "" {
 				orgName = model.Name(importPkg.OrgName.Value)
-			} else if genCtx.packageID != nil && genCtx.packageID.OrgName != nil {
+			} else if genCtx.packageID.OrgName != nil {
 				orgName = *genCtx.packageID.OrgName
 			} else {
 				orgName = model.ANON_ORG
@@ -1191,7 +1195,7 @@ func generateCall(ctx *stmtContext, bb *BIRBasicBlock, callable callable) expres
 		call.FunctionLookupKey = buildFunctionLookupKeyFromSymbol(ctx.birCx, symRef)
 		if inv, ok := callable.(*ast.BLangInvocation); ok && inv.PkgAlias != nil && inv.PkgAlias.Value != "" {
 			call.CalleePkg = ctx.birCx.importAliasMap[inv.PkgAlias.Value]
-		} else if ctx.birCx.packageID != nil {
+		} else {
 			call.CalleePkg = ctx.birCx.packageID
 		}
 	} else {
@@ -1379,6 +1383,20 @@ func simpleVariableReference(ctx *stmtContext, curBB *BIRBasicBlock, expr *ast.B
 		pkgId = ctx.birCx.importAliasMap[expr.PkgAlias.Value]
 	} else {
 		pkgId = ctx.birCx.packageID
+	}
+
+	// Singleton constants from other packages (e.g. imported enum members) are not
+	// initialized in the current module's init; inline their value.
+	if sym.Kind() == model.SymbolKindConstant && !samePackageID(pkgId, ctx.birCx.packageID) {
+		ty := ctx.birCx.CompilerContext.SymbolType(symRef)
+		if opt := semtypes.SingleShape(ty); !opt.IsEmpty() {
+			resultOperand := ctx.addTempVar(ty)
+			curBB.Instructions = append(curBB.Instructions, NewConstantLoad(resultOperand, opt.Get().Value, ctx.loc(expr.GetPosition())))
+			return expressionEffect{
+				result: resultOperand,
+				block:  curBB,
+			}
+		}
 	}
 	gv := &BIRGlobalVariableDcl{}
 	gv.Name = model.Name(varName)

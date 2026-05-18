@@ -103,3 +103,8 @@ func RegisterModuleGlobals(rt *Runtime, pkgId *model.PackageID, globals map[stri
 	}
 	rt.registry.RegisterModule(pkgId, &modules.BIRModule{Globals: globals})
 }
+
+// LoadPlatformModule registers an embedded platform BIR package and runs its init.
+func LoadPlatformModule(rt *Runtime, pkg *bir.BIRPackage) {
+	exec.LoadPlatformModule(rt.registry, pkg)
+}

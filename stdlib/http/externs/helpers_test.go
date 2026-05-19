@@ -237,32 +237,48 @@ func TestListToBytes_NonIntegerValue(t *testing.T) {
 // goToBalValue
 // ---------------------------------------------------------------------------
 
+// jsonTestTypes returns the map<json> and json[] semtypes needed by goToBalValue.
+func jsonTestTypes() (jsonListTy, jsonMapTy semtypes.SemType) {
+	env := semtypes.CreateTypeEnv()
+	ctx := semtypes.ContextFrom(env)
+	jsonTy := semtypes.CreateJSON(ctx)
+	jmd := semtypes.NewMappingDefinition()
+	jsonMapTy = jmd.DefineMappingTypeWrapped(env, nil, jsonTy)
+	jld := semtypes.NewListDefinition()
+	jsonListTy = jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy)
+	return
+}
+
 func TestGoToBalValue_Nil(t *testing.T) {
-	if got := goToBalValue(nil); got != nil {
+	jl, jm := jsonTestTypes()
+	if got := goToBalValue(nil, jl, jm); got != nil {
 		t.Errorf("expected nil, got %v", got)
 	}
 }
 
 func TestGoToBalValue_Bool(t *testing.T) {
-	if got := goToBalValue(true); got != true {
+	jl, jm := jsonTestTypes()
+	if got := goToBalValue(true, jl, jm); got != true {
 		t.Errorf("expected true, got %v", got)
 	}
-	if got := goToBalValue(false); got != false {
+	if got := goToBalValue(false, jl, jm); got != false {
 		t.Errorf("expected false, got %v", got)
 	}
 }
 
 func TestGoToBalValue_JsonNumberInt(t *testing.T) {
+	jl, jm := jsonTestTypes()
 	n := json.Number("42")
-	got := goToBalValue(n)
+	got := goToBalValue(n, jl, jm)
 	if got != int64(42) {
 		t.Errorf("expected int64(42), got %v (%T)", got, got)
 	}
 }
 
 func TestGoToBalValue_JsonNumberFloat(t *testing.T) {
+	jl, jm := jsonTestTypes()
 	n := json.Number("3.14")
-	got := goToBalValue(n)
+	got := goToBalValue(n, jl, jm)
 	f, ok := got.(float64)
 	if !ok {
 		t.Fatalf("expected float64, got %T", got)
@@ -273,14 +289,16 @@ func TestGoToBalValue_JsonNumberFloat(t *testing.T) {
 }
 
 func TestGoToBalValue_String(t *testing.T) {
-	if got := goToBalValue("hello"); got != "hello" {
+	jl, jm := jsonTestTypes()
+	if got := goToBalValue("hello", jl, jm); got != "hello" {
 		t.Errorf("expected \"hello\", got %v", got)
 	}
 }
 
 func TestGoToBalValue_SliceOfInterface(t *testing.T) {
+	jl, jm := jsonTestTypes()
 	input := []interface{}{"a", json.Number("1")}
-	got := goToBalValue(input)
+	got := goToBalValue(input, jl, jm)
 	list, ok := got.(*values.List)
 	if !ok {
 		t.Fatalf("expected *values.List, got %T", got)
@@ -291,8 +309,9 @@ func TestGoToBalValue_SliceOfInterface(t *testing.T) {
 }
 
 func TestGoToBalValue_MapOfStringInterface(t *testing.T) {
+	jl, jm := jsonTestTypes()
 	input := map[string]interface{}{"key": "value"}
-	got := goToBalValue(input)
+	got := goToBalValue(input, jl, jm)
 	m, ok := got.(*values.Map)
 	if !ok {
 		t.Fatalf("expected *values.Map, got %T", got)
@@ -303,8 +322,9 @@ func TestGoToBalValue_MapOfStringInterface(t *testing.T) {
 }
 
 func TestGoToBalValue_Unknown(t *testing.T) {
+	jl, jm := jsonTestTypes()
 	type custom struct{}
-	if got := goToBalValue(custom{}); got != nil {
+	if got := goToBalValue(custom{}, jl, jm); got != nil {
 		t.Errorf("expected nil for unknown type, got %v", got)
 	}
 }

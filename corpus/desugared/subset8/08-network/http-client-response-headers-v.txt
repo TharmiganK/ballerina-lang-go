@@ -34,7 +34,7 @@
           (literal /path))))
       (var-def
         (variable $desugar$4 (expr
-          (invocation $default$7 (
+          (invocation $default$6 (
             (simple-var-ref $desugar$3))))))
       (var-def
         (variable $desugar$5 (expr
@@ -57,7 +57,7 @@
           (literal x-absent))))
       (var-def
         (variable $desugar$7 (expr
-          (invocation $default$2 (
+          (invocation $default$0 (
             (simple-var-ref $desugar$6))))))
       (expression-stmt
         (invocation io println (
@@ -67,7 +67,7 @@
             (simple-var-ref $desugar$7))))))
       (var-def
         (variable $desugar$8 (expr
-          (invocation $default$1 ()))))
+          (invocation $default$3 ()))))
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (

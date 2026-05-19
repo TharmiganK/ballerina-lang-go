@@ -63,16 +63,26 @@ func initHttpModule(rt *runtime.Runtime) {
 	// arose from the previous package-level globals being written concurrently by
 	// parallel tests each calling NewRuntime.
 	var (
-		once      sync.Once
-		byteArrTy semtypes.SemType
-		typCtx    semtypes.Context
+		once       sync.Once
+		byteArrTy  semtypes.SemType
+		strArrTy   semtypes.SemType
+		jsonListTy semtypes.SemType
+		jsonMapTy  semtypes.SemType
+		typCtx     semtypes.Context
 	)
 	msgToBody := func(msg values.BalValue) ([]byte, string) {
 		once.Do(func() {
 			env := rt.GetTypeEnv()
-			ld := semtypes.NewListDefinition()
-			byteArrTy = ld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+			bld := semtypes.NewListDefinition()
+			byteArrTy = bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+			sld := semtypes.NewListDefinition()
+			strArrTy = sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
 			typCtx = semtypes.ContextFrom(env)
+			jsonTy := semtypes.CreateJSON(typCtx)
+			jmd := semtypes.NewMappingDefinition()
+			jsonMapTy = jmd.DefineMappingTypeWrapped(env, nil, jsonTy)
+			jld := semtypes.NewListDefinition()
+			jsonListTy = jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy)
 		})
 		switch v := msg.(type) {
 		case string:
@@ -421,6 +431,19 @@ func initHttpModule(rt *runtime.Runtime) {
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getJsonPayload",
 		func(args []values.BalValue) (values.BalValue, error) {
+			once.Do(func() {
+				env := rt.GetTypeEnv()
+				bld := semtypes.NewListDefinition()
+				byteArrTy = bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+				sld := semtypes.NewListDefinition()
+				strArrTy = sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
+				typCtx = semtypes.ContextFrom(env)
+				jsonTy := semtypes.CreateJSON(typCtx)
+				jmd := semtypes.NewMappingDefinition()
+				jsonMapTy = jmd.DefineMappingTypeWrapped(env, nil, jsonTy)
+				jld := semtypes.NewListDefinition()
+				jsonListTy = jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy)
+			})
 			self := args[0].(*values.Object)
 			bodyVal, _ := self.Get("body")
 			body := bodyVal.(string)
@@ -430,16 +453,23 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err := dec.Decode(&v); err != nil {
 				return values.NewErrorWithMessage("failed to parse JSON payload: " + err.Error()), nil
 			}
-			return goToBalValue(v), nil
+			return goToBalValue(v, jsonListTy, jsonMapTy), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getBinaryPayload",
 		func(args []values.BalValue) (values.BalValue, error) {
 			once.Do(func() {
 				env := rt.GetTypeEnv()
-				ld := semtypes.NewListDefinition()
-				byteArrTy = ld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+				bld := semtypes.NewListDefinition()
+				byteArrTy = bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+				sld := semtypes.NewListDefinition()
+				strArrTy = sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
 				typCtx = semtypes.ContextFrom(env)
+				jsonTy := semtypes.CreateJSON(typCtx)
+				jmd := semtypes.NewMappingDefinition()
+				jsonMapTy = jmd.DefineMappingTypeWrapped(env, nil, jsonTy)
+				jld := semtypes.NewListDefinition()
+				jsonListTy = jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy)
 			})
 			self := args[0].(*values.Object)
 			bodyVal, _ := self.Get("body")
@@ -489,9 +519,22 @@ func initHttpModule(rt *runtime.Runtime) {
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getHeaderNames",
 		func(args []values.BalValue) (values.BalValue, error) {
+			once.Do(func() {
+				env := rt.GetTypeEnv()
+				bld := semtypes.NewListDefinition()
+				byteArrTy = bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+				sld := semtypes.NewListDefinition()
+				strArrTy = sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
+				typCtx = semtypes.ContextFrom(env)
+				jsonTy := semtypes.CreateJSON(typCtx)
+				jmd := semtypes.NewMappingDefinition()
+				jsonMapTy = jmd.DefineMappingTypeWrapped(env, nil, jsonTy)
+				jld := semtypes.NewListDefinition()
+				jsonListTy = jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy)
+			})
 			self := args[0].(*values.Object)
 			keys := responseHeaders(self).Keys()
-			list := values.NewList(len(keys), semtypes.LIST, nil)
+			list := values.NewList(len(keys), strArrTy, nil)
 			for i, k := range keys {
 				list.FillingSet(i, k)
 			}
@@ -686,8 +729,10 @@ func toJSONBytes(v values.BalValue) ([]byte, error) {
 
 // goToBalValue converts a Go value (from json.Decoder with UseNumber) to a Ballerina BalValue.
 // JSON null → nil, bool → bool, json.Number → int64 or float64, string → string,
-// []interface{} → *values.List, map[string]interface{} → *values.Map.
-func goToBalValue(v interface{}) values.BalValue {
+// []interface{} → *values.List with json[] type, map[string]interface{} → *values.Map with map<json> type.
+// jsonListTy and jsonMapTy must be the structural json[] and map<json> semtypes so that
+// `value is json` type checks return true for the produced values.
+func goToBalValue(v interface{}, jsonListTy, jsonMapTy semtypes.SemType) values.BalValue {
 	switch v := v.(type) {
 	case nil:
 		return nil
@@ -702,15 +747,15 @@ func goToBalValue(v interface{}) values.BalValue {
 	case string:
 		return v
 	case []interface{}:
-		list := values.NewList(len(v), semtypes.LIST, nil)
+		list := values.NewList(len(v), jsonListTy, nil)
 		for i, elem := range v {
-			list.FillingSet(i, goToBalValue(elem))
+			list.FillingSet(i, goToBalValue(elem, jsonListTy, jsonMapTy))
 		}
 		return list
 	case map[string]interface{}:
-		m := values.NewMap(semtypes.MAPPING)
+		m := values.NewMap(jsonMapTy)
 		for k, val := range v {
-			m.Put(k, goToBalValue(val))
+			m.Put(k, goToBalValue(val, jsonListTy, jsonMapTy))
 		}
 		return m
 	default:

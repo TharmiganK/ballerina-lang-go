@@ -98,6 +98,8 @@ func walkExpression(cx *functionContext, node ast.BLangActionOrExpression) desug
 		}
 	case *ast.BLangRemoteMethodCallAction:
 		return walkInvocation(cx, expr)
+	case *ast.BLangClientResourceAccessAction:
+		return walkClientResourceAccessAction(cx, expr)
 	case *ast.BLangWildCardBindingPattern:
 		// Wildcard binding pattern can appear in variable references (e.g., _ = expr)
 		return desugaredNode[ast.BLangActionOrExpression]{replacementNode: expr}
@@ -427,6 +429,33 @@ func walkFieldBaseAccess(cx *functionContext, expr *ast.BLangFieldBaseAccess) de
 	return desugaredNode[ast.BLangActionOrExpression]{
 		initStmts:       initStmts,
 		replacementNode: indexAccess,
+	}
+}
+
+func walkClientResourceAccessAction(cx *functionContext, expr *ast.BLangClientResourceAccessAction) desugaredNode[ast.BLangActionOrExpression] {
+	var initStmts []ast.StatementNode
+	if expr.Expr != nil {
+		result := walkExpression(cx, expr.Expr)
+		initStmts = append(initStmts, result.initStmts...)
+		expr.Expr = result.replacementNode.(ast.BLangExpression)
+	}
+	for i := range expr.Path {
+		seg := &expr.Path[i]
+		if seg.Kind != ast.ResourceAccessSegmentComputed {
+			continue
+		}
+		result := walkExpression(cx, seg.Expr)
+		initStmts = append(initStmts, result.initStmts...)
+		seg.Expr = result.replacementNode.(ast.BLangExpression)
+	}
+	for i := range expr.ArgExprs {
+		result := walkExpression(cx, expr.ArgExprs[i])
+		initStmts = append(initStmts, result.initStmts...)
+		expr.ArgExprs[i] = result.replacementNode.(ast.BLangExpression)
+	}
+	return desugaredNode[ast.BLangActionOrExpression]{
+		initStmts:       initStmts,
+		replacementNode: expr,
 	}
 }
 

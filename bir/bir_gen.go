@@ -1325,45 +1325,38 @@ type callable interface {
 	GetName() ast.IdentifierNode
 }
 
-// PR-TODO: use a seperate action for resource call dispatch
-//
-// The resource method receives the computed path segments (in source order)
-// as its leading positional arguments, followed by the user-written args.
-// This is where that concatenation actually happens in the lowered call;
-// the AST keeps Path and ArgExprs stored separately.
 func generateResourceAccessCall(ctx *stmtContext, bb *BIRBasicBlock, expr *ast.BLangClientResourceAccessAction) expressionEffect {
 	curBB := bb
-	var args []BIROperand
 	recvEffect := handleActionOrExpression(ctx, curBB, expr.Expr)
 	curBB = recvEffect.block
-	args = append(args, *recvEffect.result)
+	// this should always result in a value
+	receiver := *recvEffect.result
+	pos := ctx.loc(expr.GetPosition())
+	var pathSegments []BIROperand
 	for i := range expr.Path {
 		seg := &expr.Path[i]
-		if seg.Kind != ast.ResourceAccessSegmentComputed {
-			continue
+		switch seg.Kind {
+		case ast.ResourceAccessSegmentName:
+			temp := ctx.addTempVar(semtypes.StringConst(seg.Name))
+			curBB.Instructions = append(curBB.Instructions, NewConstantLoad(temp, seg.Name, pos))
+			pathSegments = append(pathSegments, *temp)
+		case ast.ResourceAccessSegmentComputed:
+			effect := handleActionOrExpression(ctx, curBB, seg.Expr)
+			effect = snapshotIfNeeded(ctx, effect, pos)
+			curBB = effect.block
+			pathSegments = append(pathSegments, *effect.result)
 		}
-		effect := handleActionOrExpression(ctx, curBB, seg.Expr)
-		effect = snapshotIfNeeded(ctx, effect, ctx.loc(expr.GetPosition()))
-		curBB = effect.block
-		args = append(args, *effect.result)
 	}
+	var args []BIROperand
 	for _, arg := range expr.ArgExprs {
 		effect := handleActionOrExpression(ctx, curBB, arg)
-		effect = snapshotIfNeeded(ctx, effect, ctx.loc(expr.GetPosition()))
+		effect = snapshotIfNeeded(ctx, effect, pos)
 		curBB = effect.block
 		args = append(args, *effect.result)
 	}
 	thenBB := ctx.addBB()
 	resultOperand := ctx.addTempVar(expr.GetDeterminedType())
-	symRef := expr.MethodSymbol()
-	callName := ctx.birCx.CompilerContext.SymbolName(symRef)
-	call := NewCall(INSTRUCTION_KIND_CALL, args, model.Name(callName), thenBB, resultOperand, ctx.loc(expr.GetPosition()))
-	call.IsMethodCall = true
-	call.FunctionLookupKey = buildFunctionLookupKeyFromSymbol(ctx.birCx, symRef)
-	if ctx.birCx.packageID != nil {
-		call.CalleePkg = ctx.birCx.packageID
-	}
-	curBB.Terminator = call
+	curBB.Terminator = NewResourceFunctionCall(receiver, expr.MethodName, pathSegments, args, thenBB, resultOperand, pos)
 	return expressionEffect{result: resultOperand, block: thenBB}
 }
 
@@ -1644,6 +1637,7 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 		Name:      className,
 		LookupKey: classLookupKey,
 		VTable:    make(map[string]*BIRFunction),
+		RTable:    make(map[string][]BIRResourceMethod),
 	}
 
 	for _, field := range class.Fields {
@@ -1676,9 +1670,6 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 	}
 
 	for _, rm := range class.ResourceMethods {
-		// Resource method symbol names are already class-qualified
-		// (e.g. Client.$resource$get$0) so use the function lookup key
-		// directly to avoid double-prefixing the class name.
 		lookupKey := buildFunctionLookupKeyFromSymbol(ctx, rm.Symbol())
 		var fn *BIRFunction
 		if rm.IsNative() {
@@ -1694,10 +1685,31 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 			fn = transformResourceMethodInner(stmtCx, rm, &selfRef)
 			fn.FunctionLookupKey = lookupKey
 		}
-		birClassDef.VTable[ctx.CompilerContext.SymbolName(rm.Symbol())] = fn
+		methodName := rm.GetName().GetValue()
+		entry := buildResourceMethodEntry(ctx, rm, fn)
+		birClassDef.RTable[methodName] = append(birClassDef.RTable[methodName], entry)
 	}
 
 	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
+}
+
+func buildResourceMethodEntry(ctx *Context, rm *ast.BLangResourceMethod, fn *BIRFunction) BIRResourceMethod {
+	var pathSegments []ResourcePathSegmentDef
+	var restTy semtypes.SemType = semtypes.NEVER
+	for i := range rm.ResourcePath {
+		seg := &rm.ResourcePath[i]
+		segTy := seg.GetDeterminedType()
+		if seg.Kind == ast.ResourcePathSegmentParamRest {
+			restTy = segTy
+		} else {
+			pathSegments = append(pathSegments, ResourcePathSegmentDef{Ty: segTy})
+		}
+	}
+	return BIRResourceMethod{
+		PathSegments:  pathSegments,
+		RestSegmentTy: restTy,
+		Fn:            fn,
+	}
 }
 
 func transformResourceMethodInner(stmtCx *stmtContext, rm *ast.BLangResourceMethod, selfSymbolRef *model.SymbolRef) *BIRFunction {

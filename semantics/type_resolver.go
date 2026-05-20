@@ -4424,7 +4424,9 @@ func resolveResourcePathType(t typeResolver, method *ast.BLangResourceMethod) (s
 		seg := &method.ResourcePath[i]
 		switch seg.Kind {
 		case ast.ResourcePathSegmentName:
-			members = append(members, semtypes.StringConst(seg.Name))
+			literalTy := semtypes.StringConst(seg.Name)
+			seg.SetDeterminedType(literalTy)
+			members = append(members, literalTy)
 		case ast.ResourcePathSegmentParam, ast.ResourcePathSegmentParamRest:
 			if seg.ParamType == nil {
 				t.internalError("resource path parameter is missing type", seg.GetPosition())
@@ -4438,6 +4440,12 @@ func resolveResourcePathType(t typeResolver, method *ast.BLangResourceMethod) (s
 				// Not sure if we should allow anydata here? spec says it can be anydata but jBallerina only allow simple basic types
 				t.semanticError("resource path parameter type must be a subtype of anydata", seg.GetPosition())
 				return nil, nil, false
+			}
+			seg.SetDeterminedType(paramTy)
+			symbolTy := paramTy
+			if seg.Kind == ast.ResourcePathSegmentParamRest {
+				restListDefn := semtypes.NewListDefinition()
+				symbolTy = restListDefn.DefineListTypeWrapped(t.typeEnv(), []semtypes.SemType{}, 0, paramTy, semtypes.CellMutability_CELL_MUT_NONE)
 			}
 			if seg.Name != "" {
 				ref, ok := method.Scope().GetSymbol(seg.Name)
@@ -4489,9 +4497,6 @@ func resolveClientResourceAccessAction(t typeResolver, chain *binding, expr *ast
 		return nil, expressionEffect{}, false
 	}
 	methodName := expr.MethodName
-	if methodName == "" {
-		methodName = "get"
-	}
 	var matches []model.SymbolRef
 	for _, rmRef := range networkSym.ResourceMethods() {
 		rmSym, ok := t.getSymbol(rmRef).(*model.ResourceMethodSymbol)

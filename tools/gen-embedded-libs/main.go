@@ -124,6 +124,7 @@ func compileAndWrite(repoRoot, rel, outDir string) error {
 
 	backend := projects.NewBallerinaBackend(compilation)
 	birPkg := backend.BIR()
+	tyEnv := result.Project().Environment().TypeEnv()
 	org := birPkg.PackageID.OrgName.Value()
 	mod := birPkg.PackageID.PkgName.Value()
 	exp, ok := backend.ExportedSymbols()[semantics.PackageIdentifier{OrgName: org, ModuleName: mod}]
@@ -131,11 +132,11 @@ func compileAndWrite(repoRoot, rel, outDir string) error {
 		return fmt.Errorf("%s: exported symbols not found for %s/%s", rel, org, mod)
 	}
 
-	symBytes, err := symbolpool.Marshal(exp, birPkg.TypeEnv)
+	symBytes, err := symbolpool.Marshal(exp, tyEnv)
 	if err != nil {
 		return fmt.Errorf("%s: marshal sym: %w", rel, err)
 	}
-	birBytes, err := bircodec.Marshal(birPkg)
+	birBytes, err := bircodec.Marshal(tyEnv, birPkg)
 	if err != nil {
 		return fmt.Errorf("%s: marshal bir: %w", rel, err)
 	}

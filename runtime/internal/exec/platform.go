@@ -18,16 +18,16 @@ package exec
 
 import (
 	"ballerina-lang-go/bir"
+	"ballerina-lang-go/runtime/extern"
 	"ballerina-lang-go/runtime/internal/modules"
 )
 
 // LoadPlatformModule registers a platform BIR package and runs its module init.
-func LoadPlatformModule(reg *modules.Registry, pkg *bir.BIRPackage) {
-	if pkg.TypeEnv != nil {
-		reg.SetTypeEnv(pkg.TypeEnv)
-	}
-	ctx := NewContext(reg)
-	ctx.RegisterModule(pkg.PackageID, modules.NewBIRModule(pkg))
+func LoadPlatformModule(env *extern.Env, pkg *bir.BIRPackage) {
+	ctx := extern.CreateContext(env)
+	cs := &callStack{elements: make([]*Frame, 0, 32)}
+	ctx.CallStack = cs
+	env.Registry.(*modules.Registry).RegisterModule(pkg.PackageID, modules.NewBIRModule(ctx, pkg))
 	if pkg.InitFunction != nil {
 		executeFunction(ctx, *pkg.InitFunction, nil, nil)
 	}

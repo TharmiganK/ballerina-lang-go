@@ -20,6 +20,7 @@ import (
 	"math"
 
 	"ballerina-lang-go/runtime"
+	"ballerina-lang-go/runtime/extern"
 	"ballerina-lang-go/values"
 )
 
@@ -29,16 +30,16 @@ const (
 )
 
 func initFloatModule(rt *runtime.Runtime) {
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "pow", func(args []values.BalValue) (values.BalValue, error) {
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "pow", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 		x := args[0].(float64)
 		y := args[1].(float64)
 		return math.Pow(x, y), nil
 	})
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "sqrt", func(args []values.BalValue) (values.BalValue, error) {
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "sqrt", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 		x := args[0].(float64)
 		return math.Sqrt(x), nil
 	})
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "abs", func(args []values.BalValue) (values.BalValue, error) {
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "abs", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 		x := args[0].(float64)
 		return math.Abs(x), nil
 	})

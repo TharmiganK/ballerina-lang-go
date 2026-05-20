@@ -250,7 +250,6 @@ func GenBir(ctx *context.CompilerContext, ast *ast.BLangPackage) *BIRPackage {
 			birPkg.MainFunction = birFunc
 		}
 	}
-	birPkg.TypeEnv = ctx.GetTypeEnv()
 	return birPkg
 }
 
@@ -972,7 +971,7 @@ func buildXMLNamespacesMap(ctx *stmtContext, curBB *BIRBasicBlock, ns map[string
 		entries = append(entries, &MappingConstructorKeyValueEntry{keyOp: keyOp, valueOp: valOp})
 	}
 	resultOp := ctx.addTempVar(ctx.birCx.stringMapType())
-	curBB.Instructions = append(curBB.Instructions, NewMapConstructor(ctx.birCx.stringMapType(), resultOp, entries, nil, pos))
+	curBB.Instructions = append(curBB.Instructions, NewMapConstructor(ctx.birCx.stringMapType(), resultOp, entries, nil, false, pos))
 	return resultOp, curBB
 }
 
@@ -1044,7 +1043,8 @@ func mappingConstructorExpressionInner(ctx *stmtContext, curBB *BIRBasicBlock, m
 		})
 	}
 	resultOperand := ctx.addTempVar(mapType)
-	newMap := NewMapConstructor(mapType, resultOperand, entries, defaults, pos)
+	isReadonly := semtypes.IsSubtype(ctx.birCx.typeCtx, mapType, semtypes.VAL_READONLY)
+	newMap := NewMapConstructor(mapType, resultOperand, entries, defaults, isReadonly, pos)
 	curBB.Instructions = append(curBB.Instructions, newMap)
 	return expressionEffect{
 		result: resultOperand,
@@ -1130,7 +1130,8 @@ func materializeFiller(ctx *stmtContext, bb *BIRBasicBlock, ty semtypes.SemType,
 		return operand, bb
 	case semtypes.MappingFiller:
 		operand := ctx.addTempVar(f.Type)
-		bb.Instructions = append(bb.Instructions, NewMapConstructor(f.Type, operand, nil, nil, pos))
+		mapReadonly := semtypes.IsSubtype(tyCx, f.Type, semtypes.VAL_READONLY)
+		bb.Instructions = append(bb.Instructions, NewMapConstructor(f.Type, operand, nil, nil, mapReadonly, pos))
 		return operand, bb
 	case semtypes.ListFiller:
 		memberOperands := make([]*BIROperand, len(f.Members))
@@ -1141,7 +1142,8 @@ func materializeFiller(ctx *stmtContext, bb *BIRBasicBlock, ty semtypes.SemType,
 		bb.Instructions = append(bb.Instructions, NewConstantLoad(sizeOperand, int64(len(memberOperands)), pos))
 		restFiller, _ := values.FillerFactoryFor(tyCx, f.Atomic.Rest())
 		operand := ctx.addTempVar(f.Type)
-		bb.Instructions = append(bb.Instructions, NewArrayConstructor(f.Type, operand, sizeOperand, memberOperands, restFiller, pos))
+		listReadonly := semtypes.IsSubtype(tyCx, f.Type, semtypes.VAL_READONLY)
+		bb.Instructions = append(bb.Instructions, NewArrayConstructor(f.Type, operand, sizeOperand, memberOperands, restFiller, listReadonly, pos))
 		return operand, bb
 	default:
 		panic(fmt.Sprintf("unsupported filler kind %T in BIR generation", f))
@@ -1176,7 +1178,9 @@ func listConstructorExpression(ctx *stmtContext, bb *BIRBasicBlock, expr *ast.BL
 	bb.Instructions = append(bb.Instructions, constantLoad)
 
 	resultOperand := ctx.addTempVar(semtypes.LIST)
-	newArray := NewArrayConstructor(expr.GetDeterminedType(), resultOperand, sizeOperand, initValues, restFiller, exprPos)
+	listTy := expr.GetDeterminedType()
+	isReadonly := semtypes.IsSubtype(tyCx, listTy, semtypes.VAL_READONLY)
+	newArray := NewArrayConstructor(listTy, resultOperand, sizeOperand, initValues, restFiller, isReadonly, exprPos)
 	bb.Instructions = append(bb.Instructions, newArray)
 	return expressionEffect{
 		result: resultOperand,

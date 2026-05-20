@@ -145,7 +145,7 @@ func TestHttpClientGet(t *testing.T) {
 		},
 	}
 
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestHttpClientPost(t *testing.T) {
 		},
 	}
 
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestHttpClientMethods(t *testing.T) {
 		},
 	}
 
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
@@ -364,7 +364,7 @@ func TestHttpClientTLSInsecure(t *testing.T) {
 		},
 	}
 
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
@@ -416,7 +416,7 @@ func TestHttpClientPublicGet(t *testing.T) {
 		NewClient: palnative.NewHTTPClient,
 	}
 
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
@@ -464,7 +464,7 @@ func TestHttpClientRedirect(t *testing.T) {
 		NewClient: palnative.NewHTTPClient,
 	}
 
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
@@ -516,7 +516,7 @@ func runNetworkBal(t *testing.T, balFile string) string {
 	stdoutBuf := &bytes.Buffer{}
 	testPal := test_util.TestPal(stdoutBuf, os.Stderr)
 	testPal.HTTP = pal.HTTP{NewClient: palnative.NewHTTPClient}
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}
@@ -700,7 +700,7 @@ public function main() returns error? {
 	stdoutBuf := &bytes.Buffer{}
 	testPal := test_util.TestPal(stdoutBuf, os.Stderr)
 	testPal.HTTP = pal.HTTP{NewClient: palnative.NewHTTPClient}
-	rt := runtime.NewRuntime(testPal)
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
 	if err := rt.Interpret(*birPkg); err != nil {
 		t.Fatalf("runtime error: %v", err)
 	}

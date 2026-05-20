@@ -62,7 +62,7 @@ func walkQueryExpr(cx *functionContext, expr *ast.BLangQueryExpr) desugaredNode[
 		emptyMap := &ast.BLangMappingConstructorExpr{
 			Fields: []model.MappingField{},
 		}
-		emptyMap.SetDeterminedType(queryTy)
+		emptyMap.SetDeterminedType(semtypes.Intersect(queryTy, semtypes.MAPPING))
 		resultVar.SetInitialExpression(emptyMap)
 	default:
 		emptyList := &ast.BLangListConstructorExpr{
@@ -239,7 +239,7 @@ func walkQueryExprWithJoins(
 		emptyMap := &ast.BLangMappingConstructorExpr{
 			Fields: []model.MappingField{},
 		}
-		emptyMap.SetDeterminedType(queryTy)
+		emptyMap.SetDeterminedType(semtypes.Intersect(queryTy, semtypes.MAPPING))
 		resultVar.SetInitialExpression(emptyMap)
 	default:
 		emptyList := &ast.BLangListConstructorExpr{

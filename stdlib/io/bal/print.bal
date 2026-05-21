@@ -46,4 +46,14 @@ public isolated function fprint(FileOutputStream fileOutputStream, Printable... 
     externPrint(fileOutputStream, false, values);
 }
 
+# Prints `any`, `error`, or string templates value(s) to a given stream(STDOUT or STDERR) and terminates the line.
+# ```ballerina
+# io:fprintln(io:stderr, "Unexpected error occurred");
+# ```
+# + fileOutputStream - The output stream (`io:stdout` or `io:stderr`) content needs to be printed
+# + values - The value(s) to be printed
+public isolated function fprintln(FileOutputStream fileOutputStream, Printable... values) {
+    externPrint(fileOutputStream, true, values);
+}
+
 isolated function externPrint(FileOutputStream fileOutputStream, boolean newLine, Printable... values) = external;

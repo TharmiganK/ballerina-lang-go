@@ -22,12 +22,13 @@ import (
 
 	"ballerina-lang-go/model"
 	"ballerina-lang-go/runtime"
+	"ballerina-lang-go/semtypes"
 	"ballerina-lang-go/test_util"
 	"ballerina-lang-go/values"
 )
 
 func newTestRuntime() *runtime.Runtime {
-	return runtime.NewRuntime(test_util.TestPal(io.Discard, io.Discard))
+	return runtime.NewRuntime(test_util.TestPal(io.Discard, io.Discard), semtypes.CreateTypeEnv())
 }
 
 // testPkgID creates a PackageID using the default interner. Test org/pkg names

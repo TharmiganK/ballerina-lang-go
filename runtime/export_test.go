@@ -24,7 +24,7 @@ import (
 
 // GetModuleGlobalsForTest returns the Globals map of a registered module, or nil if not found.
 func GetModuleGlobalsForTest(rt *Runtime, pkgId *model.PackageID) map[string]values.BalValue {
-	m := rt.registry.GetModule(pkgId)
+	m := rt.registry().GetModule(pkgId)
 	if m == nil {
 		return nil
 	}
@@ -34,5 +34,5 @@ func GetModuleGlobalsForTest(rt *Runtime, pkgId *model.PackageID) map[string]val
 // RegisterNilGlobalsModuleForTest registers a module with a nil Globals map to
 // exercise the nil-initialization branch in RegisterModuleGlobals.
 func RegisterNilGlobalsModuleForTest(rt *Runtime, pkgId *model.PackageID) {
-	rt.registry.RegisterModule(pkgId, &modules.BIRModule{})
+	rt.registry().RegisterModule(pkgId, &modules.BIRModule{})
 }

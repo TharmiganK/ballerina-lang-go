@@ -27,6 +27,18 @@ import (
 	"ballerina-lang-go/values"
 )
 
+func testSemContext() semtypes.Context {
+	return semtypes.ContextFrom(semtypes.CreateTypeEnv())
+}
+
+func testListAtomic(tc semtypes.Context) *semtypes.ListAtomicType {
+	return semtypes.ToListAtomicType(tc, semtypes.LIST)
+}
+
+func testMapAtomic(tc semtypes.Context) *semtypes.MappingAtomicType {
+	return semtypes.ToMappingAtomicType(tc, semtypes.MAPPING)
+}
+
 // getParams is a test helper that extracts the "params" field from a header entry map.
 func getParams(entry *values.Map) *values.Map {
 	v, _ := entry.Get("params")
@@ -97,7 +109,7 @@ func TestSplitOutsideQuotes_EscapedQuoteInsideQuotes(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestParseHeader_SimpleValue(t *testing.T) {
-	list, err := parseHeader("text/html")
+	list, err := parseHeader(testSemContext(), "text/html")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,7 +123,7 @@ func TestParseHeader_SimpleValue(t *testing.T) {
 }
 
 func TestParseHeader_WithParams(t *testing.T) {
-	list, err := parseHeader("text/html; charset=utf-8")
+	list, err := parseHeader(testSemContext(), "text/html; charset=utf-8")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +141,7 @@ func TestParseHeader_WithParams(t *testing.T) {
 }
 
 func TestParseHeader_QuotedParamValue(t *testing.T) {
-	list, err := parseHeader(`multipart/form-data; boundary="----boundary"`)
+	list, err := parseHeader(testSemContext(), `multipart/form-data; boundary="----boundary"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -141,7 +153,7 @@ func TestParseHeader_QuotedParamValue(t *testing.T) {
 }
 
 func TestParseHeader_MultipleValues(t *testing.T) {
-	list, err := parseHeader("text/html, application/json")
+	list, err := parseHeader(testSemContext(), "text/html, application/json")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -151,21 +163,21 @@ func TestParseHeader_MultipleValues(t *testing.T) {
 }
 
 func TestParseHeader_EmptySegment(t *testing.T) {
-	_, err := parseHeader("text/html,,application/json")
+	_, err := parseHeader(testSemContext(), "text/html,,application/json")
 	if err == nil {
 		t.Fatal("expected error for empty segment, got nil")
 	}
 }
 
 func TestParseHeader_MissingValueBeforeParams(t *testing.T) {
-	_, err := parseHeader("; charset=utf-8")
+	_, err := parseHeader(testSemContext(), "; charset=utf-8")
 	if err == nil {
 		t.Fatal("expected error for missing value before parameters, got nil")
 	}
 }
 
 func TestParseHeader_ParamWithoutValue(t *testing.T) {
-	list, err := parseHeader("multipart/form-data; boundary")
+	list, err := parseHeader(testSemContext(), "multipart/form-data; boundary")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -181,10 +193,9 @@ func TestParseHeader_ParamWithoutValue(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestListToBytes_ValidBytes(t *testing.T) {
-	list := values.NewList(3, semtypes.LIST, nil)
-	list.FillingSet(0, int64(72))  // 'H'
-	list.FillingSet(1, int64(101)) // 'e'
-	list.FillingSet(2, int64(108)) // 'l'
+	tc := testSemContext()
+	list := values.NewList(semtypes.LIST, testListAtomic(tc), false, nil, 0,
+		[]values.BalValue{int64(72), int64(101), int64(108)}) // 'H', 'e', 'l'
 	b, ok := listToBytes(list)
 	if !ok {
 		t.Fatal("expected ok=true for valid byte list")
@@ -195,7 +206,8 @@ func TestListToBytes_ValidBytes(t *testing.T) {
 }
 
 func TestListToBytes_EmptyList(t *testing.T) {
-	list := values.NewList(0, semtypes.LIST, nil)
+	tc := testSemContext()
+	list := values.NewList(semtypes.LIST, testListAtomic(tc), false, nil, 0, nil)
 	b, ok := listToBytes(list)
 	if !ok {
 		t.Fatal("expected ok=true for empty list")
@@ -206,9 +218,9 @@ func TestListToBytes_EmptyList(t *testing.T) {
 }
 
 func TestListToBytes_OutOfRange(t *testing.T) {
-	list := values.NewList(2, semtypes.LIST, nil)
-	list.FillingSet(0, int64(100))
-	list.FillingSet(1, int64(300)) // > 255
+	tc := testSemContext()
+	list := values.NewList(semtypes.LIST, testListAtomic(tc), false, nil, 0,
+		[]values.BalValue{int64(100), int64(300)}) // 300 > 255
 	_, ok := listToBytes(list)
 	if ok {
 		t.Fatal("expected ok=false for out-of-range value")
@@ -216,8 +228,9 @@ func TestListToBytes_OutOfRange(t *testing.T) {
 }
 
 func TestListToBytes_NegativeValue(t *testing.T) {
-	list := values.NewList(1, semtypes.LIST, nil)
-	list.FillingSet(0, int64(-1))
+	tc := testSemContext()
+	list := values.NewList(semtypes.LIST, testListAtomic(tc), false, nil, 0,
+		[]values.BalValue{int64(-1)})
 	_, ok := listToBytes(list)
 	if ok {
 		t.Fatal("expected ok=false for negative value")
@@ -225,8 +238,9 @@ func TestListToBytes_NegativeValue(t *testing.T) {
 }
 
 func TestListToBytes_NonIntegerValue(t *testing.T) {
-	list := values.NewList(1, semtypes.LIST, nil)
-	list.FillingSet(0, "not-an-int")
+	tc := testSemContext()
+	list := values.NewList(semtypes.LIST, testListAtomic(tc), false, nil, 0,
+		[]values.BalValue{"not-an-int"})
 	_, ok := listToBytes(list)
 	if ok {
 		t.Fatal("expected ok=false for non-integer value")
@@ -250,35 +264,39 @@ func jsonTestTypes() (jsonListTy, jsonMapTy semtypes.SemType) {
 }
 
 func TestGoToBalValue_Nil(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
-	if got := goToBalValue(nil, jl, jm); got != nil {
+	if got := goToBalValue(tc, nil, jl, jm); got != nil {
 		t.Errorf("expected nil, got %v", got)
 	}
 }
 
 func TestGoToBalValue_Bool(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
-	if got := goToBalValue(true, jl, jm); got != true {
+	if got := goToBalValue(tc, true, jl, jm); got != true {
 		t.Errorf("expected true, got %v", got)
 	}
-	if got := goToBalValue(false, jl, jm); got != false {
+	if got := goToBalValue(tc, false, jl, jm); got != false {
 		t.Errorf("expected false, got %v", got)
 	}
 }
 
 func TestGoToBalValue_JsonNumberInt(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
 	n := json.Number("42")
-	got := goToBalValue(n, jl, jm)
+	got := goToBalValue(tc, n, jl, jm)
 	if got != int64(42) {
 		t.Errorf("expected int64(42), got %v (%T)", got, got)
 	}
 }
 
 func TestGoToBalValue_JsonNumberFloat(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
 	n := json.Number("3.14")
-	got := goToBalValue(n, jl, jm)
+	got := goToBalValue(tc, n, jl, jm)
 	f, ok := got.(float64)
 	if !ok {
 		t.Fatalf("expected float64, got %T", got)
@@ -289,16 +307,18 @@ func TestGoToBalValue_JsonNumberFloat(t *testing.T) {
 }
 
 func TestGoToBalValue_String(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
-	if got := goToBalValue("hello", jl, jm); got != "hello" {
+	if got := goToBalValue(tc, "hello", jl, jm); got != "hello" {
 		t.Errorf("expected \"hello\", got %v", got)
 	}
 }
 
 func TestGoToBalValue_SliceOfInterface(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
 	input := []interface{}{"a", json.Number("1")}
-	got := goToBalValue(input, jl, jm)
+	got := goToBalValue(tc, input, jl, jm)
 	list, ok := got.(*values.List)
 	if !ok {
 		t.Fatalf("expected *values.List, got %T", got)
@@ -309,9 +329,10 @@ func TestGoToBalValue_SliceOfInterface(t *testing.T) {
 }
 
 func TestGoToBalValue_MapOfStringInterface(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
 	input := map[string]interface{}{"key": "value"}
-	got := goToBalValue(input, jl, jm)
+	got := goToBalValue(tc, input, jl, jm)
 	m, ok := got.(*values.Map)
 	if !ok {
 		t.Fatalf("expected *values.Map, got %T", got)
@@ -322,9 +343,10 @@ func TestGoToBalValue_MapOfStringInterface(t *testing.T) {
 }
 
 func TestGoToBalValue_Unknown(t *testing.T) {
+	tc := testSemContext()
 	jl, jm := jsonTestTypes()
 	type custom struct{}
-	if got := goToBalValue(custom{}, jl, jm); got != nil {
+	if got := goToBalValue(tc, custom{}, jl, jm); got != nil {
 		t.Errorf("expected nil for unknown type, got %v", got)
 	}
 }
@@ -376,8 +398,9 @@ func TestBalToGoJSON_String(t *testing.T) {
 }
 
 func TestBalToGoJSON_Map(t *testing.T) {
-	m := values.NewMap(semtypes.MAPPING)
-	m.Put("a", int64(1))
+	tc := testSemContext()
+	m := values.NewMap(semtypes.MAPPING, testMapAtomic(tc), false, nil)
+	m.Put(tc, "a", int64(1))
 	got := balToGoJSON(m)
 	goMap, ok := got.(map[string]any)
 	if !ok {
@@ -389,9 +412,9 @@ func TestBalToGoJSON_Map(t *testing.T) {
 }
 
 func TestBalToGoJSON_List(t *testing.T) {
-	list := values.NewList(2, semtypes.LIST, nil)
-	list.FillingSet(0, int64(10))
-	list.FillingSet(1, "x")
+	tc := testSemContext()
+	list := values.NewList(semtypes.LIST, testListAtomic(tc), false, nil, 0,
+		[]values.BalValue{int64(10), "x"})
 	got := balToGoJSON(list)
 	slice, ok := got.([]any)
 	if !ok {

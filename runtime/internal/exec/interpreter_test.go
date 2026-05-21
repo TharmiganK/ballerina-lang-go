@@ -23,11 +23,17 @@ import (
 
 	"ballerina-lang-go/bir"
 	"ballerina-lang-go/context"
+	"ballerina-lang-go/platform/pal"
+	"ballerina-lang-go/runtime/extern"
 	"ballerina-lang-go/runtime/internal/exec"
 	"ballerina-lang-go/runtime/internal/modules"
 	"ballerina-lang-go/semtypes"
 	"ballerina-lang-go/test_util/testphases"
 )
+
+func newTestEnv() *extern.Env {
+	return extern.InitEnv(pal.Platform{}, semtypes.CreateTypeEnv(), modules.NewRegistry())
+}
 
 // compileBIR compiles inline Ballerina source to a BIR package.
 // t.Fatal is called on any compilation failure.
@@ -77,7 +83,7 @@ public function main() {
 }
 `)
 
-	err := exec.Interpret(pkg, modules.NewRegistry())
+	err := exec.Interpret(pkg, newTestEnv())
 	if err == nil {
 		t.Fatal("expected non-nil error when init function returns an error, got nil")
 	}
@@ -93,7 +99,7 @@ func TestInterpret_MainSucceeds(t *testing.T) {
 public function main() {
 }
 `)
-	if err := exec.Interpret(pkg, modules.NewRegistry()); err != nil {
+	if err := exec.Interpret(pkg, newTestEnv()); err != nil {
 		t.Fatalf("expected nil error for successful main, got: %s", err.Error())
 	}
 }
@@ -106,7 +112,7 @@ public function main() returns error? {
     return error("main failed");
 }
 `)
-	err := exec.Interpret(pkg, modules.NewRegistry())
+	err := exec.Interpret(pkg, newTestEnv())
 	if err == nil {
 		t.Fatal("expected non-nil error when main returns an error, got nil")
 	}
@@ -126,7 +132,7 @@ function init() {
 public function main() {
 }
 `)
-	err := exec.Interpret(pkg, modules.NewRegistry())
+	err := exec.Interpret(pkg, newTestEnv())
 	if err == nil {
 		t.Fatal("expected non-nil error when init panics, got nil")
 	}
@@ -143,7 +149,7 @@ public function main() {
     panic error("main panic");
 }
 `)
-	err := exec.Interpret(pkg, modules.NewRegistry())
+	err := exec.Interpret(pkg, newTestEnv())
 	if err == nil {
 		t.Fatal("expected non-nil error when main panics, got nil")
 	}

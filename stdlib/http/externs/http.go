@@ -179,14 +179,15 @@ func initHttpModule(rt *runtime.Runtime) {
 		},
 		VTable: map[string]*bir.BIRFunction{
 			"init":            {FunctionLookupKey: "ballerina/http:Client.init"},
-			"$remote$get":     {FunctionLookupKey: "ballerina/http:Client.get"},
-			"$remote$post":    {FunctionLookupKey: "ballerina/http:Client.post"},
-			"$remote$head":    {FunctionLookupKey: "ballerina/http:Client.head"},
-			"$remote$options": {FunctionLookupKey: "ballerina/http:Client.options"},
-			"$remote$put":     {FunctionLookupKey: "ballerina/http:Client.put"},
-			"$remote$patch":   {FunctionLookupKey: "ballerina/http:Client.patch"},
-			"$remote$delete":  {FunctionLookupKey: "ballerina/http:Client.delete"},
-			"$remote$execute": {FunctionLookupKey: "ballerina/http:Client.execute"},
+			"initNative":      {FunctionLookupKey: "ballerina/http:Client.initNative"},
+			"$remote$get":     {FunctionLookupKey: "ballerina/http:Client.$remote$get"},
+			"$remote$post":    {FunctionLookupKey: "ballerina/http:Client.$remote$post"},
+			"$remote$head":    {FunctionLookupKey: "ballerina/http:Client.$remote$head"},
+			"$remote$options": {FunctionLookupKey: "ballerina/http:Client.$remote$options"},
+			"$remote$put":     {FunctionLookupKey: "ballerina/http:Client.$remote$put"},
+			"$remote$patch":   {FunctionLookupKey: "ballerina/http:Client.$remote$patch"},
+			"$remote$delete":  {FunctionLookupKey: "ballerina/http:Client.$remote$delete"},
+			"$remote$execute": {FunctionLookupKey: "ballerina/http:Client.$remote$execute"},
 		},
 	}
 	runtime.RegisterExternClassDef(rt, clientClassDef)
@@ -216,7 +217,10 @@ func initHttpModule(rt *runtime.Runtime) {
 			return result, nil
 		})
 
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.init",
+	// initNative is the extern called by the Ballerina Client.init wrapper.
+	// The Ballerina wrapper handles default-expansion of the config parameter,
+	// so args are always [self, url, config].
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.initNative",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			url := args[1].(string)
@@ -226,8 +230,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			httpVersion := "2.0"
 
 			var tlsCfg pal.TLSConfig
-			if len(args) > 2 {
-				if cfg, ok := args[2].(*values.Map); ok {
+			if cfg, ok := args[2].(*values.Map); ok {
 					if v, ok := cfg.Get("timeout"); ok {
 						if d, ok := v.(*decimal.Decimal); ok {
 							timeout = d
@@ -356,7 +359,6 @@ func initHttpModule(rt *runtime.Runtime) {
 						}
 					}
 				}
-			}
 			httpClient := rt.Platform().HTTP.NewClient(pal.ClientConfig{
 				Timeout:         decimalToDuration(timeout),
 				FollowRedirects: followRedirects,
@@ -371,7 +373,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			return nil, nil
 		})
 
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.get",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$get",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			path := args[1].(string)
@@ -396,7 +398,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "$Client.post$default$3",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
 
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.post",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$post",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			return execBody(ctx, "POST", args)
 		})
@@ -404,7 +406,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	// head: body-less, like get
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "$Client.head$default$1",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.head",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$head",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			path := args[1].(string)
@@ -424,7 +426,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	// options: body-less, like get
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "$Client.options$default$1",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.options",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$options",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			path := args[1].(string)
@@ -446,7 +448,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "$Client.put$default$3",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.put",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$put",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			return execBody(ctx, "PUT", args)
 		})
@@ -456,7 +458,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "$Client.patch$default$3",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.patch",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$patch",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			return execBody(ctx, "PATCH", args)
 		})
@@ -468,7 +470,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "$Client.delete$default$3",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.delete",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$delete",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			return execBody(ctx, "DELETE", args)
 		})
@@ -478,7 +480,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "$Client.execute$default$4",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) { return nil, nil })
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.execute",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$execute",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			verb := args[1].(string)

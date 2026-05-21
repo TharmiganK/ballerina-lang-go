@@ -102,3 +102,63 @@ Stages 5–10 then run concurrently per module, with no cross-module dependencie
 
 - To check if a type is singleton type and get it's value use `semtype:SingleShape`
 - If you run into type-check issues, use the debug build tag to enable more detailed type error messages.
+
+## Standard Library (stdlib)
+
+### Adding a new stdlib package
+
+When creating a new directory under `stdlib/` with `.bal` source files:
+
+1. **Ask** the user for the path to the corresponding jBallerina module source (e.g. `~/github/ballerina-platform/module-ballerina-<name>/ballerina/`).
+2. Read all `.bal` files under that path (excluding `tests/` and `build/`) to enumerate the full jBallerina feature set.
+3. Read all `.bal` files under `stdlib/<name>/bal/` to determine what is currently implemented in the Go-native version.
+4. Create `stdlib/<name>/bal/README.md` following the template and rules below.
+
+### Updating an existing stdlib package
+
+When editing any `.bal` file under `stdlib/<name>/bal/`:
+
+1. Open `stdlib/<name>/bal/README.md`.
+2. If the change **adds support** for something previously marked "Not Yet Supported" or "Partially Supported" — update that row's status and comments.
+3. If the change introduces a **permanent behavioural difference** that cannot be resolved at the Go level — add or update the Notable Behavioural Changes section.
+4. Do not add a Notable Behavioural Change for a gap that will be filled by future implementation — those belong in the table as "Not Yet Supported".
+
+### README.md template
+
+```markdown
+# Ballerina <Name> Library
+
+## Overview
+<Brief description of the full jBallerina module scope.>
+
+## Key Functionalities
+<Bullet list of what the Go-native version currently supports — not the full jBallerina feature set.>
+
+## Examples
+<Short working example using only currently supported APIs.>
+
+## Go Native Interpreter Support Status
+
+This library is currently being migrated to Go to support the Ballerina Native Interpreter. The table below outlines the current support level for various features of this library in the Go implementation.
+
+Support Levels:
+
+- **Supported**: Fully implemented and tested in the Go version.
+- **Partially Supported**: Implemented but lacking some edge cases, options, or sub-features. (See comments).
+- **Not Yet Supported**: Planned for migration, but not yet implemented.
+- **Cannot Support**: Cannot be implemented in the Go version due to technical limitations or architectural differences. (See comments).
+
+| Feature/API | Support Status | Comments / Limitations |
+|---|---|---|
+| ... | ... | ... |
+
+### Notable Behavioural Changes
+
+<Only for permanent limitations or differences that arise from how Go and the JVM treat things differently and cannot be changed at the Go implementation level. If there are none, state: "There are no notable behavioural changes in the Go-native version compared to the original jBallerina implementation for the currently supported features.">
+```
+
+### README.md rules
+
+- **Feature/API column**: generic prose descriptions only — no backtick function names, type names, or object names in that column. Those may appear in the Comments column only.
+- **Key Functionalities and Examples**: reflect only what the Go-native version currently supports.
+- **Notable Behavioural Changes**: only for permanent Go-level constraints. Gaps that will be closed by future implementation belong in the support table as "Not Yet Supported", not here.

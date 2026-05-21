@@ -34,7 +34,7 @@
           (literal /path))))
       (var-def
         (variable $desugar$4 (expr
-          (invocation $default$11 (
+          (invocation $default$15 (
             (simple-var-ref $desugar$3))))))
       (var-def
         (variable $desugar$5 (expr

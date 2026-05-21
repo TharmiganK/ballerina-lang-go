@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-public isolated function print((any|error)... vals) returns () = external;
+# Represents the standard output stream.
+public const stdout = 1;
 
-public isolated function println((any|error)... vals) returns () = external;
+# Represents the standard error stream.
+public const stderr = 2;

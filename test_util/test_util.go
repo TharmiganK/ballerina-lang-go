@@ -195,6 +195,18 @@ func TestPal(stdout io.Writer, stderr io.Writer) pal.Platform {
 			ReadFile: func(path string) ([]byte, error) {
 				return os.ReadFile(path)
 			},
+			WriteFile: func(path string, data []byte) error {
+				return os.WriteFile(path, data, 0o644)
+			},
+			AppendFile: func(path string, data []byte) error {
+				f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				_, err = f.Write(data)
+				return err
+			},
 		},
 		HTTP: pal.HTTP{
 			NewClient: func(_ pal.ClientConfig) pal.HTTPClient {

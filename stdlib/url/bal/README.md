@@ -42,9 +42,9 @@ Support Levels:
 - **Cannot Support**: Cannot be implemented in the Go version due to technical limitations or architectural differences. (See comments).
 
 | Feature/API | Support Status | Comments / Limitations |
-|-------------|----------------|-----------------------|
-| Encoding a URL | Supported | Fully implemented and tested in the Go version. |
-| Decoding a URL | Supported | Fully implemented and tested in the Go version. |
+|---|---|---|
+| Encoding a URL | Supported | |
+| Decoding a URL | Supported | |
 | Support for different character encodings | Partially Supported | Currently supports UTF-8 encoding only. Support for other encodings is not yet implemented. |
 | Specific error types | Not Yet Supported | Error handling is implemented but errors are returned as a generic error type. |
 

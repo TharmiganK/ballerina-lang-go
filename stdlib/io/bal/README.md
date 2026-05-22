@@ -91,9 +91,7 @@ Support Levels:
 
 ### Notable Behavioural Changes
 
-| Feature | jBallerina behaviour | Go-native behaviour |
-|---|---|---|
-| `fileReadBytes` return type | Returns `readonly & byte[]` | Returns `byte[]` — `readonly &` intersection type is not yet supported by the interpreter. |
-| `io:Error` subtypes | Raises distinct subtypes (`FileNotFoundError`, `GenericError`, etc.) depending on the failure | All file I/O errors surface as a plain `error` — `distinct` type descriptor is not yet supported. |
-| `fileWriteJson` key ordering | JSON object keys written in insertion order | JSON object keys written in **alphabetical order** — Go's `encoding/json` sorts map keys. |
-| `fileReadString` line-ending normalisation | `BufferedReader.lines()` strips `\r`, `\r\n`, and `\n`; joins with `\n`; trailing newline absent | Same semantic result on all platforms: `\r\n` and `\r` normalised to `\n` before splitting; trailing empty entry removed. |
+- **`fileReadBytes` return type.** jBallerina returns `readonly & byte[]`; the Go-native version returns `byte[]` — `readonly &` intersection type is not yet supported by the interpreter.
+- **`io:Error` subtypes.** jBallerina raises distinct subtypes (`FileNotFoundError`, `GenericError`, etc.) depending on the failure; the Go-native version surfaces all file I/O errors as a plain `error` — `distinct` type descriptor is not yet supported.
+- **`fileWriteJson` key ordering.** jBallerina writes JSON object keys in insertion order; the Go-native version writes them in **alphabetical order** — Go's `encoding/json` sorts map keys.
+- **`fileReadString` line-ending normalisation.** jBallerina's `BufferedReader.lines()` strips `\r`, `\r\n`, and `\n`; joins with `\n`; trailing newline absent. The Go-native version produces the same result on all platforms: `\r\n` and `\r` are normalised to `\n` before splitting, and trailing empty entries are removed.

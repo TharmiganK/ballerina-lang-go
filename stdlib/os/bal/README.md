@@ -68,8 +68,6 @@ Support Levels:
 
 ### Notable Behavioural Changes
 
-| Feature | jBallerina behaviour | Go-native behaviour |
-|---|---|---|
-| `os:Error` subtypes | Raises distinct subtypes depending on the failure | All errors surface as a plain `error` — `distinct` type descriptor is not yet supported. |
-| `EnvProperties.command` exclusion | `never command?` field prevents callers from passing an env var named `command` | Field omitted; callers can (accidentally) pass `command` as an env override. |
-| Isolated thread-local env | jBallerina uses per-strand env maps for isolation | Go implementation uses the process-wide env (`os.Setenv` / `os.Getenv`) — safe for single-threaded Ballerina programs. |
+- **`os:Error` subtypes.** jBallerina raises distinct subtypes depending on the failure; the Go-native version surfaces all errors as a plain `error` — `distinct` type descriptor is not yet supported.
+- **`EnvProperties.command` exclusion.** jBallerina's `never command?` field prevents callers from passing an env var named `command`; the Go-native version omits this field, so callers can accidentally pass `command` as an env override.
+- **Isolated thread-local env.** jBallerina uses per-strand env maps for isolation; the Go implementation uses the process-wide env (`os.Setenv` / `os.Getenv`), which is safe for single-threaded Ballerina programs.

@@ -22,9 +22,12 @@ package palnative
 
 import (
 	"os"
+	"time"
 
 	"ballerina-lang-go/platform/pal"
 )
+
+var processStart = time.Now()
 
 // NewPlatform returns the native-CLI pal.Platform, wiring os.Stdout/Stderr for
 // IO and NewHTTPClient for HTTP.
@@ -41,6 +44,10 @@ func NewPlatform() pal.Platform {
 		},
 		HTTP: pal.HTTP{
 			NewClient: NewHTTPClient,
+		},
+		Time: pal.Time{
+			Now:          time.Now,
+			MonotonicNow: func() time.Duration { return time.Since(processStart) },
 		},
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"ballerina-lang-go/platform/pal"
 )
@@ -184,6 +185,7 @@ func (c *stubHTTPClient) Execute(_, _ string, _ []byte, _ string, _ map[string][
 }
 
 func TestPal(stdout io.Writer, stderr io.Writer) pal.Platform {
+	start := time.Now()
 	return pal.Platform{
 		IO: pal.IO{
 			Stdout: stdout.Write,
@@ -198,6 +200,10 @@ func TestPal(stdout io.Writer, stderr io.Writer) pal.Platform {
 			NewClient: func(_ pal.ClientConfig) pal.HTTPClient {
 				return &stubHTTPClient{}
 			},
+		},
+		Time: pal.Time{
+			Now:          time.Now,
+			MonotonicNow: func() time.Duration { return time.Since(start) },
 		},
 	}
 }

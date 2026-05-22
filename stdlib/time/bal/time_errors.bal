@@ -14,19 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package rt
+// Error is the generic module level error.
+public type Error error;
 
-import (
-	_ "ballerina-lang-go/langlib/array/externs"
-	_ "ballerina-lang-go/langlib/error/externs"
-	_ "ballerina-lang-go/langlib/float/externs"
-	_ "ballerina-lang-go/langlib/int/externs"
-	_ "ballerina-lang-go/langlib/lang_internal/externs"
-	_ "ballerina-lang-go/langlib/map/externs"
-	_ "ballerina-lang-go/langlib/string/externs"
-	_ "ballerina-lang-go/stdlib/http/externs"
-	_ "ballerina-lang-go/lib/registry" // embedded platform module symbols (langlib, standard library)
-	_ "ballerina-lang-go/stdlib/io/externs"
-	_ "ballerina-lang-go/stdlib/time/externs"
-	_ "ballerina-lang-go/stdlib/url/externs"
-)
+// FormatError is returned when arguments are invalid or a string does not match the expected format.
+// Note: distinct error types are not yet supported; FormatError is currently an alias for error.
+public type FormatError error;

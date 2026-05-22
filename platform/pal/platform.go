@@ -30,6 +30,7 @@ type (
 		IO   IO
 		FS   FS
 		HTTP HTTP
+		Time Time
 	}
 	IO struct {
 		Stdout func(p []byte) (n int, err error)
@@ -37,6 +38,10 @@ type (
 	}
 	FS struct {
 		ReadFile func(path string) ([]byte, error)
+	}
+	Time struct {
+		Now          func() time.Time
+		MonotonicNow func() time.Duration
 	}
 	HTTP struct {
 		NewClient func(cfg ClientConfig) HTTPClient

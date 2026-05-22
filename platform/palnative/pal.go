@@ -61,5 +61,6 @@ func NewPlatform() pal.Platform {
 			Now:          time.Now,
 			MonotonicNow: func() time.Duration { return time.Since(processStart) },
 		},
+		OS: newNativeOSPAL(),
 	}
 }

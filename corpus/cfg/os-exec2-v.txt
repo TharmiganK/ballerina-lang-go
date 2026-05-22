@@ -1,0 +1,32 @@
+(main
+  (bb0 () ()
+    (var-def
+      (variable p (type
+        (user-defined-type os Process)) (expr
+        (checked-expr
+          (invocation os exec (
+            (mapping-constructor-expr
+              (key-value
+                (literal value)
+                (literal echo))
+              (key-value
+                (literal arguments)
+                (list-constructor-expr
+                  (literal world))))
+            (named-arg envProperties
+              (mapping-constructor-expr))))))))
+    (var-def
+      (variable output (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation output expr:
+            (simple-var-ref p) ())))))
+    (expression-stmt
+      (invocation io println (
+        (binary-expr >
+          (invocation lang.array length (
+            (simple-var-ref output)))
+          (literal 0)))))
+  )
+)

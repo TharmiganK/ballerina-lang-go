@@ -1,0 +1,31 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina io (as io))
+  (import-package ballerina os (as os))
+  (function main () (
+    (union-type
+      (error-type)
+      (value-type null)))
+    (block-function-body
+      (var-def
+        (variable p (type
+          (user-defined-type os Process)) (expr
+          (checked-expr
+            (invocation os exec (
+              (mapping-constructor-expr
+                (key-value
+                  (literal value)
+                  (literal echo))
+                (key-value
+                  (literal arguments)
+                  (list-constructor-expr
+                    (literal hello))))))))))
+      (var-def
+        (variable code (type
+          (value-type int)) (expr
+          (checked-expr
+            (invocation waitForExit expr:
+              (simple-var-ref p) ())))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref code)))))))

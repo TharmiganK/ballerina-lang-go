@@ -31,6 +31,7 @@ type (
 		FS   FS
 		HTTP HTTP
 		Time Time
+		OS   OS
 	}
 	IO struct {
 		Stdout func(p []byte) (n int, err error)
@@ -48,7 +49,24 @@ type (
 	HTTP struct {
 		NewClient func(cfg ClientConfig) HTTPClient
 	}
+	OS struct {
+		GetEnv      func(key string) string
+		SetEnv      func(key, value string) error
+		UnsetEnv    func(key string) error
+		ListEnv     func() map[string]string
+		GetUsername func() string
+		GetUserHome func() string
+		Exec        func(command string, args []string, envOverride map[string]string) (ProcessHandle, error)
+	}
 )
+
+// ProcessHandle is an opaque handle to a running OS subprocess created by OS.Exec.
+type ProcessHandle interface {
+	WaitForExit() (int, error)
+	ReadStdout() ([]byte, error)
+	ReadStderr() ([]byte, error)
+	Kill()
+}
 
 // HTTP
 type (

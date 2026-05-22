@@ -1,0 +1,31 @@
+(main
+  (bb0 () ()
+    (expression-stmt
+      (checked-expr
+        (invocation os setEnv (
+          (literal BAL_OS_TEST_KEY)
+          (literal hello)))))
+    (var-def
+      (variable val (type
+        (value-type string)) (expr
+        (invocation os getEnv (
+          (literal BAL_OS_TEST_KEY))))))
+    (expression-stmt
+      (invocation io println (
+        (simple-var-ref val))))
+    (expression-stmt
+      (checked-expr
+        (invocation os unsetEnv (
+          (literal BAL_OS_TEST_KEY)))))
+    (var-def
+      (variable missing (type
+        (value-type string)) (expr
+        (invocation os getEnv (
+          (literal BAL_OS_TEST_KEY))))))
+    (expression-stmt
+      (invocation io println (
+        (binary-expr ==
+          (simple-var-ref missing)
+          (literal )))))
+  )
+)

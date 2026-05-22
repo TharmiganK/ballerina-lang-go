@@ -27,6 +27,7 @@ import (
 	_ "ballerina-lang-go/stdlib/http/externs"
 	_ "ballerina-lang-go/lib/registry" // embedded platform module symbols (langlib, standard library)
 	_ "ballerina-lang-go/stdlib/io/externs"
+	_ "ballerina-lang-go/stdlib/os/externs"
 	_ "ballerina-lang-go/stdlib/time/externs"
 	_ "ballerina-lang-go/stdlib/url/externs"
 )

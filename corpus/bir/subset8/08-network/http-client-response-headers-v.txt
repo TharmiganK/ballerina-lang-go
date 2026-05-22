@@ -38,7 +38,7 @@ main() -> nil|error{
     c = $desugar$2;
     %12 = ConstantLoad /path
     $desugar$3 = %12;
-    %14 = $default$5($desugar$3) -> bb8;
+    %14 = $default$13($desugar$3) -> bb8;
   }
   bb8 {
     $desugar$4 = %14;

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"ballerina-lang-go/platform/pal"
+	"ballerina-lang-go/platform/palnative"
 )
 
 // TestKind represents the type of corpus test
@@ -217,5 +218,6 @@ func TestPal(stdout io.Writer, stderr io.Writer) pal.Platform {
 			Now:          time.Now,
 			MonotonicNow: func() time.Duration { return time.Since(start) },
 		},
+		OS: palnative.NewNativeOSPAL(),
 	}
 }

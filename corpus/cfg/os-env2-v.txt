@@ -1,0 +1,16 @@
+(main
+  (bb0 () ()
+    (var-def
+      (variable env (type
+        (constrained-type
+          (builtin-ref-type map)
+          (value-type string))) (expr
+        (invocation os listEnv ()))))
+    (expression-stmt
+      (invocation io println (
+        (binary-expr >
+          (invocation lang.map length (
+            (simple-var-ref env)))
+          (literal 0)))))
+  )
+)

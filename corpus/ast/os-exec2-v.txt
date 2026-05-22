@@ -1,0 +1,35 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina io (as io))
+  (import-package ballerina os (as os))
+  (function main () (
+    (union-type
+      (error-type)
+      (value-type null)))
+    (block-function-body
+      (var-def
+        (variable p (type
+          (user-defined-type os Process)) (expr
+          (checked-expr
+            (invocation os exec (
+              (mapping-constructor-expr
+                (key-value
+                  (literal value)
+                  (literal echo))
+                (key-value
+                  (literal arguments)
+                  (list-constructor-expr
+                    (literal world))))))))))
+      (var-def
+        (variable output (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (checked-expr
+            (invocation output expr:
+              (simple-var-ref p) ())))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr >
+            (invocation length expr:
+              (simple-var-ref output) ())
+            (literal 0))))))))

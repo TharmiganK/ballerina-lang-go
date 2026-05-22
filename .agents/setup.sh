@@ -34,3 +34,4 @@ mkdir -p .claude
 
 link AGENTS.md CLAUDE.md
 link ../.agents/skills .claude/skills
+link ../.agents/commands .claude/commands

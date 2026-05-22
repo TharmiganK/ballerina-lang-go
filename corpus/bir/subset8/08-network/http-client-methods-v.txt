@@ -39,11 +39,11 @@ main() -> nil|error{
     $desugar$3 = %12;
     %14 = ConstantLoad body
     $desugar$4 = %14;
-    %16 = $default$7($desugar$3,$desugar$4) -> bb8;
+    %16 = $default$6($desugar$3,$desugar$4) -> bb8;
   }
   bb8 {
     $desugar$5 = %16;
-    %18 = $default$8($desugar$3,$desugar$4,$desugar$5) -> bb9;
+    %18 = $default$7($desugar$3,$desugar$4,$desugar$5) -> bb9;
   }
   bb9 {
     $desugar$6 = %18;
@@ -72,11 +72,11 @@ main() -> nil|error{
     %31 = ConstantLoad val
     %32 = newMap {| nil|boolean|int|float|decimal|string|...|...... |}{%30=%31}
     $desugar$9 = %32;
-    %34 = $default$9($desugar$8,$desugar$9) -> bb14;
+    %34 = $default$13($desugar$8,$desugar$9) -> bb14;
   }
   bb14 {
     $desugar$10 = %34;
-    %36 = $default$10($desugar$8,$desugar$9,$desugar$10) -> bb15;
+    %36 = $default$14($desugar$8,$desugar$9,$desugar$10) -> bb15;
   }
   bb15 {
     $desugar$11 = %36;
@@ -101,15 +101,15 @@ main() -> nil|error{
   bb19 {
     %46 = ConstantLoad /delete
     $desugar$13 = %46;
-    %48 = $default$11($desugar$13) -> bb20;
+    %48 = $default$8($desugar$13) -> bb20;
   }
   bb20 {
     $desugar$14 = %48;
-    %50 = $default$12($desugar$13,$desugar$14) -> bb21;
+    %50 = $default$9($desugar$13,$desugar$14) -> bb21;
   }
   bb21 {
     $desugar$15 = %50;
-    %52 = $default$13($desugar$13,$desugar$14,$desugar$15) -> bb22;
+    %52 = $default$10($desugar$13,$desugar$14,$desugar$15) -> bb22;
   }
   bb22 {
     $desugar$16 = %52;
@@ -134,7 +134,7 @@ main() -> nil|error{
   bb26 {
     %62 = ConstantLoad /head
     $desugar$18 = %62;
-    %64 = $default$14($desugar$18) -> bb27;
+    %64 = $default$15($desugar$18) -> bb27;
   }
   bb27 {
     $desugar$19 = %64;

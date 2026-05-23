@@ -1,0 +1,62 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad 72
+    %2 = ConstantLoad 101
+    %3 = ConstantLoad 108
+    %4 = ConstantLoad 108
+    %5 = ConstantLoad 111
+    %6 = ConstantLoad 32
+    %7 = ConstantLoad 66
+    %8 = ConstantLoad 97
+    %9 = ConstantLoad 108
+    %10 = ConstantLoad 108
+    %11 = ConstantLoad 101
+    %12 = ConstantLoad 114
+    %13 = ConstantLoad 105
+    %14 = ConstantLoad 110
+    %15 = ConstantLoad 97
+    %16 = ConstantLoad 15
+    %17 = newArray [int:Unsigned8...][%16]{%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15}
+    data = %17;
+    %19 = crc32b(data) -> bb1;
+  }
+  bb1 {
+    crc = %19;
+    %21 = length(crc) -> bb2;
+  }
+  bb2 {
+    %22 = %21;
+    %23 = println(%22) -> bb3;
+  }
+  bb3 {
+    %25 = crc32b(data) -> bb4;
+  }
+  bb4 {
+    %24 = == crc %25;
+    %26 = %24;
+    %27 = println(%26) -> bb5;
+  }
+  bb5 {
+    %28 = ConstantLoad 79
+    %29 = ConstantLoad 116
+    %30 = ConstantLoad 104
+    %31 = ConstantLoad 101
+    %32 = ConstantLoad 114
+    %33 = ConstantLoad 5
+    %34 = newArray [int:Unsigned8...][%33]{%28, %29, %30, %31, %32}
+    other = %34;
+    %37 = crc32b(other) -> bb6;
+  }
+  bb6 {
+    %36 = == crc %37;
+    %38 = %36;
+    %39 = println(%38) -> bb7;
+  }
+  bb7 {
+    return;
+  }
+}

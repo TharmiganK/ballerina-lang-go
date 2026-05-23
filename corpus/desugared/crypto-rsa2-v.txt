@@ -1,0 +1,168 @@
+(package
+  (import-package ballerina crypto (as crypto))
+  (import-package ballerina io (as io))
+  (function main () (
+    (union-type
+      (error-type)
+      (value-type null)))
+    (block-function-body
+      (var-def
+        (variable keyFile (type
+          (value-type string)) (expr
+          (literal testdata/crypto/rsa_private.pem))))
+      (var-def
+        (variable certFile (type
+          (value-type string)) (expr
+          (literal testdata/crypto/rsa_cert.pem))))
+      (var-def
+        (variable $desugar$0 (expr
+          (simple-var-ref keyFile))))
+      (var-def
+        (variable $desugar$1 (expr
+          (invocation $default$24 (
+            (simple-var-ref $desugar$0))))))
+      (var-def
+        (variable $desugar$2 (expr
+          (invocation crypto decodeRsaPrivateKeyFromKeyFile (
+            (simple-var-ref $desugar$0)
+            (simple-var-ref $desugar$1))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$2))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$2))) ())
+      (var-def
+        (variable privKey (type
+          (user-defined-type crypto PrivateKey)) (expr
+          (simple-var-ref $desugar$2))))
+      (var-def
+        (variable $desugar$3 (expr
+          (invocation crypto decodeRsaPublicKeyFromCertFile (
+            (simple-var-ref certFile))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$3))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$3))) ())
+      (var-def
+        (variable pubKey (type
+          (user-defined-type crypto PublicKey)) (expr
+          (simple-var-ref $desugar$3))))
+      (var-def
+        (variable data (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 83)
+            (literal 101)
+            (literal 99)
+            (literal 114)
+            (literal 101)
+            (literal 116)
+            (literal 32)
+            (literal 109)
+            (literal 101)
+            (literal 115)
+            (literal 115)
+            (literal 97)
+            (literal 103)
+            (literal 101)))))
+      (var-def
+        (variable $desugar$4 (expr
+          (simple-var-ref data))))
+      (var-def
+        (variable $desugar$5 (expr
+          (simple-var-ref pubKey))))
+      (var-def
+        (variable $desugar$6 (expr
+          (invocation $default$0 (
+            (simple-var-ref $desugar$4)
+            (simple-var-ref $desugar$5))))))
+      (var-def
+        (variable $desugar$7 (expr
+          (invocation crypto encryptRsaEcb (
+            (simple-var-ref $desugar$4)
+            (simple-var-ref $desugar$5)
+            (simple-var-ref $desugar$6))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$7))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$7))) ())
+      (var-def
+        (variable encrypted (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (simple-var-ref $desugar$7))))
+      (var-def
+        (variable $desugar$8 (expr
+          (simple-var-ref encrypted))))
+      (var-def
+        (variable $desugar$9 (expr
+          (simple-var-ref privKey))))
+      (var-def
+        (variable $desugar$10 (expr
+          (invocation $default$5 (
+            (simple-var-ref $desugar$8)
+            (simple-var-ref $desugar$9))))))
+      (var-def
+        (variable $desugar$11 (expr
+          (invocation crypto decryptRsaEcb (
+            (simple-var-ref $desugar$8)
+            (simple-var-ref $desugar$9)
+            (simple-var-ref $desugar$10))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$11))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$11))) ())
+      (var-def
+        (variable decrypted (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (simple-var-ref $desugar$11))))
+      (expression-stmt
+        (invocation io println (
+          (invocation crypto equalConstantTime (
+            (simple-var-ref decrypted)
+            (simple-var-ref data))))))
+      (var-def
+        (variable $desugar$12 (expr
+          (invocation crypto signRsaSsaPss256 (
+            (simple-var-ref data)
+            (simple-var-ref privKey))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$12))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$12))) ())
+      (var-def
+        (variable pssSig (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (simple-var-ref $desugar$12))))
+      (var-def
+        (variable $desugar$13 (expr
+          (invocation crypto verifyRsaSsaPss256Signature (
+            (simple-var-ref data)
+            (simple-var-ref pssSig)
+            (simple-var-ref pubKey))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$13))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$13))) ())
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref $desugar$13))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref privKey)
+            (literal algorithm))))))))

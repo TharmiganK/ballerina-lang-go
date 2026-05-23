@@ -1,0 +1,243 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil|error{
+  bb0 {
+    %1 = ConstantLoad 72
+    %2 = ConstantLoad 101
+    %3 = ConstantLoad 108
+    %4 = ConstantLoad 108
+    %5 = ConstantLoad 111
+    %6 = ConstantLoad 32
+    %7 = ConstantLoad 66
+    %8 = ConstantLoad 97
+    %9 = ConstantLoad 108
+    %10 = ConstantLoad 108
+    %11 = ConstantLoad 101
+    %12 = ConstantLoad 114
+    %13 = ConstantLoad 105
+    %14 = ConstantLoad 110
+    %15 = ConstantLoad 97
+    %16 = ConstantLoad 33
+    %17 = ConstantLoad 16
+    %18 = newArray [int:Unsigned8...][%17]{%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16}
+    data = %18;
+    %20 = ConstantLoad 0
+    %21 = ConstantLoad 1
+    %22 = ConstantLoad 2
+    %23 = ConstantLoad 3
+    %24 = ConstantLoad 4
+    %25 = ConstantLoad 5
+    %26 = ConstantLoad 6
+    %27 = ConstantLoad 7
+    %28 = ConstantLoad 8
+    %29 = ConstantLoad 9
+    %30 = ConstantLoad 10
+    %31 = ConstantLoad 11
+    %32 = ConstantLoad 12
+    %33 = ConstantLoad 13
+    %34 = ConstantLoad 14
+    %35 = ConstantLoad 15
+    %36 = ConstantLoad 16
+    %37 = newArray [int:Unsigned8...][%36]{%20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35}
+    key128 = %37;
+    %39 = ConstantLoad 0
+    %40 = ConstantLoad 1
+    %41 = ConstantLoad 2
+    %42 = ConstantLoad 3
+    %43 = ConstantLoad 4
+    %44 = ConstantLoad 5
+    %45 = ConstantLoad 6
+    %46 = ConstantLoad 7
+    %47 = ConstantLoad 8
+    %48 = ConstantLoad 9
+    %49 = ConstantLoad 10
+    %50 = ConstantLoad 11
+    %51 = ConstantLoad 12
+    %52 = ConstantLoad 13
+    %53 = ConstantLoad 14
+    %54 = ConstantLoad 15
+    %55 = ConstantLoad 16
+    %56 = newArray [int:Unsigned8...][%55]{%39, %40, %41, %42, %43, %44, %45, %46, %47, %48, %49, %50, %51, %52, %53, %54}
+    iv16 = %56;
+    %58 = ConstantLoad 0
+    %59 = ConstantLoad 1
+    %60 = ConstantLoad 2
+    %61 = ConstantLoad 3
+    %62 = ConstantLoad 4
+    %63 = ConstantLoad 5
+    %64 = ConstantLoad 6
+    %65 = ConstantLoad 7
+    %66 = ConstantLoad 8
+    %67 = ConstantLoad 9
+    %68 = ConstantLoad 10
+    %69 = ConstantLoad 11
+    %70 = ConstantLoad 12
+    %71 = newArray [int:Unsigned8...][%70]{%58, %59, %60, %61, %62, %63, %64, %65, %66, %67, %68, %69}
+    iv12 = %71;
+    $desugar$0 = data;
+    $desugar$1 = key128;
+    $desugar$2 = iv16;
+    %76 = $default$1($desugar$0,$desugar$1,$desugar$2) -> bb1;
+  }
+  bb1 {
+    $desugar$3 = %76;
+    %78 = encryptAesCbc($desugar$0,$desugar$1,$desugar$2,$desugar$3) -> bb2;
+  }
+  bb2 {
+    $desugar$4 = %78;
+    %80 = $desugar$4 is error
+    %80 ? bb3 : bb4;
+  }
+  bb3 {
+    %0 = $desugar$4;
+    return;
+  }
+  bb4 {
+    cbcEnc = $desugar$4;
+    $desugar$5 = cbcEnc;
+    $desugar$6 = key128;
+    $desugar$7 = iv16;
+    %85 = $default$6($desugar$5,$desugar$6,$desugar$7) -> bb5;
+  }
+  bb5 {
+    $desugar$8 = %85;
+    %87 = decryptAesCbc($desugar$5,$desugar$6,$desugar$7,$desugar$8) -> bb6;
+  }
+  bb6 {
+    $desugar$9 = %87;
+    %89 = $desugar$9 is error
+    %89 ? bb7 : bb8;
+  }
+  bb7 {
+    %0 = $desugar$9;
+    return;
+  }
+  bb8 {
+    cbcDec = $desugar$9;
+    %91 = equalConstantTime(cbcDec,data) -> bb9;
+  }
+  bb9 {
+    %92 = %91;
+    %93 = println(%92) -> bb10;
+  }
+  bb10 {
+    $desugar$10 = data;
+    $desugar$11 = key128;
+    %96 = $default$2($desugar$10,$desugar$11) -> bb11;
+  }
+  bb11 {
+    $desugar$12 = %96;
+    %98 = encryptAesEcb($desugar$10,$desugar$11,$desugar$12) -> bb12;
+  }
+  bb12 {
+    $desugar$13 = %98;
+    %100 = $desugar$13 is error
+    %100 ? bb13 : bb14;
+  }
+  bb13 {
+    %0 = $desugar$13;
+    return;
+  }
+  bb14 {
+    ecbEnc = $desugar$13;
+    $desugar$14 = ecbEnc;
+    $desugar$15 = key128;
+    %104 = $default$7($desugar$14,$desugar$15) -> bb15;
+  }
+  bb15 {
+    $desugar$16 = %104;
+    %106 = decryptAesEcb($desugar$14,$desugar$15,$desugar$16) -> bb16;
+  }
+  bb16 {
+    $desugar$17 = %106;
+    %108 = $desugar$17 is error
+    %108 ? bb17 : bb18;
+  }
+  bb17 {
+    %0 = $desugar$17;
+    return;
+  }
+  bb18 {
+    ecbDec = $desugar$17;
+    %110 = equalConstantTime(ecbDec,data) -> bb19;
+  }
+  bb19 {
+    %111 = %110;
+    %112 = println(%111) -> bb20;
+  }
+  bb20 {
+    $desugar$18 = data;
+    $desugar$19 = key128;
+    $desugar$20 = iv12;
+    %116 = $default$3($desugar$18,$desugar$19,$desugar$20) -> bb21;
+  }
+  bb21 {
+    $desugar$21 = %116;
+    %118 = $default$4($desugar$18,$desugar$19,$desugar$20,$desugar$21) -> bb22;
+  }
+  bb22 {
+    $desugar$22 = %118;
+    %120 = $desugar$22;
+    %121 = encryptAesGcm($desugar$18,$desugar$19,$desugar$20,$desugar$21,%120) -> bb23;
+  }
+  bb23 {
+    $desugar$23 = %121;
+    %123 = $desugar$23 is error
+    %123 ? bb24 : bb25;
+  }
+  bb24 {
+    %0 = $desugar$23;
+    return;
+  }
+  bb25 {
+    gcmEnc = $desugar$23;
+    $desugar$24 = gcmEnc;
+    $desugar$25 = key128;
+    $desugar$26 = iv12;
+    %128 = $default$8($desugar$24,$desugar$25,$desugar$26) -> bb26;
+  }
+  bb26 {
+    $desugar$27 = %128;
+    %130 = $default$9($desugar$24,$desugar$25,$desugar$26,$desugar$27) -> bb27;
+  }
+  bb27 {
+    $desugar$28 = %130;
+    %132 = $desugar$28;
+    %133 = decryptAesGcm($desugar$24,$desugar$25,$desugar$26,$desugar$27,%132) -> bb28;
+  }
+  bb28 {
+    $desugar$29 = %133;
+    %135 = $desugar$29 is error
+    %135 ? bb29 : bb30;
+  }
+  bb29 {
+    %0 = $desugar$29;
+    return;
+  }
+  bb30 {
+    gcmDec = $desugar$29;
+    %137 = equalConstantTime(gcmDec,data) -> bb31;
+  }
+  bb31 {
+    %138 = %137;
+    %139 = println(%138) -> bb32;
+  }
+  bb32 {
+    %141 = length(gcmEnc) -> bb33;
+  }
+  bb33 {
+    %142 = %141;
+    %143 = length(data) -> bb34;
+  }
+  bb34 {
+    %144 = %143;
+    %140 = > %142 %144;
+    %145 = %140;
+    %146 = println(%145) -> bb35;
+  }
+  bb35 {
+    return;
+  }
+}

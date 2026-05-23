@@ -1,0 +1,163 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina crypto (as crypto))
+  (import-package ballerina io (as io))
+  (function main () (
+    (union-type
+      (error-type)
+      (value-type null)))
+    (block-function-body
+      (var-def
+        (variable data (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 72)
+            (literal 101)
+            (literal 108)
+            (literal 108)
+            (literal 111)
+            (literal 32)
+            (literal 66)
+            (literal 97)
+            (literal 108)
+            (literal 108)
+            (literal 101)
+            (literal 114)
+            (literal 105)
+            (literal 110)
+            (literal 97)
+            (literal 33)))))
+      (var-def
+        (variable key128 (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 0)
+            (literal 1)
+            (literal 2)
+            (literal 3)
+            (literal 4)
+            (literal 5)
+            (literal 6)
+            (literal 7)
+            (literal 8)
+            (literal 9)
+            (literal 10)
+            (literal 11)
+            (literal 12)
+            (literal 13)
+            (literal 14)
+            (literal 15)))))
+      (var-def
+        (variable iv16 (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 0)
+            (literal 1)
+            (literal 2)
+            (literal 3)
+            (literal 4)
+            (literal 5)
+            (literal 6)
+            (literal 7)
+            (literal 8)
+            (literal 9)
+            (literal 10)
+            (literal 11)
+            (literal 12)
+            (literal 13)
+            (literal 14)
+            (literal 15)))))
+      (var-def
+        (variable iv12 (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 0)
+            (literal 1)
+            (literal 2)
+            (literal 3)
+            (literal 4)
+            (literal 5)
+            (literal 6)
+            (literal 7)
+            (literal 8)
+            (literal 9)
+            (literal 10)
+            (literal 11)))))
+      (var-def
+        (variable cbcEnc (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (checked-expr
+            (invocation crypto encryptAesCbc (
+              (simple-var-ref data)
+              (simple-var-ref key128)
+              (simple-var-ref iv16)))))))
+      (var-def
+        (variable cbcDec (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (checked-expr
+            (invocation crypto decryptAesCbc (
+              (simple-var-ref cbcEnc)
+              (simple-var-ref key128)
+              (simple-var-ref iv16)))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation crypto equalConstantTime (
+            (simple-var-ref cbcDec)
+            (simple-var-ref data))))))
+      (var-def
+        (variable ecbEnc (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (checked-expr
+            (invocation crypto encryptAesEcb (
+              (simple-var-ref data)
+              (simple-var-ref key128)))))))
+      (var-def
+        (variable ecbDec (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (checked-expr
+            (invocation crypto decryptAesEcb (
+              (simple-var-ref ecbEnc)
+              (simple-var-ref key128)))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation crypto equalConstantTime (
+            (simple-var-ref ecbDec)
+            (simple-var-ref data))))))
+      (var-def
+        (variable gcmEnc (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (checked-expr
+            (invocation crypto encryptAesGcm (
+              (simple-var-ref data)
+              (simple-var-ref key128)
+              (simple-var-ref iv12)))))))
+      (var-def
+        (variable gcmDec (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (checked-expr
+            (invocation crypto decryptAesGcm (
+              (simple-var-ref gcmEnc)
+              (simple-var-ref key128)
+              (simple-var-ref iv12)))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation crypto equalConstantTime (
+            (simple-var-ref gcmDec)
+            (simple-var-ref data))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr >
+            (invocation length expr:
+              (simple-var-ref gcmEnc) ())
+            (invocation length expr:
+              (simple-var-ref data) ()))))))))

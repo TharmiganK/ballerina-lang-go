@@ -1,0 +1,10 @@
+-- stdout --
+16
+20
+32
+48
+64
+32
+true
+false
+-- stderr --

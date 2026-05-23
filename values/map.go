@@ -43,7 +43,17 @@ type Map struct {
 
 	data       map[string]*mapEntry
 	head, tail *mapEntry
+
+	// nativeData holds an opaque Go value attached by stdlib externs (e.g. crypto
+	// keys).  Ballerina source code cannot observe this field.
+	nativeData any
 }
+
+// SetNativeData attaches an opaque Go value to this map for use by stdlib externs.
+func (m *Map) SetNativeData(v any) { m.nativeData = v }
+
+// GetNativeData returns the opaque Go value previously set by SetNativeData.
+func (m *Map) GetNativeData() any { return m.nativeData }
 
 // NewMap constructs a fully initialized map without applying any inherent
 // type or readonly checks on the seed entries. Entries are inserted in the

@@ -1,0 +1,162 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad 72
+    %2 = ConstantLoad 101
+    %3 = ConstantLoad 108
+    %4 = ConstantLoad 108
+    %5 = ConstantLoad 111
+    %6 = ConstantLoad 32
+    %7 = ConstantLoad 66
+    %8 = ConstantLoad 97
+    %9 = ConstantLoad 108
+    %10 = ConstantLoad 108
+    %11 = ConstantLoad 101
+    %12 = ConstantLoad 114
+    %13 = ConstantLoad 105
+    %14 = ConstantLoad 110
+    %15 = ConstantLoad 97
+    %16 = ConstantLoad 15
+    %17 = newArray [int:Unsigned8...][%16]{%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15}
+    data = %17;
+    $desugar$0 = data;
+    %20 = $default$12($desugar$0) -> bb1;
+  }
+  bb1 {
+    $desugar$1 = %20;
+    %22 = hashMd5($desugar$0,$desugar$1) -> bb2;
+  }
+  bb2 {
+    %23 = length(%22) -> bb3;
+  }
+  bb3 {
+    %24 = %23;
+    %25 = println(%24) -> bb4;
+  }
+  bb4 {
+    $desugar$2 = data;
+    %27 = $default$13($desugar$2) -> bb5;
+  }
+  bb5 {
+    $desugar$3 = %27;
+    %29 = hashSha1($desugar$2,$desugar$3) -> bb6;
+  }
+  bb6 {
+    %30 = length(%29) -> bb7;
+  }
+  bb7 {
+    %31 = %30;
+    %32 = println(%31) -> bb8;
+  }
+  bb8 {
+    $desugar$4 = data;
+    %34 = $default$14($desugar$4) -> bb9;
+  }
+  bb9 {
+    $desugar$5 = %34;
+    %36 = hashSha256($desugar$4,$desugar$5) -> bb10;
+  }
+  bb10 {
+    %37 = length(%36) -> bb11;
+  }
+  bb11 {
+    %38 = %37;
+    %39 = println(%38) -> bb12;
+  }
+  bb12 {
+    $desugar$6 = data;
+    %41 = $default$15($desugar$6) -> bb13;
+  }
+  bb13 {
+    $desugar$7 = %41;
+    %43 = hashSha384($desugar$6,$desugar$7) -> bb14;
+  }
+  bb14 {
+    %44 = length(%43) -> bb15;
+  }
+  bb15 {
+    %45 = %44;
+    %46 = println(%45) -> bb16;
+  }
+  bb16 {
+    $desugar$8 = data;
+    %48 = $default$16($desugar$8) -> bb17;
+  }
+  bb17 {
+    $desugar$9 = %48;
+    %50 = hashSha512($desugar$8,$desugar$9) -> bb18;
+  }
+  bb18 {
+    %51 = length(%50) -> bb19;
+  }
+  bb19 {
+    %52 = %51;
+    %53 = println(%52) -> bb20;
+  }
+  bb20 {
+    $desugar$10 = data;
+    %55 = $default$17($desugar$10) -> bb21;
+  }
+  bb21 {
+    $desugar$11 = %55;
+    %57 = hashKeccak256($desugar$10,$desugar$11) -> bb22;
+  }
+  bb22 {
+    %58 = length(%57) -> bb23;
+  }
+  bb23 {
+    %59 = %58;
+    %60 = println(%59) -> bb24;
+  }
+  bb24 {
+    $desugar$12 = data;
+    %62 = $default$14($desugar$12) -> bb25;
+  }
+  bb25 {
+    $desugar$13 = %62;
+    %64 = hashSha256($desugar$12,$desugar$13) -> bb26;
+  }
+  bb26 {
+    h1 = %64;
+    $desugar$14 = data;
+    %67 = $default$14($desugar$14) -> bb27;
+  }
+  bb27 {
+    $desugar$15 = %67;
+    %69 = hashSha256($desugar$14,$desugar$15) -> bb28;
+  }
+  bb28 {
+    h2 = %69;
+    %71 = equalConstantTime(h1,h2) -> bb29;
+  }
+  bb29 {
+    %72 = %71;
+    %73 = println(%72) -> bb30;
+  }
+  bb30 {
+    %74 = ConstantLoad 109
+    %75 = ConstantLoad 121
+    %76 = ConstantLoad 115
+    %77 = ConstantLoad 97
+    %78 = ConstantLoad 108
+    %79 = ConstantLoad 116
+    %80 = ConstantLoad 6
+    %81 = newArray [int:Unsigned8...][%80]{%74, %75, %76, %77, %78, %79}
+    salt = %81;
+    %83 = hashSha256(data,salt) -> bb31;
+  }
+  bb31 {
+    salted = %83;
+    %85 = equalConstantTime(salted,h1) -> bb32;
+  }
+  bb32 {
+    %86 = %85;
+    %87 = println(%86) -> bb33;
+  }
+  bb33 {
+    return;
+  }
+}

@@ -1,0 +1,100 @@
+(main
+  (bb0 () ()
+    (var-def
+      (variable keyFile (type
+        (value-type string)) (expr
+        (literal testdata/crypto/ec_private.pem))))
+    (var-def
+      (variable certFile (type
+        (value-type string)) (expr
+        (literal testdata/crypto/ec_cert.pem))))
+    (var-def
+      (variable ecPrivKey (type
+        (user-defined-type crypto PrivateKey)) (expr
+        (checked-expr
+          (invocation crypto decodeEcPrivateKeyFromKeyFile (
+            (simple-var-ref keyFile)))))))
+    (var-def
+      (variable ecPubKey (type
+        (user-defined-type crypto PublicKey)) (expr
+        (checked-expr
+          (invocation crypto decodeEcPublicKeyFromCertFile (
+            (simple-var-ref certFile)))))))
+    (var-def
+      (variable data (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 69)
+          (literal 67)
+          (literal 68)
+          (literal 83)
+          (literal 65)
+          (literal 32)
+          (literal 116)
+          (literal 101)
+          (literal 115)
+          (literal 116)
+          (literal 32)
+          (literal 100)
+          (literal 97)
+          (literal 116)
+          (literal 97)))))
+    (var-def
+      (variable sig256 (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation crypto signSha256withEcdsa (
+            (simple-var-ref data)
+            (simple-var-ref ecPrivKey)))))))
+    (expression-stmt
+      (invocation io println (
+        (binary-expr >
+          (invocation lang.array length (
+            (simple-var-ref sig256)))
+          (literal 0)))))
+    (expression-stmt
+      (invocation io println (
+        (checked-expr
+          (invocation crypto verifySha256withEcdsaSignature (
+            (simple-var-ref data)
+            (simple-var-ref sig256)
+            (simple-var-ref ecPubKey)))))))
+    (var-def
+      (variable tampered (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 116)
+          (literal 97)
+          (literal 109)
+          (literal 112)
+          (literal 101)
+          (literal 114)
+          (literal 101)
+          (literal 100)))))
+    (expression-stmt
+      (invocation io println (
+        (checked-expr
+          (invocation crypto verifySha256withEcdsaSignature (
+            (simple-var-ref tampered)
+            (simple-var-ref sig256)
+            (simple-var-ref ecPubKey)))))))
+    (var-def
+      (variable sig384 (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation crypto signSha384withEcdsa (
+            (simple-var-ref data)
+            (simple-var-ref ecPrivKey)))))))
+    (expression-stmt
+      (invocation io println (
+        (checked-expr
+          (invocation crypto verifySha384withEcdsaSignature (
+            (simple-var-ref data)
+            (simple-var-ref sig384)
+            (simple-var-ref ecPubKey)))))))
+  )
+)

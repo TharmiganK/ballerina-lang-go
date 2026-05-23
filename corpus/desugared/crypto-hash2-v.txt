@@ -1,0 +1,58 @@
+(package
+  (import-package ballerina crypto (as crypto))
+  (import-package ballerina io (as io))
+  (import-package ballerina lang string (as lang.string))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (var-def
+        (variable data (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 72)
+            (literal 101)
+            (literal 108)
+            (literal 108)
+            (literal 111)
+            (literal 32)
+            (literal 66)
+            (literal 97)
+            (literal 108)
+            (literal 108)
+            (literal 101)
+            (literal 114)
+            (literal 105)
+            (literal 110)
+            (literal 97)))))
+      (var-def
+        (variable crc (type
+          (value-type string)) (expr
+          (invocation crypto crc32b (
+            (simple-var-ref data))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation lang.string length (
+            (simple-var-ref crc))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr ==
+            (simple-var-ref crc)
+            (invocation crypto crc32b (
+              (simple-var-ref data)))))))
+      (var-def
+        (variable other (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 79)
+            (literal 116)
+            (literal 104)
+            (literal 101)
+            (literal 114)))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr ==
+            (simple-var-ref crc)
+            (invocation crypto crc32b (
+              (simple-var-ref other))))))))))

@@ -1,0 +1,140 @@
+(main
+  (bb0 () ()
+    (var-def
+      (variable data (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 72)
+          (literal 101)
+          (literal 108)
+          (literal 108)
+          (literal 111)
+          (literal 32)
+          (literal 66)
+          (literal 97)
+          (literal 108)
+          (literal 108)
+          (literal 101)
+          (literal 114)
+          (literal 105)
+          (literal 110)
+          (literal 97)))))
+    (var-def
+      (variable key (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 115)
+          (literal 101)
+          (literal 99)
+          (literal 114)
+          (literal 101)
+          (literal 116)
+          (literal 107)
+          (literal 101)
+          (literal 121)
+          (literal 48)
+          (literal 49)
+          (literal 50)
+          (literal 51)
+          (literal 52)
+          (literal 53)
+          (literal 54)))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (group-expr
+            (checked-expr
+              (invocation crypto hmacMd5 (
+                (simple-var-ref data)
+                (simple-var-ref key))))))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (group-expr
+            (checked-expr
+              (invocation crypto hmacSha1 (
+                (simple-var-ref data)
+                (simple-var-ref key))))))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (group-expr
+            (checked-expr
+              (invocation crypto hmacSha256 (
+                (simple-var-ref data)
+                (simple-var-ref key))))))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (group-expr
+            (checked-expr
+              (invocation crypto hmacSha384 (
+                (simple-var-ref data)
+                (simple-var-ref key))))))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (group-expr
+            (checked-expr
+              (invocation crypto hmacSha512 (
+                (simple-var-ref data)
+                (simple-var-ref key))))))))))
+    (var-def
+      (variable h1 (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation crypto hmacSha256 (
+            (simple-var-ref data)
+            (simple-var-ref key)))))))
+    (var-def
+      (variable h2 (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation crypto hmacSha256 (
+            (simple-var-ref data)
+            (simple-var-ref key)))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation crypto equalConstantTime (
+          (simple-var-ref h1)
+          (simple-var-ref h2))))))
+    (var-def
+      (variable key2 (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 111)
+          (literal 116)
+          (literal 104)
+          (literal 101)
+          (literal 114)
+          (literal 107)
+          (literal 101)
+          (literal 121)
+          (literal 48)
+          (literal 49)
+          (literal 50)
+          (literal 51)
+          (literal 52)
+          (literal 53)
+          (literal 54)
+          (literal 55)))))
+    (var-def
+      (variable h3 (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation crypto hmacSha256 (
+            (simple-var-ref data)
+            (simple-var-ref key2)))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation crypto equalConstantTime (
+          (simple-var-ref h1)
+          (simple-var-ref h3))))))
+  )
+)

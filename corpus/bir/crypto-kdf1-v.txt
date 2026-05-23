@@ -1,0 +1,172 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil|error{
+  bb0 {
+    %1 = ConstantLoad 105
+    %2 = ConstantLoad 110
+    %3 = ConstantLoad 112
+    %4 = ConstantLoad 117
+    %5 = ConstantLoad 116
+    %6 = ConstantLoad 45
+    %7 = ConstantLoad 107
+    %8 = ConstantLoad 101
+    %9 = ConstantLoad 121
+    %10 = ConstantLoad 45
+    %11 = ConstantLoad 109
+    %12 = ConstantLoad 97
+    %13 = ConstantLoad 116
+    %14 = ConstantLoad 101
+    %15 = ConstantLoad 114
+    %16 = ConstantLoad 105
+    %17 = ConstantLoad 97
+    %18 = ConstantLoad 108
+    %19 = ConstantLoad 18
+    %20 = newArray [int:Unsigned8...][%19]{%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18}
+    ikm = %20;
+    $desugar$0 = ikm;
+    %23 = ConstantLoad 32
+    $desugar$1 = %23;
+    %25 = $desugar$1;
+    %26 = $default$10($desugar$0,%25) -> bb1;
+  }
+  bb1 {
+    $desugar$2 = %26;
+    %28 = $desugar$1;
+    %29 = $default$11($desugar$0,%28,$desugar$2) -> bb2;
+  }
+  bb2 {
+    $desugar$3 = %29;
+    %31 = $desugar$1;
+    %32 = hkdfSha256($desugar$0,%31,$desugar$2,$desugar$3) -> bb3;
+  }
+  bb3 {
+    $desugar$4 = %32;
+    %34 = $desugar$4 is error
+    %34 ? bb4 : bb5;
+  }
+  bb4 {
+    %0 = $desugar$4;
+    return;
+  }
+  bb5 {
+    key32 = $desugar$4;
+    %36 = length(key32) -> bb6;
+  }
+  bb6 {
+    %37 = %36;
+    %38 = println(%37) -> bb7;
+  }
+  bb7 {
+    %39 = ConstantLoad 109
+    %40 = ConstantLoad 121
+    %41 = ConstantLoad 115
+    %42 = ConstantLoad 97
+    %43 = ConstantLoad 108
+    %44 = ConstantLoad 116
+    %45 = ConstantLoad 6
+    %46 = newArray [int:Unsigned8...][%45]{%39, %40, %41, %42, %43, %44}
+    salt = %46;
+    %48 = ConstantLoad 109
+    %49 = ConstantLoad 121
+    %50 = ConstantLoad 105
+    %51 = ConstantLoad 110
+    %52 = ConstantLoad 102
+    %53 = ConstantLoad 111
+    %54 = ConstantLoad 6
+    %55 = newArray [int:Unsigned8...][%54]{%48, %49, %50, %51, %52, %53}
+    info = %55;
+    %57 = ConstantLoad 16
+    %58 = %57;
+    %59 = hkdfSha256(ikm,%58,salt,info) -> bb8;
+  }
+  bb8 {
+    $desugar$5 = %59;
+    %61 = $desugar$5 is error
+    %61 ? bb9 : bb10;
+  }
+  bb9 {
+    %0 = $desugar$5;
+    return;
+  }
+  bb10 {
+    key16 = $desugar$5;
+    %63 = length(key16) -> bb11;
+  }
+  bb11 {
+    %64 = %63;
+    %65 = println(%64) -> bb12;
+  }
+  bb12 {
+    $desugar$6 = ikm;
+    %67 = ConstantLoad 32
+    $desugar$7 = %67;
+    %69 = $desugar$7;
+    %70 = $default$10($desugar$6,%69) -> bb13;
+  }
+  bb13 {
+    $desugar$8 = %70;
+    %72 = $desugar$7;
+    %73 = $default$11($desugar$6,%72,$desugar$8) -> bb14;
+  }
+  bb14 {
+    $desugar$9 = %73;
+    %75 = $desugar$7;
+    %76 = hkdfSha256($desugar$6,%75,$desugar$8,$desugar$9) -> bb15;
+  }
+  bb15 {
+    $desugar$10 = %76;
+    %78 = $desugar$10 is error
+    %78 ? bb16 : bb17;
+  }
+  bb16 {
+    %0 = $desugar$10;
+    return;
+  }
+  bb17 {
+    key32b = $desugar$10;
+    %80 = equalConstantTime(key32,key32b) -> bb18;
+  }
+  bb18 {
+    %81 = %80;
+    %82 = println(%81) -> bb19;
+  }
+  bb19 {
+    $desugar$11 = ikm;
+    %84 = ConstantLoad 64
+    $desugar$12 = %84;
+    %86 = $desugar$12;
+    %87 = $default$10($desugar$11,%86) -> bb20;
+  }
+  bb20 {
+    $desugar$13 = %87;
+    %89 = $desugar$12;
+    %90 = $default$11($desugar$11,%89,$desugar$13) -> bb21;
+  }
+  bb21 {
+    $desugar$14 = %90;
+    %92 = $desugar$12;
+    %93 = hkdfSha256($desugar$11,%92,$desugar$13,$desugar$14) -> bb22;
+  }
+  bb22 {
+    $desugar$15 = %93;
+    %95 = $desugar$15 is error
+    %95 ? bb23 : bb24;
+  }
+  bb23 {
+    %0 = $desugar$15;
+    return;
+  }
+  bb24 {
+    key64 = $desugar$15;
+    %97 = length(key64) -> bb25;
+  }
+  bb25 {
+    %98 = %97;
+    %99 = println(%98) -> bb26;
+  }
+  bb26 {
+    return;
+  }
+}

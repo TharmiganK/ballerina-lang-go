@@ -1,0 +1,20 @@
+(package
+  (import-package ballerina io (as io))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (var-def
+        (variable result (type
+          (union-type
+            (value-type string)
+            (error-type))) (expr
+          (invocation string fromBytes (
+            (list-constructor-expr
+              (literal 149)
+              (literal 169)
+              (literal 224)))))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref result)
+            (error-type))))))))

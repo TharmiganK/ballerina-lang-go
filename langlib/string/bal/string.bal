@@ -18,3 +18,7 @@
 public type Char string;
 
 public isolated function length(string str) returns int = external;
+
+public isolated function toBytes(string str) returns byte[] = external;
+
+public isolated function fromBytes(byte[] bytes) returns string|error = external;

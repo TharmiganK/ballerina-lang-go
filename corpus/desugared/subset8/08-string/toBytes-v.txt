@@ -1,0 +1,27 @@
+(package
+  (import-package ballerina io (as io))
+  (import-package ballerina lang string (as lang.string))
+  (import-package ballerina lang array (as lang.array))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (var-def
+        (variable b (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (invocation lang.string toBytes (
+            (literal Hello, World!))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation lang.array length (
+            (simple-var-ref b))))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref b)
+            (literal 0)))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref b)
+            (literal 7))))))))

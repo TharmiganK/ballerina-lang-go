@@ -1,0 +1,26 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina io (as io))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (var-def
+        (variable b (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (invocation toBytes expr:
+            (literal Hello, World!) ()))))
+      (expression-stmt
+        (invocation io println (
+          (invocation length expr:
+            (simple-var-ref b) ()))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref b)
+            (literal 0)))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref b)
+            (literal 7))))))))

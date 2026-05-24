@@ -1,0 +1,34 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad 104
+    %2 = ConstantLoad 101
+    %3 = ConstantLoad 108
+    %4 = ConstantLoad 108
+    %5 = ConstantLoad 111
+    %6 = ConstantLoad 32
+    %7 = ConstantLoad 98
+    %8 = ConstantLoad 97
+    %9 = ConstantLoad 8
+    %10 = newArray [int:Unsigned8...][%9]{%1, %2, %3, %4, %5, %6, %7, %8}
+    b = %10;
+    %12 = toBase64(b) -> bb1;
+  }
+  bb1 {
+    %13 = println(%12) -> bb2;
+  }
+  bb2 {
+    %14 = ConstantLoad 0
+    %15 = newArray [int:Unsigned8...][%14]{}
+    empty = %15;
+    %17 = toBase64(empty) -> bb3;
+  }
+  bb3 {
+    %18 = println(%17) -> bb4;
+  }
+  bb4 {
+    return;
+  }
+}

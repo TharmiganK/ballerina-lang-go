@@ -22,6 +22,7 @@ import (
 
 	"ballerina-lang-go/runtime"
 	"ballerina-lang-go/runtime/extern"
+	"ballerina-lang-go/semtypes"
 	"ballerina-lang-go/values"
 )
 
@@ -38,6 +39,44 @@ func initStringModule(rt *runtime.Runtime) {
 		}
 		return int64(utf8.RuneCountInString(s)), nil
 	})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "toBytes", func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		s, ok := args[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("first argument must be a string")
+		}
+		return bytesToList(ctx, []byte(s)), nil
+	})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "fromBytes", func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		list, ok := args[0].(*values.List)
+		if !ok {
+			return nil, fmt.Errorf("first argument must be a byte array")
+		}
+		b := listToBytes(list)
+		if !utf8.Valid(b) {
+			return values.NewErrorWithMessage("byte array is not valid UTF-8"), nil
+		}
+		return string(b), nil
+	})
+}
+
+func listToBytes(list *values.List) []byte {
+	b := make([]byte, list.Len())
+	for i := range list.Len() {
+		b[i] = byte(list.Get(i).(int64))
+	}
+	return b
+}
+
+func bytesToList(ctx *extern.Context, data []byte) *values.List {
+	bld := semtypes.NewListDefinition()
+	ty := bld.DefineListTypeWrappedWithEnvSemType(ctx.Env.TypeEnv, semtypes.BYTE)
+	items := make([]values.BalValue, len(data))
+	for i, b := range data {
+		items[i] = int64(b)
+	}
+	return values.NewList(ty, semtypes.ToListAtomicType(ctx.TypeCtx, ty), false, nil, 0, items)
 }
 
 func init() {

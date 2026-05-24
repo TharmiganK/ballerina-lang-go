@@ -1,0 +1,24 @@
+(main
+  (bb0 () ()
+    (var-def
+      (variable b (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (invocation lang.string toBytes (
+          (literal Hello, World!))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (simple-var-ref b))))))
+    (expression-stmt
+      (invocation io println (
+        (index-based-access
+          (simple-var-ref b)
+          (literal 0)))))
+    (expression-stmt
+      (invocation io println (
+        (index-based-access
+          (simple-var-ref b)
+          (literal 7)))))
+  )
+)

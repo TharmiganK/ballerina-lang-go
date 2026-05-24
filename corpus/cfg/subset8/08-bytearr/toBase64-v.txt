@@ -1,0 +1,30 @@
+(main
+  (bb0 () ()
+    (var-def
+      (variable b (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 104)
+          (literal 101)
+          (literal 108)
+          (literal 108)
+          (literal 111)
+          (literal 32)
+          (literal 98)
+          (literal 97)))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array toBase64 (
+          (simple-var-ref b))))))
+    (var-def
+      (variable empty (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array toBase64 (
+          (simple-var-ref empty))))))
+  )
+)

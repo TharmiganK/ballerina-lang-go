@@ -17,10 +17,13 @@
 package array
 
 import (
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+
 	"ballerina-lang-go/runtime"
 	"ballerina-lang-go/runtime/extern"
 	"ballerina-lang-go/values"
-	"fmt"
 )
 
 const (
@@ -42,6 +45,28 @@ func initArrayModule(rt *runtime.Runtime) {
 		}
 		return nil, fmt.Errorf("first argument must be an array")
 	})
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "toBase16", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		list, ok := args[0].(*values.List)
+		if !ok {
+			return nil, fmt.Errorf("first argument must be a byte array")
+		}
+		return hex.EncodeToString(listToBytes(list)), nil
+	})
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "toBase64", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		list, ok := args[0].(*values.List)
+		if !ok {
+			return nil, fmt.Errorf("first argument must be a byte array")
+		}
+		return base64.StdEncoding.EncodeToString(listToBytes(list)), nil
+	})
+}
+
+func listToBytes(list *values.List) []byte {
+	b := make([]byte, list.Len())
+	for i := range list.Len() {
+		b[i] = byte(list.Get(i).(int64))
+	}
+	return b
 }
 
 func init() {

@@ -1,0 +1,54 @@
+(main
+  (bb0 () (bb1 bb3)
+    (var-def
+      (variable b (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 72)
+          (literal 101)
+          (literal 108)
+          (literal 108)
+          (literal 111)
+          (literal 32)
+          (literal 66)
+          (literal 97)
+          (literal 108)
+          (literal 108)
+          (literal 101)
+          (literal 114)
+          (literal 105)
+          (literal 110)
+          (literal 97)
+          (literal 33)))))
+    (type-test-expr is
+      (invocation string fromBytes (
+        (simple-var-ref b)))
+      (error-type))
+  )
+  (bb1 (bb0) (bb2)
+    (expression-stmt
+      (invocation io println (
+        (literal error))))
+  )
+  (bb2 (bb1 bb3) ()
+    (var-def
+      (variable roundTrip (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (invocation lang.string toBytes (
+          (literal Go native))))))
+    (expression-stmt
+      (invocation io println (
+        (check-panicked-expr
+          (invocation string fromBytes (
+            (simple-var-ref roundTrip)))))))
+  )
+  (bb3 (bb0) (bb2)
+    (expression-stmt
+      (invocation io println (
+        (check-panicked-expr
+          (invocation string fromBytes (
+            (simple-var-ref b)))))))
+  )
+)

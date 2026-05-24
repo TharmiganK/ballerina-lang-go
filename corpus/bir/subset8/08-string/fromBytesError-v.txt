@@ -1,0 +1,21 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad 149
+    %2 = ConstantLoad 169
+    %3 = ConstantLoad 224
+    %4 = ConstantLoad 3
+    %5 = newArray [int:Unsigned8...][%4]{%1, %2, %3}
+    %6 = fromBytes(%5) -> bb1;
+  }
+  bb1 {
+    result = %6;
+    %8 = result is error
+    %9 = %8;
+    %10 = println(%9) -> bb2;
+  }
+  bb2 {
+    return;
+  }
+}

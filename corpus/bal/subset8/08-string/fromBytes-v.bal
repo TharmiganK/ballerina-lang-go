@@ -3,7 +3,6 @@
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
 // in compliance with the License.
-//
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
@@ -15,10 +14,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-public isolated function length((any|error)[] arr) returns int = external;
+import ballerina/io;
 
-public isolated function push((any|error)[] arr, (any|error)... vals) returns () = external;
+public function main() {
+    byte[] b = [72, 101, 108, 108, 111, 32, 66, 97, 108, 108, 101, 114, 105, 110, 97, 33];
+    if string:fromBytes(b) is error {
+        io:println("error");
+    } else {
+        io:println(checkpanic string:fromBytes(b));
+    }
+    // @output Hello Ballerina!
 
-public isolated function toBase16(byte[] arr) returns string = external;
-
-public isolated function toBase64(byte[] arr) returns string = external;
+    byte[] roundTrip = "Go native".toBytes();
+    io:println(checkpanic string:fromBytes(roundTrip)); // @output Go native
+}

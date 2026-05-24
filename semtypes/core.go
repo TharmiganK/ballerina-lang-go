@@ -947,7 +947,7 @@ func createIsolatedObject(context Context) SemType {
 	return isolatedObj
 }
 
-func createServiceObject(context Context) SemType {
+func CreateServiceObject(context Context) SemType {
 	memo := context.serviceObjectMemo()
 	if memo != nil {
 		return memo

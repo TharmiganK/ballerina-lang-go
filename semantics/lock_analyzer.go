@@ -26,10 +26,10 @@ import (
 )
 
 // enclosingClassOf walks the analyzer parent chain and returns the
-// enclosingClass of the nearest functionAnalyzer that has a non-nil
-// enclosingClass. The boolean is false if no such analyzer exists
-// (e.g. the lock is inside a free function).
-func enclosingClassOf(a analyzer) (*ast.BLangClassDefinition, bool) {
+// enclosingClassBody of the nearest functionAnalyzer that has one set.
+// The boolean is false if no such analyzer exists (e.g. the lock is
+// inside a free function).
+func enclosingClassOf(a analyzer) (*enclosingClassBody, bool) {
 	for cur := a; cur != nil; cur = cur.parentAnalyzer() {
 		fa, ok := cur.(*functionAnalyzer)
 		if !ok {
@@ -103,11 +103,11 @@ func selfFieldLockEntry(a analyzer, access *ast.BLangFieldBaseAccess) (string, m
 		a.internalErr("failed to find enclosing class definition", access.GetPosition())
 		return "", model.SymbolRef{}, false
 	}
-	if !ok || !cls.IsIsolated() {
+	if !cls.isolated {
 		return "", model.SymbolRef{}, false
 	}
 	fieldName := access.Field.Value
-	for _, f := range cls.Fields {
+	for _, f := range cls.fields {
 		field := f.(*ast.BLangSimpleVariable)
 		if field.Name.Value != fieldName {
 			continue
@@ -115,8 +115,7 @@ func selfFieldLockEntry(a analyzer, access *ast.BLangFieldBaseAccess) (string, m
 		if isImmutableField(a.tyCtx(), field) {
 			return "", model.SymbolRef{}, false
 		}
-		pkg := cls.Symbol().Package
-		return classFieldLockKey(pkg, cls.Name.Value, fieldName), field.Symbol(), true
+		return classBodyFieldLockKey(cls, field.Symbol(), fieldName), field.Symbol(), true
 	}
 	return "", model.SymbolRef{}, false
 }
@@ -127,6 +126,18 @@ func moduleVarLockKey(pkg model.PackageIdentifier, name string) string {
 
 func classFieldLockKey(pkg model.PackageIdentifier, className, fieldName string) string {
 	return pkg.Organization + "/" + pkg.Package + ":" + className + "." + fieldName
+}
+
+// classBodyFieldLockKey returns a per-field lock key for either a class or a
+// service. For classes it uses the class's module-level name; for services
+// (which have no name) it derives a unique key from the field's SymbolRef,
+// which is already unique within the package.
+func classBodyFieldLockKey(cls *enclosingClassBody, fieldRef model.SymbolRef, fieldName string) string {
+	if cls.name != "" {
+		return classFieldLockKey(fieldRef.Package, cls.name, fieldName)
+	}
+	pkg := fieldRef.Package
+	return fmt.Sprintf("%s/%s:$service.%d.%d.%s", pkg.Organization, pkg.Package, fieldRef.SpaceIndex, fieldRef.Index, fieldName)
 }
 
 // validateLockStmt determines the restricted variable and validate semantics of a lock statment.
@@ -204,7 +215,7 @@ func validateLockBody(a analyzer, lock *ast.BLangLock) bool {
 
 type lockBodyVisitor struct {
 	a              analyzer
-	enclosingClass *ast.BLangClassDefinition
+	enclosingClass *enclosingClassBody
 	lock           *ast.BLangLock
 	locals         map[model.SymbolRef]struct{}
 	ok             bool
@@ -248,7 +259,7 @@ func (v *lockBodyVisitor) checkAssignment(lhs, rhs ast.BLangExpression, pos diag
 		return
 	}
 	// If the LHS is a local declared inside the lock body, no check.
-	lhsRef, ok := exprRef(v.enclosingClass, lhs)
+	lhsRef, ok := exprRef(v.enclosingFields(), lhs)
 	if !ok {
 		v.ok = false
 		v.a.internalErr("failed to find variable symbol", lhs.GetPosition())
@@ -277,7 +288,7 @@ func (v *lockBodyVisitor) checkAssignment(lhs, rhs ast.BLangExpression, pos diag
 // and self-field cases, so this is a single ref-equality test on the LHS
 // base symbol.
 func (v *lockBodyVisitor) assignsRestricted(lhs ast.BLangExpression) bool {
-	lhsRef, ok := exprRef(v.enclosingClass, lhs)
+	lhsRef, ok := exprRef(v.enclosingFields(), lhs)
 	if !ok {
 		v.ok = false
 		v.a.internalErr("failed to find variable symbol", lhs.GetPosition())
@@ -464,7 +475,7 @@ func inInitFunction(a analyzer) bool {
 		if !ok {
 			continue
 		}
-		return fa.enclosingClass != nil && fa.enclosingClass.InitFunction == fa.function
+		return fa.enclosingClass != nil && fa.enclosingClass.initFn == fa.function
 	}
 	return false
 }
@@ -745,15 +756,21 @@ func (visitor *isolatedFnVisitor) checkRead(ref *ast.BLangSimpleVarRef) {
 	}
 }
 
-// exprRef gives the symbol to variable being  referred in variable reference expression
-func exprRef(enclosingClass *ast.BLangClassDefinition, expr ast.BLangExpression) (model.SymbolRef, bool) {
+func (v *lockBodyVisitor) enclosingFields() []ast.SimpleVariableNode {
+	if v.enclosingClass == nil {
+		return nil
+	}
+	return v.enclosingClass.fields
+}
+
+func exprRef(enclosingFields []ast.SimpleVariableNode, expr ast.BLangExpression) (model.SymbolRef, bool) {
 	switch expr := expr.(type) {
 	case *ast.BLangSimpleVarRef:
 		return expr.Symbol(), true
 	case *ast.BLangFieldBaseAccess:
 		if isSelfFieldAccess(expr) {
 			fieldName := expr.Field.Value
-			for _, f := range enclosingClass.Fields {
+			for _, f := range enclosingFields {
 				field := f.(*ast.BLangSimpleVariable)
 				if field.Name.Value != fieldName {
 					continue
@@ -761,10 +778,10 @@ func exprRef(enclosingClass *ast.BLangClassDefinition, expr ast.BLangExpression)
 				return field.Symbol(), true
 			}
 		} else {
-			return exprRef(enclosingClass, expr.Expr)
+			return exprRef(enclosingFields, expr.Expr)
 		}
 	case *ast.BLangIndexBasedAccess:
-		return exprRef(enclosingClass, expr.Expr)
+		return exprRef(enclosingFields, expr.Expr)
 	}
 	return model.SymbolRef{}, false
 }

@@ -22,6 +22,7 @@ import (
 
 	"ballerina-lang-go/ast"
 	"ballerina-lang-go/context"
+	"ballerina-lang-go/desugar"
 	"ballerina-lang-go/model"
 	"ballerina-lang-go/semtypes"
 	"ballerina-lang-go/tools/diagnostics"
@@ -38,12 +39,13 @@ func birLoc(de *diagnostics.DiagnosticEnv, pos diagnostics.Location) Location {
 // TODO: may be we should have this in a separate package and keep BIR package clean (only definitions)
 
 type Context struct {
-	CompilerContext *context.CompilerContext
-	importAliasMap  map[string]*model.PackageID // Maps import alias to package ID
-	packageID       *model.PackageID            // Current package ID
-	birPkg          *BIRPackage
-	typeCtx         semtypes.Context
-	stringMapTy     semtypes.SemType // Memoized map<string> type
+	CompilerContext  *context.CompilerContext
+	importAliasMap   map[string]*model.PackageID // Maps import alias to package ID
+	packageID        *model.PackageID            // Current package ID
+	birPkg           *BIRPackage
+	typeCtx          semtypes.Context
+	stringMapTy      semtypes.SemType // Memoized map<string> type
+	serviceClassKeys map[*ast.BLangService]string
 }
 
 func (c *Context) TypeContext() semtypes.Context {
@@ -229,16 +231,22 @@ func buildGlobalVarLookupKey(pkgId *model.PackageID, name model.Name) string {
 	return pkgId.OrgName.Value() + "/" + pkgId.PkgName.Value() + ":" + name.Value()
 }
 
+func newContext(compilerCtx *context.CompilerContext, packageID *model.PackageID, birPkg *BIRPackage) *Context {
+	c := &Context{
+		CompilerContext:  compilerCtx,
+		importAliasMap:   make(map[string]*model.PackageID),
+		packageID:        packageID,
+		birPkg:           birPkg,
+		serviceClassKeys: make(map[*ast.BLangService]string),
+		typeCtx:          semtypes.TypeCheckContext(compilerCtx.GetTypeEnv()),
+	}
+	return c
+}
+
 func GenBir(ctx *context.CompilerContext, ast *ast.BLangPackage) *BIRPackage {
 	birPkg := &BIRPackage{}
 	birPkg.PackageID = ast.PackageID
-	genCtx := &Context{
-		CompilerContext: ctx,
-		importAliasMap:  make(map[string]*model.PackageID),
-		packageID:       ast.PackageID,
-		birPkg:          birPkg,
-	}
-	genCtx.typeCtx = semtypes.TypeCheckContext(ctx.GetTypeEnv())
+	genCtx := newContext(ctx, ast.PackageID, birPkg)
 	birPkg.GlobalVars = make(map[string]BIRGlobalVariableDcl)
 	processImports(ctx, genCtx, ast.Imports, birPkg)
 	for _, globalVar := range ast.GlobalVars {
@@ -247,11 +255,14 @@ func GenBir(ctx *context.CompilerContext, ast *ast.BLangPackage) *BIRPackage {
 	for _, constant := range ast.Constants {
 		addGlobalVar(birPkg, transformConstantAsGlobal(genCtx, &constant))
 	}
-	if ast.InitFunction != nil {
-		birPkg.InitFunction = TransformFunction(genCtx, ast.InitFunction)
-	}
 	for i := range ast.ClassDefinitions {
 		transformClassDefinition(genCtx, &ast.ClassDefinitions[i], birPkg)
+	}
+	for i := range ast.Services {
+		transformService(genCtx, &ast.Services[i], i, birPkg)
+	}
+	if ast.InitFunction != nil {
+		birPkg.InitFunction = TransformFunction(genCtx, ast.InitFunction)
 	}
 	for _, function := range ast.Functions {
 		if function.IsNative() {
@@ -901,6 +912,8 @@ func handleActionOrExpression(ctx *stmtContext, curBB *BIRBasicBlock, expr ast.B
 		return trapExpression(ctx, curBB, expr)
 	case *ast.BLangNewExpression:
 		return newExpression(ctx, curBB, expr)
+	case *desugar.BLangServiceInit:
+		return serviceInitExpression(ctx, curBB, expr)
 	case *ast.BLangLambdaFunction:
 		return lambdaFunction(ctx, curBB, expr)
 	case *ast.BLangRemoteMethodCallAction:
@@ -1625,14 +1638,52 @@ func trapExpression(ctx *stmtContext, curBB *BIRBasicBlock, expr *ast.BLangTrapE
 }
 
 func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, birPkg *BIRPackage) {
-	className := model.Name(class.GetName().GetValue())
-	classScope := class.Scope()
+	className := class.GetName().GetValue()
+	classLookupKey := buildLookupKey(class.Symbol().Package, ctx.CompilerContext.SymbolName(class.Symbol()))
+	methodLookupKey := func(methodName string, symRef model.SymbolRef) string {
+		return buildMethodLookupKeyFromSymbol(ctx, className, symRef)
+	}
+	resourceLookupKey := func(rm *ast.BLangResourceMethod) string {
+		return buildFunctionLookupKeyFromSymbol(ctx, rm.Symbol())
+	}
+	birClassDef := transformClassBody(ctx, class.Scope(), classLookupKey, model.Name(className), class.Fields, class.InitFunction, class.Methods, class.ResourceMethods, methodLookupKey, resourceLookupKey, class.GetPosition())
+	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
+}
+
+func transformService(ctx *Context, svc *ast.BLangService, idx int, birPkg *BIRPackage) {
+	className := fmt.Sprintf("$service$%d", idx)
+	pkg := model.PackageIdentifierFromID(ctx.packageID)
+	classLookupKey := buildLookupKey(pkg, className)
+	ctx.serviceClassKeys[svc] = classLookupKey
+	methodLookupKey := func(methodName string, _ model.SymbolRef) string {
+		return buildLookupKey(pkg, className+"."+methodName)
+	}
+	resourceLookupKey := func(rm *ast.BLangResourceMethod) string {
+		sym := ctx.CompilerContext.GetSymbol(rm.Symbol())
+		return buildLookupKey(pkg, className+"."+sym.Name())
+	}
+	birClassDef := transformClassBody(ctx, svc.Scope(), classLookupKey, model.Name(className), svc.Fields, svc.InitFunction, svc.Methods, svc.ResourceMethods, methodLookupKey, resourceLookupKey, svc.GetPosition())
+	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
+}
+
+func transformClassBody(
+	ctx *Context,
+	classScope model.Scope,
+	classLookupKey string,
+	className model.Name,
+	fields []ast.SimpleVariableNode,
+	initFn *ast.BLangFunction,
+	methods map[string]*ast.BLangFunction,
+	resourceMethods []*ast.BLangResourceMethod,
+	methodLookupKey func(string, model.SymbolRef) string,
+	resourceLookupKey func(*ast.BLangResourceMethod) string,
+	pos diagnostics.Location,
+) *BIRClassDef {
 	selfRef, ok := classScope.GetSymbol("self")
 	if !ok {
-		ctx.CompilerContext.InternalError("self symbol not found in class scope", class.GetPosition())
+		ctx.CompilerContext.InternalError("self symbol not found in class scope", pos)
 	}
 
-	classLookupKey := buildLookupKey(class.Symbol().Package, ctx.CompilerContext.SymbolName(class.Symbol()))
 	birClassDef := &BIRClassDef{
 		Name:      className,
 		LookupKey: classLookupKey,
@@ -1640,19 +1691,19 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 		RTable:    make(map[string][]BIRResourceMethod),
 	}
 
-	for _, field := range class.Fields {
+	for _, field := range fields {
 		birClassDef.Fields = append(birClassDef.Fields, ObjectField{
 			Name: field.GetName().GetValue(),
 			Ty:   ctx.CompilerContext.SymbolType(field.Symbol()),
 		})
 	}
 
-	initFunc := transformFunctionInner(&stmtContext{birCx: ctx, scopeCtx: &scopeContext{varMap: make(map[model.SymbolRef]*BIROperand), isFunctionBoundary: true}}, class.InitFunction, &selfRef)
-	initFunc.FunctionLookupKey = buildMethodLookupKeyFromSymbol(ctx, className.Value(), class.InitFunction.Symbol())
+	initFunc := transformFunctionInner(&stmtContext{birCx: ctx, scopeCtx: &scopeContext{varMap: make(map[model.SymbolRef]*BIROperand), isFunctionBoundary: true}}, initFn, &selfRef)
+	initFunc.FunctionLookupKey = methodLookupKey("init", initFn.Symbol())
 	birClassDef.VTable["init"] = initFunc
 
-	for methodName, method := range class.Methods {
-		lookupKey := buildMethodLookupKeyFromSymbol(ctx, className.Value(), method.Symbol())
+	for methodName, method := range methods {
+		lookupKey := methodLookupKey(methodName, method.Symbol())
 		var fn *BIRFunction
 		if method.IsNative() {
 			fn = &BIRFunction{
@@ -1669,8 +1720,8 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 		birClassDef.VTable[methodName] = fn
 	}
 
-	for _, rm := range class.ResourceMethods {
-		lookupKey := buildFunctionLookupKeyFromSymbol(ctx, rm.Symbol())
+	for _, rm := range resourceMethods {
+		lookupKey := resourceLookupKey(rm)
 		var fn *BIRFunction
 		if rm.IsNative() {
 			fn = &BIRFunction{
@@ -1690,7 +1741,7 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 		birClassDef.RTable[methodName] = append(birClassDef.RTable[methodName], entry)
 	}
 
-	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
+	return birClassDef
 }
 
 func buildResourceMethodEntry(ctx *Context, rm *ast.BLangResourceMethod, fn *BIRFunction) BIRResourceMethod {
@@ -1783,14 +1834,28 @@ func newExpression(ctx *stmtContext, curBB *BIRBasicBlock, expr *ast.BLangNewExp
 	classSymbol := expr.ClassSymbol
 	className := ctx.birCx.CompilerContext.SymbolName(classSymbol)
 	classLookupKey := buildLookupKey(classSymbol.Package, className)
+	objectTy := semtypes.Diff(expr.GetDeterminedType(), semtypes.ERROR)
+	return emitObjectInit(ctx, curBB, classLookupKey, objectTy, expr.GetDeterminedType(), expr.ArgsExprs, expr.GetPosition())
+}
 
-	object := ctx.addTempVar(expr.GetDeterminedType())
-	newObj := NewObjectConstructor(classLookupKey, object, ctx.loc(expr.GetPosition()))
+func serviceInitExpression(ctx *stmtContext, curBB *BIRBasicBlock, expr *desugar.BLangServiceInit) expressionEffect {
+	classLookupKey, ok := ctx.birCx.serviceClassKeys[expr.Service]
+	if !ok {
+		// We should have set this when going over the service decl at the begining
+		ctx.birCx.CompilerContext.InternalError("service class not registered", expr.GetPosition())
+	}
+	objectTy := semtypes.Diff(expr.GetDeterminedType(), semtypes.ERROR)
+	return emitObjectInit(ctx, curBB, classLookupKey, objectTy, expr.GetDeterminedType(), nil, expr.GetPosition())
+}
+
+func emitObjectInit(ctx *stmtContext, curBB *BIRBasicBlock, classLookupKey string, objectTy semtypes.SemType, resultTy semtypes.SemType, argExprs []ast.BLangExpression, pos diagnostics.Location) expressionEffect {
+	object := ctx.addTempVar(objectTy)
+	newObj := NewObjectConstructor(classLookupKey, object, ctx.loc(pos))
 	curBB.Instructions = append(curBB.Instructions, newObj)
 
 	var args []BIROperand
 	args = append(args, *object)
-	for _, arg := range expr.ArgsExprs {
+	for _, arg := range argExprs {
 		argEffect := handleActionOrExpression(ctx, curBB, arg)
 		curBB = argEffect.block
 		args = append(args, *argEffect.result)
@@ -1799,26 +1864,26 @@ func newExpression(ctx *stmtContext, curBB *BIRBasicBlock, expr *ast.BLangNewExp
 	initMethodLookupKey := classLookupKey + ".init"
 	initResult := ctx.addTempVar(semtypes.Union(semtypes.NIL, semtypes.ERROR))
 	initDoneBB := ctx.addBB()
-	call := NewCall(INSTRUCTION_KIND_CALL, args, model.Name("init"), initDoneBB, initResult, ctx.loc(expr.GetPosition()))
+	call := NewCall(INSTRUCTION_KIND_CALL, args, model.Name("init"), initDoneBB, initResult, ctx.loc(pos))
 	call.IsMethodCall = true
 	call.CachedMethodLookupKey = initMethodLookupKey
 	curBB.Terminator = call
 
-	result := ctx.addTempVar(expr.DeterminedType)
+	result := ctx.addTempVar(resultTy)
 	isInitResultNil := ctx.addTempVar(semtypes.BOOLEAN)
-	nilCheck := NewTypeTest(semtypes.NIL, isInitResultNil, initResult, ctx.loc(expr.GetPosition()))
+	nilCheck := NewTypeTest(semtypes.NIL, isInitResultNil, initResult, ctx.loc(pos))
 	initDoneBB.Instructions = append(initDoneBB.Instructions, nilCheck)
 
 	assignObjectBB := ctx.addBB()
 	assignErrorBB := ctx.addBB()
 	thenBB := ctx.addBB()
-	initDoneBB.Terminator = NewBranch(isInitResultNil, assignObjectBB, assignErrorBB, ctx.loc(expr.GetPosition()))
+	initDoneBB.Terminator = NewBranch(isInitResultNil, assignObjectBB, assignErrorBB, ctx.loc(pos))
 
-	assignObjectBB.Instructions = append(assignObjectBB.Instructions, NewMove(object, result, ctx.loc(expr.GetPosition())))
-	assignObjectBB.Terminator = NewGoto(thenBB, ctx.loc(expr.GetPosition()))
+	assignObjectBB.Instructions = append(assignObjectBB.Instructions, NewMove(object, result, ctx.loc(pos)))
+	assignObjectBB.Terminator = NewGoto(thenBB, ctx.loc(pos))
 
-	assignErrorBB.Instructions = append(assignErrorBB.Instructions, NewMove(initResult, result, ctx.loc(expr.GetPosition())))
-	assignErrorBB.Terminator = NewGoto(thenBB, ctx.loc(expr.GetPosition()))
+	assignErrorBB.Instructions = append(assignErrorBB.Instructions, NewMove(initResult, result, ctx.loc(pos)))
+	assignErrorBB.Terminator = NewGoto(thenBB, ctx.loc(pos))
 
 	return expressionEffect{
 		result: result,

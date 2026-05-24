@@ -1,0 +1,7 @@
+-- stdout --
+-- stderr --
+error[SEMANTIC_ERROR]: listener initializer is not a listener
+  --> listener-bad1-e.bal:22:1
+   |
+22 | listener NotAListener bad = new (); // @error listener initializer is not a listener
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

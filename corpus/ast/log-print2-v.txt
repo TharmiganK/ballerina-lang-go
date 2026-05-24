@@ -1,0 +1,23 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina io (as io))
+  (import-package ballerina log (as log))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (var-def
+        (variable e (type
+          (error-type)) (expr
+          (error-constructor-expr (
+            (literal connection refused))))))
+      (expression-stmt
+        (invocation log printDebug (
+          (literal filtered with error)
+          (named-arg error
+            (simple-var-ref e)))))
+      (expression-stmt
+        (invocation log printDebug (
+          (literal filtered without error))))
+      (expression-stmt
+        (invocation io println (
+          (literal ok)))))))

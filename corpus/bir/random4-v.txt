@@ -1,0 +1,130 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil|error{
+  bb0 {
+    %1 = createDecimal() -> bb1;
+  }
+  bb1 {
+    d1 = %1;
+    %3 = createDecimal() -> bb2;
+  }
+  bb2 {
+    d2 = %3;
+    %7 = d1;
+    %8 = ConstantLoad 0
+    %9 = %8;
+    %6 = >= %7 %9;
+    %5 = %6;
+    %6 ? bb3 : bb4;
+  }
+  bb3 {
+    %11 = d1;
+    %12 = ConstantLoad 1
+    %13 = %12;
+    %10 = < %11 %13;
+    %5 = %10;
+    GOTO bb4;
+  }
+  bb4 {
+    %14 = %5;
+    %15 = println(%14) -> bb5;
+  }
+  bb5 {
+    %18 = d2;
+    %19 = ConstantLoad 0
+    %20 = %19;
+    %17 = >= %18 %20;
+    %16 = %17;
+    %17 ? bb6 : bb7;
+  }
+  bb6 {
+    %22 = d2;
+    %23 = ConstantLoad 1
+    %24 = %23;
+    %21 = < %22 %24;
+    %16 = %21;
+    GOTO bb7;
+  }
+  bb7 {
+    %25 = %16;
+    %26 = println(%25) -> bb8;
+  }
+  bb8 {
+    %27 = ConstantLoad 0
+    %28 = %27;
+    %29 = ConstantLoad 1000000
+    %30 = %29;
+    %31 = createIntInRange(%28,%30) -> bb9;
+  }
+  bb9 {
+    $desugar$0 = %31;
+    %33 = $desugar$0 is error
+    %33 ? bb10 : bb11;
+  }
+  bb10 {
+    %0 = $desugar$0;
+    return;
+  }
+  bb11 {
+    a = $desugar$0;
+    %35 = ConstantLoad 0
+    %36 = %35;
+    %37 = ConstantLoad 1000000
+    %38 = %37;
+    %39 = createIntInRange(%36,%38) -> bb12;
+  }
+  bb12 {
+    $desugar$1 = %39;
+    %41 = $desugar$1 is error
+    %41 ? bb13 : bb14;
+  }
+  bb13 {
+    %0 = $desugar$1;
+    return;
+  }
+  bb14 {
+    b = $desugar$1;
+    %45 = a;
+    %46 = ConstantLoad 0
+    %47 = %46;
+    %44 = >= %45 %47;
+    %43 = %44;
+    %44 ? bb15 : bb16;
+  }
+  bb15 {
+    %49 = a;
+    %50 = ConstantLoad 1000000
+    %51 = %50;
+    %48 = < %49 %51;
+    %43 = %48;
+    GOTO bb16;
+  }
+  bb16 {
+    %52 = %43;
+    %53 = println(%52) -> bb17;
+  }
+  bb17 {
+    %56 = b;
+    %57 = ConstantLoad 0
+    %58 = %57;
+    %55 = >= %56 %58;
+    %54 = %55;
+    %55 ? bb18 : bb19;
+  }
+  bb18 {
+    %60 = b;
+    %61 = ConstantLoad 1000000
+    %62 = %61;
+    %59 = < %60 %62;
+    %54 = %59;
+    GOTO bb19;
+  }
+  bb19 {
+    %63 = %54;
+    %64 = println(%63) -> bb20;
+  }
+  bb20 {
+    return;
+  }
+}

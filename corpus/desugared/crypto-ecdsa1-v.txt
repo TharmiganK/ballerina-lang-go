@@ -20,7 +20,7 @@
           (simple-var-ref keyFile))))
       (var-def
         (variable $desugar$1 (expr
-          (invocation $default$26 (
+          (invocation $default$12 (
             (simple-var-ref $desugar$0))))))
       (var-def
         (variable $desugar$2 (expr

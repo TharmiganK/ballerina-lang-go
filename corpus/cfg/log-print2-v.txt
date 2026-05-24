@@ -1,0 +1,20 @@
+(main
+  (bb0 () ()
+    (var-def
+      (variable e (type
+        (error-type)) (expr
+        (error-constructor-expr (
+          (literal connection refused))))))
+    (expression-stmt
+      (invocation log printDebug (
+        (literal filtered with error)
+        (named-arg error
+          (simple-var-ref e)))))
+    (expression-stmt
+      (invocation log printDebug (
+        (literal filtered without error))))
+    (expression-stmt
+      (invocation io println (
+        (literal ok))))
+  )
+)

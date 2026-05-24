@@ -1,0 +1,25 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad before
+    %2 = println(%1) -> bb1;
+  }
+  bb1 {
+    %3 = ConstantLoad suppressed at INFO level
+    $desugar$0 = %3;
+    %5 = $default$0($desugar$0) -> bb2;
+  }
+  bb2 {
+    $desugar$1 = %5;
+    %7 = printDebug($desugar$0,$desugar$1) -> bb3;
+  }
+  bb3 {
+    %8 = ConstantLoad after
+    %9 = println(%8) -> bb4;
+  }
+  bb4 {
+    return;
+  }
+}

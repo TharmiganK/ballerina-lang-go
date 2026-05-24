@@ -1,0 +1,67 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina io (as io))
+  (import-package ballerina random (as random))
+  (function main () (
+    (union-type
+      (error-type)
+      (value-type null)))
+    (block-function-body
+      (var-def
+        (variable d1 (type
+          (value-type float)) (expr
+          (invocation random createDecimal ()))))
+      (var-def
+        (variable d2 (type
+          (value-type float)) (expr
+          (invocation random createDecimal ()))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr &&
+            (binary-expr >=
+              (simple-var-ref d1)
+              (literal 0.0))
+            (binary-expr <
+              (simple-var-ref d1)
+              (literal 1.0))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr &&
+            (binary-expr >=
+              (simple-var-ref d2)
+              (literal 0.0))
+            (binary-expr <
+              (simple-var-ref d2)
+              (literal 1.0))))))
+      (var-def
+        (variable a (type
+          (value-type int)) (expr
+          (checked-expr
+            (invocation random createIntInRange (
+              (literal 0)
+              (literal 1000000)))))))
+      (var-def
+        (variable b (type
+          (value-type int)) (expr
+          (checked-expr
+            (invocation random createIntInRange (
+              (literal 0)
+              (literal 1000000)))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr &&
+            (binary-expr >=
+              (simple-var-ref a)
+              (literal 0))
+            (binary-expr <
+              (simple-var-ref a)
+              (literal 1000000))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr &&
+            (binary-expr >=
+              (simple-var-ref b)
+              (literal 0))
+            (binary-expr <
+              (simple-var-ref b)
+              (literal 1000000)))))))))

@@ -1,0 +1,28 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad connection refused
+    %2 = newError error(%1)
+    e = %2;
+    %4 = ConstantLoad filtered with error
+    %5 = printDebug(%4,e) -> bb1;
+  }
+  bb1 {
+    %6 = ConstantLoad filtered without error
+    $desugar$0 = %6;
+    %8 = $default$0($desugar$0) -> bb2;
+  }
+  bb2 {
+    $desugar$1 = %8;
+    %10 = printDebug($desugar$0,$desugar$1) -> bb3;
+  }
+  bb3 {
+    %11 = ConstantLoad ok
+    %12 = println(%11) -> bb4;
+  }
+  bb4 {
+    return;
+  }
+}

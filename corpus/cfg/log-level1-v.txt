@@ -1,0 +1,13 @@
+(main
+  (bb0 () ()
+    (expression-stmt
+      (invocation io println (
+        (literal before))))
+    (expression-stmt
+      (invocation log printDebug (
+        (literal suppressed at INFO level))))
+    (expression-stmt
+      (invocation io println (
+        (literal after))))
+  )
+)

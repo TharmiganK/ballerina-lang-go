@@ -1,0 +1,29 @@
+(package
+  (import-package ballerina io (as io))
+  (import-package ballerina log (as log))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (var-def
+        (variable e (type
+          (error-type)) (expr
+          (error-constructor-expr (
+            (literal connection refused))))))
+      (expression-stmt
+        (invocation log printDebug (
+          (literal filtered with error)
+          (simple-var-ref e))))
+      (var-def
+        (variable $desugar$0 (expr
+          (literal filtered without error))))
+      (var-def
+        (variable $desugar$1 (expr
+          (invocation $default$0 (
+            (simple-var-ref $desugar$0))))))
+      (expression-stmt
+        (invocation log printDebug (
+          (simple-var-ref $desugar$0)
+          (simple-var-ref $desugar$1))))
+      (expression-stmt
+        (invocation io println (
+          (literal ok)))))))

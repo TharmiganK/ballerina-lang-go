@@ -1,0 +1,57 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina io (as io))
+  (import-package ballerina random (as random))
+  (function main () (
+    (union-type
+      (error-type)
+      (value-type null)))
+    (block-function-body
+      (var-def
+        (variable n (type
+          (value-type int)) (expr
+          (checked-expr
+            (invocation random createIntInRange (
+              (literal 1)
+              (literal 100)))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr &&
+            (binary-expr >=
+              (simple-var-ref n)
+              (literal 1))
+            (binary-expr <
+              (simple-var-ref n)
+              (literal 100))))))
+      (var-def
+        (variable zero (type
+          (value-type int)) (expr
+          (checked-expr
+            (invocation random createIntInRange (
+              (literal 0)
+              (literal 1)))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr ==
+            (simple-var-ref zero)
+            (literal 0)))))
+      (var-def
+        (variable neg (type
+          (value-type int)) (expr
+          (checked-expr
+            (invocation random createIntInRange (
+              (unary-expr -
+                (literal 10))
+              (unary-expr -
+                (literal 1))))))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr &&
+            (binary-expr >=
+              (simple-var-ref neg)
+              (unary-expr -
+                (literal 10)))
+            (binary-expr <
+              (simple-var-ref neg)
+              (unary-expr -
+                (literal 1))))))))))

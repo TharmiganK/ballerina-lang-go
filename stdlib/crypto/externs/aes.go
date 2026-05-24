@@ -120,7 +120,7 @@ func registerAesFunctions(rt *runtime.Runtime) {
 			if err != nil {
 				return cryptoError(fmt.Sprintf("Error occurred while AES-GCM encrypt: %s", err.Error())), nil
 			}
-			gcm, err := cipher.NewGCMWithTagSize(block, int(tagSize/8))
+			gcm, err := newGCM(block, len(iv), int(tagSize/8))
 			if err != nil {
 				return cryptoError(fmt.Sprintf("Error occurred while AES-GCM encrypt: %s", err.Error())), nil
 			}
@@ -141,7 +141,7 @@ func registerAesFunctions(rt *runtime.Runtime) {
 			if err != nil {
 				return cryptoError(fmt.Sprintf("Error occurred while AES-GCM decrypt: %s", err.Error())), nil
 			}
-			gcm, err := cipher.NewGCMWithTagSize(block, int(tagSize/8))
+			gcm, err := newGCM(block, len(iv), int(tagSize/8))
 			if err != nil {
 				return cryptoError(fmt.Sprintf("Error occurred while AES-GCM decrypt: %s", err.Error())), nil
 			}
@@ -151,6 +151,21 @@ func registerAesFunctions(rt *runtime.Runtime) {
 			}
 			return bytesToList(ctx, out), nil
 		})
+}
+
+// newGCM creates a GCM AEAD that accepts the given nonce and tag sizes.
+// Go's standard library exposes NewGCMWithNonceSize (fixed 16-byte tag) and
+// NewGCMWithTagSize (fixed 12-byte nonce) but not both together.
+func newGCM(block cipher.Block, nonceSize, tagSize int) (cipher.AEAD, error) {
+	const standardNonce = 12
+	const standardTag = 16
+	if tagSize == standardTag {
+		return cipher.NewGCMWithNonceSize(block, nonceSize)
+	}
+	if nonceSize == standardNonce {
+		return cipher.NewGCMWithTagSize(block, tagSize)
+	}
+	return nil, fmt.Errorf("non-standard nonce (%d bytes) and tag (%d bytes) combination not supported", nonceSize, tagSize)
 }
 
 func pkcs7Pad(data []byte, blockSize int) []byte {

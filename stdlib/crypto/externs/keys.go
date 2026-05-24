@@ -157,11 +157,8 @@ func registerKeyFunctions(rt *runtime.Runtime) {
 			if err != nil {
 				return cryptoError(fmt.Sprintf("PKCS12 KeyStore not found at: %s", path)), nil
 			}
-			_, cert, err := pkcs12.Decode(data, tsPwd)
+			cert, err := decodeCertFromTrustStore(data, tsPwd, alias)
 			if err != nil {
-				return cryptoError(fmt.Sprintf("Key cannot be recovered by using given key alias: %s", alias)), nil
-			}
-			if cert == nil {
 				return cryptoError(fmt.Sprintf("Key cannot be recovered by using given key alias: %s", alias)), nil
 			}
 			rsaPub, ok := cert.PublicKey.(*rsa.PublicKey)
@@ -181,11 +178,8 @@ func registerKeyFunctions(rt *runtime.Runtime) {
 			if err != nil {
 				return cryptoError(fmt.Sprintf("PKCS12 KeyStore not found at: %s", path)), nil
 			}
-			_, cert, err := pkcs12.Decode(data, tsPwd)
+			cert, err := decodeCertFromTrustStore(data, tsPwd, alias)
 			if err != nil {
-				return cryptoError(fmt.Sprintf("Key cannot be recovered by using given key alias: %s", alias)), nil
-			}
-			if cert == nil {
 				return cryptoError(fmt.Sprintf("Key cannot be recovered by using given key alias: %s", alias)), nil
 			}
 			ecPub, ok := cert.PublicKey.(*ecdsa.PublicKey)
@@ -259,11 +253,16 @@ func registerKeyFunctions(rt *runtime.Runtime) {
 		})
 }
 
-// parsePrivateKeyPEM parses a PEM-encoded private key (PKCS8, PKCS1, EC).
+// parsePrivateKeyPEM parses a PEM-encoded private key (PKCS8, PKCS8-encrypted, PKCS1, EC).
 func parsePrivateKeyPEM(data []byte, password string) (any, error) {
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return nil, fmt.Errorf("no PEM block found")
+	}
+	// PKCS#8 EncryptedPrivateKeyInfo ("BEGIN ENCRYPTED PRIVATE KEY") uses its own
+	// ASN.1 wrapper and is not detected by the deprecated x509.IsEncryptedPEMBlock.
+	if block.Type == "ENCRYPTED PRIVATE KEY" {
+		return decryptEncryptedPKCS8(block.Bytes, password)
 	}
 	der := block.Bytes
 	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck

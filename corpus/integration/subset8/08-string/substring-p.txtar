@@ -1,0 +1,4 @@
+-- stdout --
+-- stderr --
+error: string index out of range: startIndex=3 endIndex=10 length=5
+        at main(substring-p.bal:21)

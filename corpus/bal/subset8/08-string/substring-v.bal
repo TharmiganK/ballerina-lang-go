@@ -15,18 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-public type Char string;
+import ballerina/io;
 
-public isolated function length(string str) returns int = external;
-
-public isolated function toBytes(string str) returns byte[] = external;
-
-public isolated function fromBytes(byte[] bytes) returns string|error = external;
-
-public isolated function substring(string str, int startIndex, int endIndex = length(str)) returns string = external;
-
-public isolated function equalsIgnoreCaseAscii(string str1, string str2) returns boolean = external;
-
-public isolated function toLowerAscii(string str) returns string = external;
-
-public isolated function toUpperAscii(string str) returns string = external;
+public function main() {
+    io:println("Hello, my name is John".substring(7));          // @output my name is John
+    io:println("Hello, my name is John Anderson".substring(18, 22)); // @output John
+    io:println("Hello".substring(0, 5));                        // @output Hello
+    io:println("Hello".substring(0, 0));                        // @output
+    io:println("Hello".substring(5));                           // @output
+}

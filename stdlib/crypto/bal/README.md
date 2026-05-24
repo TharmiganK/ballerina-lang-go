@@ -102,7 +102,7 @@ Support Levels:
 
 | Feature | jBallerina behaviour | Go-native behaviour |
 |---|---|---|
-| `Certificate.notBefore` / `notAfter` | `time:Utc` (ballerina/time type) | `int` (Unix epoch seconds) — cross-stdlib imports are not supported during embedded-library compilation; the `time` module cannot be imported from `crypto`. |
+| `Certificate.notBefore` / `notAfter` | `time:Utc` (ballerina/time type) | `time:Utc` — matches jBallerina exactly. |
 | Hash salt order | `digest.update(salt)` then `digest.digest(input)` in Java | Salt bytes are **prepended** (written before the input data) matching Java's behaviour. |
 | AES padding | `padding` parameter selects PKCS5 or NONE | PKCS7 padding is always applied for CBC and ECB modes regardless of the `padding` parameter value. |
 | ECDSA signature format | DER-encoded ASN.1 (via `Signature.getInstance("SHA256withECDSA")`) | DER-encoded via `ecdsa.SignASN1` — identical wire format. |

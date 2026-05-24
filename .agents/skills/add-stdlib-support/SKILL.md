@@ -34,6 +34,17 @@ Scan the jBallerina source for `import ballerina/<X>` statements.
 
 Do not silently drop features because of a missing import or an inherited dependency gap — always flag and confirm.
 
+### Dependency level placement
+
+The `gen-embedded-libs` tool compiles stdlib packages in explicit dependency levels defined in `tools/gen-embedded-libs/main.go` (`stdlibLevels`). Packages within a level are compiled in parallel; a level only starts once the previous level is complete.
+
+**Rule:** A package must be in a level strictly higher than every stdlib package it imports.
+
+- **New package:** find the highest level of every stdlib dependency (`ballerina/<X>` it imports); assign the new package to `max_dependency_level + 1`. If it has no stdlib imports, place it in L1.
+- **Filling a gap in an existing package:** if the change adds a new `import ballerina/<X>`, check the current level of `<X>`. If the current package's level is not already higher, move the package up to `level_of_X + 1` in `stdlibLevels`.
+
+In both cases update `stdlibLevels` in `tools/gen-embedded-libs/main.go` as part of the same change, then re-run `go run -tags bootstrap ./tools/gen-embedded-libs` to verify the new level order compiles cleanly.
+
 ## 3. Cross-check language support
 
 Read `docs/lang-features.md`. If a planned feature relies on Ballerina language constructs that are still listed as **Not Yet Supported** in this interpreter, drop or defer that feature. Note these in the plan so the user sees what was scoped out and why.

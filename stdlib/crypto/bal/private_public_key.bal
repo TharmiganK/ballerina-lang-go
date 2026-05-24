@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerina/time;
+
 // Key algorithm RSA.
 public const RSA = "RSA";
 
@@ -77,8 +79,8 @@ public type Certificate record {|
     int serial;
     string issuer;
     string subject;
-    int notBefore;
-    int notAfter;
+    time:Utc notBefore;
+    time:Utc notAfter;
     byte[] signature;
     string signingAlgorithm;
 |};

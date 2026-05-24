@@ -23,7 +23,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"time"
 
+	"ballerina-lang-go/decimal"
 	"ballerina-lang-go/runtime"
 	"ballerina-lang-go/runtime/extern"
 	"ballerina-lang-go/semtypes"
@@ -334,9 +336,21 @@ func buildCertMap(ctx *extern.Context, cert *x509.Certificate) *values.Map {
 		{Key: "serial", Value: cert.SerialNumber.Int64()},
 		{Key: "issuer", Value: cert.Issuer.String()},
 		{Key: "subject", Value: cert.Subject.String()},
-		{Key: "notBefore", Value: cert.NotBefore.Unix()},
-		{Key: "notAfter", Value: cert.NotAfter.Unix()},
+		{Key: "notBefore", Value: goTimeToUtc(ctx, cert.NotBefore)},
+		{Key: "notAfter", Value: goTimeToUtc(ctx, cert.NotAfter)},
 		{Key: "signature", Value: sigBytes},
 		{Key: "signingAlgorithm", Value: cert.SignatureAlgorithm.String()},
 	})
+}
+
+// goTimeToUtc converts a Go time.Time to a Ballerina time:Utc tuple [int, decimal].
+func goTimeToUtc(ctx *extern.Context, t time.Time) *values.List {
+	t = t.UTC()
+	nanos := decimal.FromInt64(int64(t.Nanosecond()))
+	nanosPerSec := decimal.FromInt64(1_000_000_000)
+	frac, _ := nanos.Quo(nanosPerSec)
+	bld := semtypes.NewListDefinition()
+	utcTy := bld.TupleTypeWrappedRo(ctx.Env.TypeEnv, semtypes.INT, semtypes.DECIMAL)
+	atomic := semtypes.ToListAtomicType(ctx.TypeCtx, utcTy)
+	return values.NewList(utcTy, atomic, true, nil, 2, []values.BalValue{t.Unix(), frac})
 }

@@ -3,6 +3,7 @@
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
 // in compliance with the License.
+//
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
@@ -26,12 +27,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	bircodec "ballerina-lang-go/bir/codec"
 	"ballerina-lang-go/lib/registry"
@@ -40,7 +43,18 @@ import (
 	"ballerina-lang-go/semantics"
 )
 
-var embeddingTrees = []string{"langlib", "stdlib"}
+// stdlibLevels defines compilation levels for stdlib packages.
+// Packages within a level are compiled in parallel; each level waits for the
+// previous to complete before starting.
+// Packages not listed in any level are compiled last in an implicit final level.
+var stdlibLevels = [][]string{
+	// L1: no cross-stdlib imports.
+	// "http" is here temporarily; move to L2 once it acquires cross-stdlib deps.
+	{"http", "io", "math.vector", "time", "url"},
+	// L2: may import L1 packages.
+	{"crypto", "log", "os", "random"},
+	// L3, L4, ...: add slices here as new dependency tiers emerge.
+}
 
 func main() {
 	if err := generateEmbeddedLibs(); err != nil {
@@ -57,18 +71,74 @@ func generateEmbeddedLibs() error {
 		return err
 	}
 
-	for _, tree := range embeddingTrees {
-		rels, err := listBalPackageRels(repoRoot, tree)
-		if err != nil {
+	// langlib: sequential (preserve existing behaviour).
+	langlibRels, err := listBalPackageRels(repoRoot, "langlib")
+	if err != nil {
+		return err
+	}
+	for _, rel := range langlibRels {
+		if err := compileAndWrite(repoRoot, rel, outDir); err != nil {
 			return err
 		}
-		for _, rel := range rels {
-			if err := compileAndWrite(repoRoot, rel, outDir); err != nil {
-				return err
-			}
+	}
+
+	// stdlib: assign each discovered package to its explicit level,
+	// with unrecognised packages falling into an implicit final level.
+	stdlibRels, err := listBalPackageRels(repoRoot, "stdlib")
+	if err != nil {
+		return err
+	}
+
+	// Build a name→level-index lookup from stdlibLevels.
+	levelOf := make(map[string]int)
+	for i, level := range stdlibLevels {
+		for _, name := range level {
+			levelOf[name] = i
+		}
+	}
+
+	// Distribute rel paths into per-level buckets.
+	// Packages not in stdlibLevels go to the implicit final bucket.
+	finalLevel := len(stdlibLevels)
+	buckets := make([][]string, finalLevel+1)
+	for _, rel := range stdlibRels {
+		// rel is e.g. "stdlib/io/bal" — middle segment is the module name.
+		name := filepath.Base(filepath.Dir(filepath.FromSlash(rel)))
+		idx, ok := levelOf[name]
+		if !ok {
+			idx = finalLevel
+		}
+		buckets[idx] = append(buckets[idx], rel)
+	}
+
+	for _, bucket := range buckets {
+		if err := compileLevel(repoRoot, outDir, bucket); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// compileLevel compiles all packages in rels in parallel and returns the combined errors.
+func compileLevel(repoRoot, outDir string, rels []string) error {
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
+	)
+	for _, rel := range rels {
+		wg.Add(1)
+		go func(r string) {
+			defer wg.Done()
+			if err := compileAndWrite(repoRoot, r, outDir); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(rel)
+	}
+	wg.Wait()
+	return errors.Join(errs...)
 }
 
 func listBalPackageRels(repoRoot, tree string) ([]string, error) {

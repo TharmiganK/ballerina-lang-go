@@ -49,12 +49,14 @@ import (
 // Packages not listed in any level are compiled last in an implicit final level.
 var stdlibLevels = [][]string{
 	// L1: no cross-stdlib imports.
-	// "http", "log" and "random" current implementations are self-contained, 
+	// "http", "log" and "random" current implementations are self-contained,
 	// but they may import other packages in the future where they will be moved to a higher level.
 	{"io", "math.vector", "time", "url", "log", "random", "http"},
 	// L2: may import L1 packages.
 	{"crypto", "os"},
-	// L3, L4, ...: add slices here as new dependency tiers emerge.
+	// L3: may import L2 packages.
+	{"file"},
+	// L4, L5, ...: add slices here as new dependency tiers emerge.
 }
 
 func main() {

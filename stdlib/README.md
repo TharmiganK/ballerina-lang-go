@@ -6,6 +6,7 @@ Packages are organised into **dependency levels** that control compilation order
 
 - **L1** — no cross-stdlib imports
 - **L2** — may import L1 packages
+- **L3** — may import L2 packages
 
 ## Packages
 
@@ -22,4 +23,5 @@ Support % is computed as `Supported / Total`, where *Total* is the number of row
 | [url](url/bal/README.md) | L1 | 2 | 1 | 1 | 50% |
 | [crypto](crypto/bal/README.md) | L2 | 26 | 1 | 5 | 81% |
 | [os](os/bal/README.md) | L2 | 10 | 1 | 1 | 83% |
-| **Total** | | **107** | **7** | **94** | **51%** |
+| [file](file/bal/README.md) | L3 | 20 | 0 | 1 | 95% |
+| **Total** | | **127** | **7** | **95** | **56%** |

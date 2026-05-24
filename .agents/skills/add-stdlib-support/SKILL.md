@@ -47,7 +47,30 @@ In both cases update `stdlibLevels` in `tools/gen-embedded-libs/main.go` as part
 
 ## 3. Cross-check language support
 
-Read `docs/lang-features.md`. If a planned feature relies on Ballerina language constructs that are still listed as **Not Yet Supported** in this interpreter, drop or defer that feature. Note these in the plan so the user sees what was scoped out and why.
+Read `docs/lang-features.md` in full — including the **"Known Workarounds"** section at the bottom. That section lists constructs that compile in jBallerina but fail in this interpreter (panic or silent misbehaviour at compile time or runtime), together with the recommended rewrite for each.
+
+- If a planned feature uses a construct marked **Not Yet Supported** in the main table, drop or defer the feature and note it in the plan.
+- If a planned feature uses a construct listed in the **Known Workarounds** table, apply the documented workaround during implementation (Step 7) rather than scoping out the feature. Note the workaround in the plan so reviewers are aware.
+
+### Handling unexpected compile failures during implementation
+
+When `go run -tags bootstrap ./tools/gen-embedded-libs` panics or emits compile errors that are **not explained** by `docs/lang-features.md`, do the following:
+
+1. Identify the panic message and the Ballerina construct that triggered it.
+2. Add a new row to the **Known Workarounds** table in `docs/lang-features.md` describing the construct, the failure mode, and (once resolved) the workaround.
+3. Stop and present the developer with the options below — **do not silently pick one**:
+
+> **Unexpected language limitation found:** `<construct>` is not supported (`panic: <message>`).
+>
+> Options:
+> 1. **Fix the interpreter** — implement this construct in the compiler/BIR pipeline. Requires a separate change; I can outline what needs to change.
+> 2. **Work around in Ballerina** — rewrite the Ballerina source to avoid the construct (I will apply the workaround and update `docs/lang-features.md`).
+> 3. **Move to Go extern** — replace the Ballerina function body with `= external` and implement the logic in the Go externs.
+> 4. **Scope out this feature** — mark it as "Not Yet Supported" in the README and move on.
+>
+> Which option do you prefer?
+
+After the developer responds, apply the chosen resolution and update the workaround row in `docs/lang-features.md` before continuing.
 
 ## 4. Propose a plan and a showcase `.bal` file
 
@@ -112,6 +135,22 @@ Code lives in two places:
 - `stdlib/<name>/externs/` — the Go implementation of the externs.
 
 **PAL constraint:** every platform interaction (io, http, fs, env, time, etc.) must go through the Platform Adaptation Layer, never the underlying Go stdlib directly. This is what makes CLI and WASM builds both work. If the relevant PAL method doesn't exist, raise it explicitly before implementing.
+
+### Wire-up checklist — required for every new stdlib package
+
+Beyond the two source directories, these four files must also be updated. Missing any one of them causes silent failures (functions not found at runtime, or nil-pointer panics in corpus tests) that are hard to diagnose:
+
+1. **`lib/rt/libs.go`** — add a blank import so the `init()` in the externs package runs when the binary starts:
+   ```go
+   _ "ballerina-lang-go/stdlib/<name>/externs"
+   ```
+   Without this, all `= external` functions produce "function not found" at runtime even though the binary compiles cleanly.
+
+2. **`platform/pal/platform.go`** — if the module needs platform operations not already present in the `FS`, `OS`, `IO`, `HTTP`, or `Time` structs, add new function fields here. Only export fields that other packages need; keep internal helpers unexported.
+
+3. **`platform/palnative/`** — implement every new PAL field from step 2 for the native (CLI/OS) build. Place FS methods in `fs.go`, OS methods in `os.go`, etc. If the test PAL will need to share the implementation, export a `NewNative<Category>PAL()` function (e.g. `NewNativeFSPAL()`) so `test_util` can call it.
+
+4. **`test_util/test_util.go` → `TestPal`** — if any PAL fields were added in step 2, wire them into `TestPal`. The safest pattern: start from `palnative.NewNative<Category>PAL()` and override only the test-specific fields (e.g. custom `ReadFile`/`WriteFile`). Failing to update `TestPal` causes nil-pointer dereferences in corpus tests even when the CLI run succeeds, because the test runtime uses a different platform instance.
 
 Coding rules to honor (full list in `AGENTS.md`):
 

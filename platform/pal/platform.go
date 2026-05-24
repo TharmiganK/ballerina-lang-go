@@ -38,9 +38,23 @@ type (
 		Stderr func(p []byte) (n int, err error)
 	}
 	FS struct {
-		ReadFile   func(path string) ([]byte, error)
-		WriteFile  func(path string, data []byte) error
-		AppendFile func(path string, data []byte) error
+		ReadFile      func(path string) ([]byte, error)
+		WriteFile     func(path string, data []byte) error
+		AppendFile    func(path string, data []byte) error
+		Getwd         func() (string, error)
+		Mkdir         func(path string) error
+		MkdirAll      func(path string) error
+		Remove        func(path string) error
+		RemoveAll     func(path string) error
+		Rename        func(oldPath, newPath string) error
+		CreateFile    func(path string) error
+		Stat          func(path string) (*FileInfo, error)
+		Lstat         func(path string) (*FileInfo, error)
+		ReadDir       func(path string) ([]FileInfo, error)
+		Copy          func(src, dst string, opts CopyOptions) error
+		CreateTemp    func(prefix, suffix, dir string) (string, error)
+		CreateTempDir func(prefix, suffix, dir string) (string, error)
+		Readlink      func(path string) (string, error)
 	}
 	Time struct {
 		Now          func() time.Time
@@ -102,3 +116,22 @@ type (
 		Execute(method, url string, body []byte, contentType string, reqHeaders map[string][]string) (statusCode int, respHeaders map[string][]string, respBody []byte, err error)
 	}
 )
+
+// File
+// FileInfo carries metadata for a single filesystem entry.
+type FileInfo struct {
+	AbsPath    string
+	Size       int64
+	ModifiedAt time.Time
+	IsDir      bool
+	IsSymlink  bool
+	IsReadable bool
+	IsWritable bool
+}
+
+// CopyOptions controls the behavior of FS.Copy.
+type CopyOptions struct {
+	ReplaceExisting bool
+	CopyAttributes  bool
+	NoFollowLinks   bool
+}

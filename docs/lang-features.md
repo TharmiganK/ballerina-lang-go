@@ -244,3 +244,17 @@ The following limitations were found while implementing Go-native standard libra
 | `readonly &` intersection on record constructors | Not Yet Supported | `error: no applicable inherent type for mapping constructor` — triggered by `public final ZoneOffset Z = {hours: 0}` when `ZoneOffset` was declared as `readonly & record {| ... |}`. Fixed by removing the `readonly &` qualifier from the type definition. |
 | `lang.decimal` built-in methods (`floor`, `ceiling`, `round`, `abs`) | Not Yet Supported | No `lang.decimal` langlib is implemented. Expressions like `seconds.floor()` in Ballerina source silently fail to resolve, requiring arithmetic to be moved into Go externs. |
 | Arbitrary named arguments via included rest-record parameters (`*T` where `T` has `anydata...` rest fields) | Not Yet Supported | `error[SEMANTIC_ERROR]: no such parameter <name>` — triggered by `log:printInfo("msg", port = 8080)` when `printInfo` declares `*KeyValues keyValues` and `KeyValues` has `anydata...` rest fields. Named args for explicit optional fields (e.g., `'error = e`) work correctly. |
+
+## Known Workarounds
+
+The following constructs compile or parse without error in jBallerina but fail in this interpreter. When porting stdlib source, check this table first and apply the workaround rather than scoping out the feature. If you encounter a new construct that is not listed here, add a row and present the options to the developer (see the `add-stdlib-support` skill).
+
+| Construct | Failure mode | Recommended workaround |
+|---|---|---|
+| Tuple destructuring assignment `[a, b] = check f()` | `panic: unimplemented` (LIST_BINDING_PATTERN in `TransformAssignmentStatement`) | Define a private record type with named fields and return it instead of a tuple; access fields with `.fieldName` |
+| Shorthand map constructor `{name}` (variable name as implicit key) | `panic: mapping constructor var-name field not implemented` | Use the explicit form `{name: name}` |
+| Ternary / conditional expression `a ? b : c` | `panic: TransformConditionalExpression unimplemented` | Extract a small private `if/else` helper function and call it in the initialiser |
+| Rest-arg spread in calls `f(...arr)` | `panic: TransformRestArgument unimplemented` | Change the receiving function's signature from `T...` to `T[]`; pass the array directly without `...` |
+| Non-XML string template literal `string \`text ${expr}\`` | Returns `nil` from `TransformTemplateExpression` → nil-interface conversion panic at the call site | Replace with string concatenation (`"text " + expr.toString()`) or move the formatting into a Go extern |
+| `check` expression inside a `while` condition `while cond && check f(x)` | The `check` sub-expression captures the value of `x` at loop entry and does not re-evaluate on each iteration — loop terminates at the wrong point or runs forever | Rewrite as `while cond { if check_result { break; } body; }` so the call happens unconditionally inside the body |
+| Wildcard match clause `_ => {}` on an exhaustive union type | `error: unmatchable match clause` / `unreachable match clause` | Remove the wildcard; Ballerina's type system enforces exhaustiveness on closed unions, so the wildcard is unreachable |

@@ -192,14 +192,15 @@ func TestPal(stdout io.Writer, stderr io.Writer) pal.Platform {
 			Stdout: stdout.Write,
 			Stderr: stderr.Write,
 		},
-		FS: pal.FS{
-			ReadFile: func(path string) ([]byte, error) {
+		FS: func() pal.FS {
+			fs := palnative.NewNativeFSPAL()
+			fs.ReadFile = func(path string) ([]byte, error) {
 				return os.ReadFile(path)
-			},
-			WriteFile: func(path string, data []byte) error {
+			}
+			fs.WriteFile = func(path string, data []byte) error {
 				return os.WriteFile(path, data, 0o644)
-			},
-			AppendFile: func(path string, data []byte) error {
+			}
+			fs.AppendFile = func(path string, data []byte) error {
 				f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 				if err != nil {
 					return err
@@ -207,8 +208,9 @@ func TestPal(stdout io.Writer, stderr io.Writer) pal.Platform {
 				defer f.Close()
 				_, err = f.Write(data)
 				return err
-			},
-		},
+			}
+			return fs
+		}(),
 		HTTP: pal.HTTP{
 			NewClient: func(_ pal.ClientConfig) pal.HTTPClient {
 				return &stubHTTPClient{}

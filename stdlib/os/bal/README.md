@@ -53,21 +53,19 @@ Support Levels:
 
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
-| `getEnv(name)` | Supported | Returns empty string when variable is unset. |
-| `setEnv(key, value)` | Supported | Validates that `key` is not empty or `"=="`. |
-| `unsetEnv(key)` | Supported | Validates that `key` is not empty. |
-| `listEnv()` | Supported | Returns a `map<string>` snapshot of all environment variables at call time. |
-| `getUsername()` | Supported | Returns empty string if the OS query fails. |
-| `getUserHome()` | Supported | Returns empty string if the OS query fails. |
-| `exec(command, *envProperties)` | Supported | Merges parent environment with any overrides passed via `envProperties`. |
-| `Process.waitForExit()` | Supported | Returns the exit code; non-zero for failure. |
-| `Process.output(fileOutputStream)` | Supported | Reads stdout (default) or stderr after the process exits. |
-| `Process.exit()` | Supported | Sends SIGKILL to the subprocess immediately. |
-| `os:Error` type | Partially Supported | Declared as a plain `error` alias; `distinct` error subtypes not yet supported. |
-| `EnvProperties` `never command?` exclusion guard | Not Yet Supported | The `never`-typed field that prevents accidental shadowing of the `command` parameter is omitted; `distinct` field handling is not yet implemented. |
+| Read an environment variable | Supported | `getEnv(name)`. Returns empty string when variable is unset. |
+| Set an environment variable | Supported | `setEnv(key, value)`. Validates that `key` is not empty or `"=="`. |
+| Unset an environment variable | Supported | `unsetEnv(key)`. Validates that `key` is not empty. |
+| List all environment variables | Supported | `listEnv()`. Returns a `map<string>` snapshot of all environment variables at call time. |
+| Query the current user's name | Supported | `getUsername()`. Returns empty string if the OS query fails. |
+| Query the current user's home directory | Supported | `getUserHome()`. Returns empty string if the OS query fails. |
+| Execute a subprocess | Supported | `exec(command, *envProperties)`. Merges parent environment with any overrides passed via `envProperties`. |
+| Wait for subprocess exit | Supported | `Process.waitForExit()`. Returns the exit code; non-zero for failure. |
+| Read subprocess output | Supported | `Process.output(fileOutputStream)`. Reads stdout (default) or stderr after the process exits. |
+| Terminate a subprocess | Supported | `Process.exit()`. Sends SIGKILL to the subprocess immediately. |
+| Module-level error type | Partially Supported | `os:Error` declared as a plain `error` alias; `distinct` error subtypes not yet supported. |
+| Exclusion guard on environment property keys | Not Yet Supported | The `never`-typed field that prevents accidental shadowing of the `command` parameter is omitted; `distinct` field handling is not yet implemented. |
 
 ### Notable Behavioural Changes
 
-- **`os:Error` subtypes.** jBallerina raises distinct subtypes depending on the failure; the Go-native version surfaces all errors as a plain `error` — `distinct` type descriptor is not yet supported.
-- **`EnvProperties.command` exclusion.** jBallerina's `never command?` field prevents callers from passing an env var named `command`; the Go-native version omits this field, so callers can accidentally pass `command` as an env override.
 - **Isolated thread-local env.** jBallerina uses per-strand env maps for isolation; the Go implementation uses the process-wide env (`os.Setenv` / `os.Getenv`), which is safe for single-threaded Ballerina programs.

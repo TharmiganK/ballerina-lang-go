@@ -67,31 +67,28 @@ Support Levels:
 | Print to a specified output stream | Supported | |
 | Print to a specified output stream with a newline | Supported | |
 | String template support in print functions | Not Yet Supported | `PrintableRawTemplate` type is not yet defined; string templates cannot be passed directly to print functions. |
-| File read — string (`fileReadString`) | Supported | Line endings normalised to `\n`; trailing newline stripped. See Notable Behavioural Changes. |
-| File read — lines (`fileReadLines`) | Supported | Terminal carriage characters stripped; trailing empty line excluded. |
-| File read — bytes (`fileReadBytes`) | Supported | Returns `byte[]`; jBallerina returns `readonly & byte[]`. See Notable Behavioural Changes. |
-| File read — JSON (`fileReadJson`) | Supported | JSON object keys are sorted alphabetically on write. See Notable Behavioural Changes. |
-| File read — stream of lines (`fileReadLinesAsStream`) | Not Yet Supported | `stream` type not yet supported. |
-| File read — stream of blocks (`fileReadBlocksAsStream`) | Not Yet Supported | `stream` type not yet supported. |
-| File write — string (`fileWriteString`) | Supported | `OVERWRITE` and `APPEND` modes supported. |
-| File write — lines (`fileWriteLines`) | Supported | `OVERWRITE` and `APPEND` modes supported; `\n` appended after each line. |
-| File write — bytes (`fileWriteBytes`) | Supported | `OVERWRITE` and `APPEND` modes supported. |
-| File write — JSON (`fileWriteJson`) | Supported | Always overwrites; JSON object keys sorted alphabetically. See Notable Behavioural Changes. |
-| File write — stream of lines (`fileWriteLinesFromStream`) | Not Yet Supported | `stream` type not yet supported. |
-| File write — stream of blocks (`fileWriteBlocksFromStream`) | Not Yet Supported | `stream` type not yet supported. |
-| File I/O — XML (`fileReadXml`, `fileWriteXml`) | Not Yet Supported | XML basic type not yet supported. |
-| File I/O — CSV (`fileReadCsv`, `fileWriteCsv`, stream variants) | Not Yet Supported | `stream` type not yet supported; `typedesc` parameter handling complex. |
-| `FileWriteOption` enum (`OVERWRITE`, `APPEND`) | Supported | |
-| `io:Error` type | Partially Supported | Declared as a plain `error` alias; `distinct` error subtypes (`FileNotFoundError`, `GenericError`, `AccessDeniedError`, `EofError`, `ConfigurationError`, `TypeMismatchError`) not yet supported. |
-| Byte channels (`ReadableByteChannel`, `WritableByteChannel`) | Not Yet Supported | Object-based channel system not implemented. |
-| Character channels (`ReadableCharacterChannel`, `WritableCharacterChannel`) | Not Yet Supported | Not implemented. |
+| File read — string | Supported | `fileReadString`. Line endings normalised to `\n`; trailing newline stripped. |
+| File read — lines | Supported | `fileReadLines`. Terminal carriage characters stripped; trailing empty line excluded. |
+| File read — bytes | Supported | `fileReadBytes`. Returns `byte[]`; jBallerina returns `readonly & byte[]` (`readonly &` intersection not yet supported). |
+| File read — JSON | Supported | `fileReadJson`. |
+| File read — stream of lines | Not Yet Supported | `fileReadLinesAsStream`. `stream` type not yet supported. |
+| File read — stream of blocks | Not Yet Supported | `fileReadBlocksAsStream`. `stream` type not yet supported. |
+| File write — string | Supported | `fileWriteString`. `OVERWRITE` and `APPEND` modes supported. |
+| File write — lines | Supported | `fileWriteLines`. `OVERWRITE` and `APPEND` modes supported; `\n` appended after each line. |
+| File write — bytes | Supported | `fileWriteBytes`. `OVERWRITE` and `APPEND` modes supported. |
+| File write — JSON | Supported | `fileWriteJson`. Always overwrites; JSON object keys sorted alphabetically. See Notable Behavioural Changes. |
+| File write — stream of lines | Not Yet Supported | `fileWriteLinesFromStream`. `stream` type not yet supported. |
+| File write — stream of blocks | Not Yet Supported | `fileWriteBlocksFromStream`. `stream` type not yet supported. |
+| File I/O — XML | Not Yet Supported | `fileReadXml`, `fileWriteXml`. XML basic type not yet supported. |
+| File I/O — CSV | Not Yet Supported | `fileReadCsv`, `fileWriteCsv`, stream variants. `stream` type not yet supported; `typedesc` parameter handling complex. |
+| File write option enum | Supported | `FileWriteOption`: `OVERWRITE` and `APPEND` constants. |
+| Module-level error type | Partially Supported | `io:Error` declared as a plain `error` alias; `distinct` error subtypes (`FileNotFoundError`, `GenericError`, `AccessDeniedError`, `EofError`, `ConfigurationError`, `TypeMismatchError`) not yet supported. |
+| Byte channels | Not Yet Supported | `ReadableByteChannel`, `WritableByteChannel`. Object-based channel system not implemented. |
+| Character channels | Not Yet Supported | `ReadableCharacterChannel`, `WritableCharacterChannel`. Not implemented. |
 | Data channels | Not Yet Supported | Not implemented. |
 | CSV channels | Not Yet Supported | Not implemented. |
-| `openReadableFile`, `openWritableFile` | Not Yet Supported | Channel APIs not implemented. |
+| Channel file open functions | Not Yet Supported | `openReadableFile`, `openWritableFile`. Channel APIs not implemented. |
 
 ### Notable Behavioural Changes
 
-- **`fileReadBytes` return type.** jBallerina returns `readonly & byte[]`; the Go-native version returns `byte[]` — `readonly &` intersection type is not yet supported by the interpreter.
-- **`io:Error` subtypes.** jBallerina raises distinct subtypes (`FileNotFoundError`, `GenericError`, etc.) depending on the failure; the Go-native version surfaces all file I/O errors as a plain `error` — `distinct` type descriptor is not yet supported.
 - **`fileWriteJson` key ordering.** jBallerina writes JSON object keys in insertion order; the Go-native version writes them in **alphabetical order** — Go's `encoding/json` sorts map keys.
-- **`fileReadString` line-ending normalisation.** jBallerina's `BufferedReader.lines()` strips `\r`, `\r\n`, and `\n`; joins with `\n`; trailing newline absent. The Go-native version produces the same result on all platforms: `\r\n` and `\r` are normalised to `\n` before splitting, and trailing empty entries are removed.

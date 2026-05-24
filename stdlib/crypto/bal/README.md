@@ -66,45 +66,39 @@ Support Levels:
 
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
-| `hashMd5`, `hashSha1`, `hashSha256`, `hashSha384`, `hashSha512` | Supported | Optional `salt byte[]` parameter supported; salt is prepended before hashing. |
-| `hashKeccak256` | Supported | Uses legacy Keccak-256 (pre-standardisation), not SHA3-256, matching jBallerina. |
-| `crc32b` | Supported | Returns 8-character uppercase hex string. |
-| `hmacMd5`, `hmacSha1`, `hmacSha256`, `hmacSha384`, `hmacSha512` | Supported | |
-| `hashBcrypt` / `verifyBcrypt` | Supported | `workFactor` parameter supported. |
-| `hashArgon2` / `verifyArgon2` | Supported | Argon2id with configurable iterations, memory, parallelism. Format: `$argon2id$v=19$m=<mem>,t=<iter>,p=<par>$<b64salt>$<b64hash>`. |
-| `hashPbkdf2` / `verifyPbkdf2` | Supported | SHA1, SHA256, SHA512 algorithms; configurable iteration count. Format: `$pbkdf2-{SHA1\|SHA256\|SHA512}$i=<iter>$<b64salt>$<b64hash>`. |
-| `encryptAesCbc` / `decryptAesCbc` | Supported | PKCS7 padding applied regardless of `padding` parameter. |
-| `encryptAesEcb` / `decryptAesEcb` | Supported | PKCS7 padding applied. |
-| `encryptAesGcm` / `decryptAesGcm` | Supported | `tagSize` parameter is in **bits** (default 128); valid sizes: 32, 64, 96, 104, 112, 120, 128. |
-| `encryptRsaEcb` / `decryptRsaEcb` | Supported | PKCS1 and OAEP (MD5, SHA1, SHA256, SHA384, SHA512) padding supported. |
-| `signRsaMd5`, `signRsaSha1`, `signRsaSha256`, `signRsaSha384`, `signRsaSha512` | Supported | PKCS1v15 signature. |
-| `signRsaSsaPss256` | Supported | PSS with SHA-256; uses `PSSSaltLengthEqualsHash` to match jBallerina. |
-| `verifyRsaMd5Signature`, …, `verifyRsaSha512Signature` | Supported | PKCS1v15 verification. |
-| `verifyRsaSsaPss256Signature` | Supported | |
-| `signSha256withEcdsa` / `signSha384withEcdsa` | Supported | DER-encoded ECDSA signature matching jBallerina's `ASN.1` format. |
-| `verifySha256withEcdsaSignature` / `verifySha384withEcdsaSignature` | Supported | |
-| `decodeRsaPrivateKeyFromKeyStore` / `decodeEcPrivateKeyFromKeyStore` | Supported | PKCS12 keystore format. |
-| `decodeRsaPrivateKeyFromKeyFile` / `decodeEcPrivateKeyFromKeyFile` | Supported | PEM format (PKCS8, PKCS1, EC); encrypted keys supported. |
-| `decodeRsaPrivateKeyFromContent` | Supported | PEM bytes. |
-| `decodeRsaPublicKeyFromTrustStore` / `decodeEcPublicKeyFromTrustStore` | Supported | PKCS12 truststore format. |
-| `decodeRsaPublicKeyFromCertFile` / `decodeEcPublicKeyFromCertFile` | Supported | PEM or DER X.509 certificate. |
-| `decodeRsaPublicKeyFromContent` | Supported | PEM bytes. |
-| `buildRsaPublicKey` | Supported | From hex-encoded modulus and exponent. |
-| `hkdfSha256` | Supported | Optional `salt` and `info` parameters. |
-| `equalConstantTime` | Supported | `HashValue = byte[]\|string`; constant-time comparison. |
-| ML-KEM-768 (`encapsulate`, `decapsulate`) | Not Yet Supported | Post-quantum KEM not yet implemented. |
-| ML-DSA-65 (`signMlDsa65`, `verifyMlDsa65Signature`) | Not Yet Supported | Post-quantum DSA not yet implemented. |
-| HPKE (`hybridEncrypt`, `hybridDecrypt`) | Not Yet Supported | Hybrid public-key encryption not yet implemented. |
-| PGP (`pgpEncrypt`, `pgpDecrypt`, `pgpSign`, `pgpVerify`) | Not Yet Supported | PGP operations not yet implemented. |
-| `decodeEcPublicKeyFromContent` | Not Yet Supported | EC public key from PEM bytes not yet implemented. |
+| Hash functions (MD5, SHA-1, SHA-256, SHA-384, SHA-512) | Supported | `hashMd5`, `hashSha1`, `hashSha256`, `hashSha384`, `hashSha512`. Optional `salt byte[]` parameter; salt is prepended before hashing. |
+| Keccak-256 hash | Supported | `hashKeccak256`. Uses legacy Keccak-256 (pre-standardisation), not SHA3-256, matching jBallerina. |
+| CRC32B checksum | Supported | `crc32b`. Returns 8-character uppercase hex string. |
+| HMAC functions (MD5, SHA-1, SHA-256, SHA-384, SHA-512) | Supported | `hmacMd5`, `hmacSha1`, `hmacSha256`, `hmacSha384`, `hmacSha512`. |
+| BCrypt password hashing and verification | Supported | `hashBcrypt`, `verifyBcrypt`. `workFactor` parameter supported. |
+| Argon2id password hashing and verification | Supported | `hashArgon2`, `verifyArgon2`. Argon2id with configurable iterations, memory, parallelism. Format: `$argon2id$v=19$m=<mem>,t=<iter>,p=<par>$<b64salt>$<b64hash>`. |
+| PBKDF2 password hashing and verification | Supported | `hashPbkdf2`, `verifyPbkdf2`. SHA1, SHA256, SHA512 algorithms; configurable iteration count. Format: `$pbkdf2-{SHA1\|SHA256\|SHA512}$i=<iter>$<b64salt>$<b64hash>`. |
+| AES-CBC encryption and decryption | Supported | `encryptAesCbc`, `decryptAesCbc`. PKCS7 padding always applied. See Notable Behavioural Changes. |
+| AES-ECB encryption and decryption | Supported | `encryptAesEcb`, `decryptAesEcb`. PKCS7 padding always applied. See Notable Behavioural Changes. |
+| AES-GCM encryption and decryption | Supported | `encryptAesGcm`, `decryptAesGcm`. `tagSize` in bits (default 128); valid sizes: 32, 64, 96, 104, 112, 120, 128. |
+| RSA encryption and decryption | Supported | `encryptRsaEcb`, `decryptRsaEcb`. PKCS1 and OAEP (MD5, SHA1, SHA256, SHA384, SHA512) padding supported. |
+| RSA PKCS1v15 signing | Supported | `signRsaMd5`, `signRsaSha1`, `signRsaSha256`, `signRsaSha384`, `signRsaSha512`. |
+| RSA-PSS signing (SHA-256) | Supported | `signRsaSsaPss256`. Uses `PSSSaltLengthEqualsHash` to match jBallerina. |
+| RSA PKCS1v15 signature verification | Supported | `verifyRsaMd5Signature` through `verifyRsaSha512Signature`. |
+| RSA-PSS signature verification | Supported | `verifyRsaSsaPss256Signature`. |
+| ECDSA signing (SHA-256, SHA-384) | Supported | `signSha256withEcdsa`, `signSha384withEcdsa`. DER-encoded signature matching jBallerina's ASN.1 format. |
+| ECDSA signature verification | Supported | `verifySha256withEcdsaSignature`, `verifySha384withEcdsaSignature`. |
+| RSA and EC private key loading from keystore | Supported | `decodeRsaPrivateKeyFromKeyStore`, `decodeEcPrivateKeyFromKeyStore`. PKCS12 keystore format. |
+| RSA and EC private key loading from PEM file | Supported | `decodeRsaPrivateKeyFromKeyFile`, `decodeEcPrivateKeyFromKeyFile`. PEM format (PKCS8, PKCS1, EC); encrypted keys supported. |
+| RSA private key loading from PEM bytes | Supported | `decodeRsaPrivateKeyFromContent`. |
+| RSA and EC public key loading from truststore | Supported | `decodeRsaPublicKeyFromTrustStore`, `decodeEcPublicKeyFromTrustStore`. PKCS12 truststore format. |
+| RSA and EC public key loading from certificate file | Supported | `decodeRsaPublicKeyFromCertFile`, `decodeEcPublicKeyFromCertFile`. PEM or DER X.509 certificate. |
+| RSA public key loading from PEM bytes | Supported | `decodeRsaPublicKeyFromContent`. |
+| RSA public key construction from modulus and exponent | Supported | `buildRsaPublicKey`. From hex-encoded modulus and exponent. |
+| HKDF-SHA256 key derivation | Supported | `hkdfSha256`. Optional `salt` and `info` parameters. |
+| Constant-time hash comparison | Supported | `equalConstantTime`. `HashValue = byte[]\|string`. |
+| Module-level error type | Partially Supported | `crypto:Error` declared as a plain `error` alias; `distinct` error subtypes not yet supported. |
+| ML-KEM-768 post-quantum key encapsulation | Not Yet Supported | `encapsulate`, `decapsulate` not yet implemented. |
+| ML-DSA-65 post-quantum digital signature | Not Yet Supported | `signMlDsa65`, `verifyMlDsa65Signature` not yet implemented. |
+| Hybrid public-key encryption | Not Yet Supported | `hybridEncrypt`, `hybridDecrypt` not yet implemented. |
+| PGP operations | Not Yet Supported | `pgpEncrypt`, `pgpDecrypt`, `pgpSign`, `pgpVerify` not yet implemented. |
+| EC public key loading from PEM bytes | Not Yet Supported | `decodeEcPublicKeyFromContent` not yet implemented. |
 
 ### Notable Behavioural Changes
 
-| Feature | jBallerina behaviour | Go-native behaviour |
-|---|---|---|
-| `Certificate.notBefore` / `notAfter` | `time:Utc` (ballerina/time type) | `time:Utc` — matches jBallerina exactly. |
-| Hash salt order | `digest.update(salt)` then `digest.digest(input)` in Java | Salt bytes are **prepended** (written before the input data) matching Java's behaviour. |
-| AES padding | `padding` parameter selects PKCS5 or NONE | PKCS7 padding is always applied for CBC and ECB modes regardless of the `padding` parameter value. |
-| ECDSA signature format | DER-encoded ASN.1 (via `Signature.getInstance("SHA256withECDSA")`) | DER-encoded via `ecdsa.SignASN1` — identical wire format. |
-| RSA-PSS salt length | Java default: salt length equals hash length | `rsa.PSSSaltLengthEqualsHash` — identical to jBallerina default. |
-| `crypto:Error` type | Distinct subtypes (`KeyNotFoundError`, `CipherError`, etc.) | Plain `error` alias — `distinct` error subtypes not yet supported. |
+- **AES-CBC and AES-ECB always apply PKCS7 padding.** jBallerina selects PKCS5 or no padding based on the `padding` parameter value; the Go-native version always applies PKCS7 padding for CBC and ECB modes regardless of the parameter — Go's `cipher` package does not expose a separate no-padding mode. Programs relying on `NoPadding` will produce incorrect output.

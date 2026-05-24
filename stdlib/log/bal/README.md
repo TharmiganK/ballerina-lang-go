@@ -70,4 +70,3 @@ Support Levels:
 
 - **Module name always empty.** jBallerina uses JVM `StackWalker` to detect the calling module name at runtime; the Go-native version has no equivalent mechanism, so `module=""` in all log records.
 - **Error field format.** jBallerina serialises a full `FullErrorDetails` record (message, stack trace, cause chain) for the `error` field; the Go-native version formats the error as `error("message")` using the Ballerina `toBalString` representation of the error value.
-- **JSON key ordering.** When JSON format becomes available, jBallerina emits record fields in insertion order; Go's `encoding/json` sorts map keys alphabetically — this will be a behavioural difference.

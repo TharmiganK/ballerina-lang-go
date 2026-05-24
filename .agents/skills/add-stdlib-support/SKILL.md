@@ -133,71 +133,15 @@ Add corpus tests under `corpus/bal/`, targeting **≥80% coverage** of the new G
 
 ## 9. README
 
-Create or update `stdlib/<name>/bal/README.md`.
+Create or update `stdlib/<name>/bal/README.md` following `.agents/skills/stdlib-readme-format/SKILL.md` exactly. Load that skill now and run its validation checklist before saving the file.
 
-- **New package** → create from the template below; fill in Overview, Key Functionalities, Examples, and the support table.
-- **Existing package** → update the status table rows whose status changed.
-- **Notable Behavioural Changes** — copy every unavoidable divergence from the Step 5 parity table directly into this section. These must be present *before* the PR is merged, not added later. Anything that will be closed by future implementation belongs in the support table as "Not Yet Supported", **not** here.
-- Keep the Feature/API column generic-prose only. Type and function names belong in Comments.
+Key decisions for this step:
 
-### Updating `stdlib/README.md`
+- **New package** → create from the template in `stdlib-readme-format`; fill in Overview, Key Functionalities, Examples, and the support table.
+- **Existing package** → update only the rows whose status changed; then re-run the full validation checklist to catch any pre-existing violations in unchanged rows.
+- **Notable Behavioural Changes** — copy every unavoidable divergence from the Step 5 parity table into this section. These must be present *before* the PR is merged. Temporary language gaps (e.g. `distinct`, `readonly &`) belong in the support table only, not here.
 
-After updating the per-library README, also update the **summary table** in `stdlib/README.md`:
-
-- **New package** → add a new row with the Level (from `stdlibLevels` in `tools/gen-embedded-libs/main.go`), the support counts, and the computed percentage. Keep rows sorted by Level ascending, then alphabetically within each level.
-- **Existing package** → recount Supported / Partially Supported / Not Yet Supported rows from the updated `bal/README.md` and update the row's counts and percentage.
-- Recompute the **Total** footer row after any change.
-- Support % formula: `round(Supported / Total * 100)` where Total = Supported + Partially Supported + Not Yet Supported + Cannot Support.
-
-### README template
-
-````markdown
-# Ballerina <Name> Library
-
-## Overview
-<Brief description of the full jBallerina module scope.>
-
-## Key Functionalities
-
-<Bullet list of what the Go-native version currently supports — not the full jBallerina feature set.>
-
-## Examples
-
-```ballerina
-<Short working example using only currently supported APIs.>
-```
-
-## Go Native Interpreter Support Status
-
-This library is currently being migrated to Go to support the Ballerina Native Interpreter. The table below outlines the current support level for various features of this library in the Go implementation.
-
-Support Levels:
-
-- **Supported**: Fully implemented and tested in the Go version.
-- **Partially Supported**: Implemented but lacking some edge cases, options, or sub-features. (See comments).
-- **Not Yet Supported**: Planned for migration, but not yet implemented.
-- **Cannot Support**: Cannot be implemented in the Go version due to technical limitations or architectural differences. (See comments).
-
-| Feature/API | Support Status | Comments / Limitations |
-|---|---|---|
-| ... | ... | ... |
-
-### Notable Behavioural Changes
-
-<Use bullet points with bold headers, one bullet per divergence. Format each as:
-- **<Short title>.** <jBallerina behaviour>; the Go-native version <Go-native behaviour> — <reason if helpful>.
-
-If there are no notable behavioural changes, write:
-There are **no** notable behavioural changes in the Go-native version compared to the original jBallerina implementation for the currently supported features.>
-````
-
-### README rules
-
-- **Feature/API column**: generic prose descriptions only — no backtick function names, type names, or object names. Those may appear in the Comments column only.
-- **Table separators**: always use `|---|---|---|`, never wide-padded columns.
-- **Supported rows**: leave the Comments column empty unless there is a meaningful caveat. Do not write "Fully implemented and tested in the Go version." — that is implied by the status.
-- **Key Functionalities and Examples**: reflect only what the Go-native version currently supports.
-- **Notable Behavioural Changes**: use bullet points with a bold header followed by a period (e.g. `- **Title.** Explanation.`). Only for permanent Go-level constraints; gaps that will be closed by future implementation belong in the support table as "Not Yet Supported", not here.
+After updating the per-library README, update `stdlib/README.md` per the instructions in `stdlib-readme-format`.
 
 ## 10. Verify
 

@@ -140,6 +140,15 @@ Create or update `stdlib/<name>/bal/README.md`.
 - **Notable Behavioural Changes** — copy every unavoidable divergence from the Step 5 parity table directly into this section. These must be present *before* the PR is merged, not added later. Anything that will be closed by future implementation belongs in the support table as "Not Yet Supported", **not** here.
 - Keep the Feature/API column generic-prose only. Type and function names belong in Comments.
 
+### Updating `stdlib/README.md`
+
+After updating the per-library README, also update the **summary table** in `stdlib/README.md`:
+
+- **New package** → add a new row with the Level (from `stdlibLevels` in `tools/gen-embedded-libs/main.go`), the support counts, and the computed percentage. Keep rows sorted by Level ascending, then alphabetically within each level.
+- **Existing package** → recount Supported / Partially Supported / Not Yet Supported rows from the updated `bal/README.md` and update the row's counts and percentage.
+- Recompute the **Total** footer row after any change.
+- Support % formula: `round(Supported / Total * 100)` where Total = Supported + Partially Supported + Not Yet Supported + Cannot Support.
+
 ### README template
 
 ````markdown
@@ -192,11 +201,36 @@ There are **no** notable behavioural changes in the Go-native version compared t
 
 ## 10. Verify
 
-Before declaring done:
+Work through the checklist below before declaring done. Check each item off as you complete it.
 
-1. `go test ./corpus` — all corpus tests pass.
-2. `go run ./cli/cmd run <showcase>.bal` — the showcase file runs and its output matches the `@output` markers.
-3. If you regenerated golden files, `git diff` them and confirm the changes match expectations.
-4. **Parity spot-check** — for every row in the Step 5 parity table marked "Avoidable / Fixed", manually verify the Go output matches the jBallerina reference output for at least one representative input.
+### Code
 
-Report what was implemented, what was scoped out (and why), any new PAL methods or dependencies added, and the complete parity table from Step 5.
+- [ ] `go run -tags bootstrap ./tools/gen-embedded-libs` — compiles cleanly with the new/updated package and any level changes.
+- [ ] `go build ./...` — no compilation errors.
+- [ ] `go vet ./...` — no vet warnings.
+
+### Tests
+
+- [ ] `go test ./corpus` — all corpus tests pass.
+- [ ] `go run ./cli/cmd run <showcase>.bal` — the showcase file runs and its output matches the `@output` markers exactly.
+- [ ] If golden files were regenerated, `git diff corpus/` was reviewed and every changed line is intentional.
+- [ ] New corpus test files follow naming conventions (no leading zeros, correct suffix).
+
+### Parity
+
+- [ ] Every row in the Step 5 parity table marked **"Avoidable / Fixed"** has been manually verified: Go output matches jBallerina reference for at least one representative input.
+- [ ] Every unavoidable divergence is recorded in `stdlib/<name>/bal/README.md` under **Notable Behavioural Changes**.
+
+### Documentation
+
+- [ ] `stdlib/<name>/bal/README.md` support table reflects the current implementation (no stale "Not Yet Supported" rows for things that were just implemented).
+- [ ] `stdlib/README.md` summary table has been updated with the new counts and percentage for this package, and the Total footer row is recalculated.
+- [ ] If a new package was added, its Level in `stdlib/README.md` matches the entry in `stdlibLevels` (`tools/gen-embedded-libs/main.go`).
+- [ ] If the dependency level of an existing package changed, `stdlibLevels` was updated and the Level column in `stdlib/README.md` reflects the new level.
+
+### Final report
+
+Summarise:
+- What was implemented and what was scoped out (with reasons).
+- Any new PAL methods or external Go dependencies added.
+- The complete parity table from Step 5.

@@ -72,6 +72,18 @@ func initIntModule(rt *runtime.Runtime) {
 		}
 		return result, nil
 	})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "fromString", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		s, ok := args[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("argument must be a string")
+		}
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return values.NewErrorWithMessage("'int' from string: invalid number format: " + s), nil
+		}
+		return n, nil
+	})
 }
 
 func init() {

@@ -19,4 +19,6 @@ public isolated function length(map<any|error> m) returns int = external;
 
 public isolated function keys(map<any|error> m) returns string[] = external;
 
+public isolated function hasKey(map<any|error> m, string k) returns boolean = external;
+
 public isolated function remove(map<any|error> m, string k) returns any|error = external;

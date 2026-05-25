@@ -15,16 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-public isolated function length((any|error)[] arr) returns int = external;
+package valuert
 
-public isolated function push((any|error)[] arr, (any|error)... vals) returns () = external;
+import (
+	"ballerina-lang-go/runtime"
+	"ballerina-lang-go/runtime/extern"
+	"ballerina-lang-go/values"
+)
 
-public isolated function indexOf((any|error)[] arr, any|error val, int startIndex = 0) returns int? = external;
+const (
+	orgName    = "ballerina"
+	moduleName = "lang.value"
+)
 
-public isolated function remove((any|error)[] arr, int index) returns any|error = external;
+func initValueModule(rt *runtime.Runtime) {
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "toString", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		return values.String(args[0], make(map[uintptr]bool)), nil
+	})
+}
 
-public isolated function removeAll((any|error)[] arr) returns () = external;
-
-public isolated function toBase16(byte[] arr) returns string = external;
-
-public isolated function toBase64(byte[] arr) returns string = external;
+func init() {
+	runtime.RegisterModuleInitializer(initValueModule)
+}

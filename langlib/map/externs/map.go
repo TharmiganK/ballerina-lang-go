@@ -55,6 +55,13 @@ func mapKeys(rt *runtime.Runtime) extern.NativeFunc {
 	}
 }
 
+func mapHasKey(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	m := args[0].(*values.Map)
+	key := args[1].(string)
+	_, ok := m.Get(key)
+	return ok, nil
+}
+
 func mapRemove(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	m := args[0].(*values.Map)
 	key := args[1].(string)
@@ -66,6 +73,7 @@ func mapRemove(ctx *extern.Context, args []values.BalValue) (values.BalValue, er
 func initMapModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "length", mapLength)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "keys", mapKeys(rt))
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "hasKey", mapHasKey)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "remove", mapRemove)
 }
 

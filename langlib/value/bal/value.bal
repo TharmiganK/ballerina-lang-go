@@ -17,3 +17,5 @@
 
 // Marker export so the embedded symbol file is well-formed; value langlib methods are added incrementally.
 public type Cloneable any;
+
+public isolated function toString(anydata v) returns string = external;

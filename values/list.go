@@ -115,6 +115,25 @@ func (l *List) FillingGet(idx int) BalValue {
 	return l.elems[idx]
 }
 
+// RemoveAt removes the element at the given index, shifts subsequent elements
+// left, and returns the removed element. Panics if the list is readonly or
+// index is out of range.
+func (l *List) RemoveAt(index int) BalValue {
+	l.checkMutable()
+	if index < 0 || index >= len(l.elems) {
+		panic(NewErrorWithMessage("list index out of range"))
+	}
+	removed := l.elems[index]
+	l.elems = append(l.elems[:index], l.elems[index+1:]...)
+	return removed
+}
+
+// Clear removes all elements from the list. Panics if the list is readonly.
+func (l *List) Clear() {
+	l.checkMutable()
+	l.elems = l.elems[:0]
+}
+
 // Append adds values at the tail, checking each against the inherent member
 // type at its eventual index.
 func (l *List) Append(tc semtypes.Context, vs ...BalValue) {

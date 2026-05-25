@@ -25,3 +25,5 @@ public type Unsigned32 int;
 public isolated function toHexString(int n) returns string = external;
 
 public isolated function fromHexString(string s) returns int|error = external;
+
+public isolated function fromString(string s) returns int|error = external;

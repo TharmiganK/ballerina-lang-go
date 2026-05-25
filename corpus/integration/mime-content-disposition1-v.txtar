@@ -1,0 +1,6 @@
+-- stdout --
+form-data
+file
+test.txt
+attachment; filename=report.pdf
+-- stderr --

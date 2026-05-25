@@ -53,7 +53,7 @@ var stdlibLevels = [][]string{
 	// but they may import other packages in the future where they will be moved to a higher level.
 	{"io", "math.vector", "time", "url", "log", "random", "http"},
 	// L2: may import L1 packages.
-	{"crypto", "os"},
+	{"crypto", "mime", "os"},
 	// L3: may import L2 packages.
 	{"file", "uuid"},
 	// L4, L5, ...: add slices here as new dependency tiers emerge.

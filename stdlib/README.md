@@ -22,7 +22,8 @@ Support % is computed as `Supported / Total`, where *Total* is the number of row
 | [time](time/bal/README.md) | L1 | 27 | 0 | 5 | 84% |
 | [url](url/bal/README.md) | L1 | 2 | 1 | 1 | 50% |
 | [crypto](crypto/bal/README.md) | L2 | 26 | 1 | 5 | 81% |
+| [mime](mime/bal/README.md) | L2 | 13 | 1 | 2 | 81% |
 | [os](os/bal/README.md) | L2 | 10 | 1 | 1 | 83% |
 | [file](file/bal/README.md) | L3 | 20 | 0 | 1 | 95% |
 | [uuid](uuid/bal/README.md) | L3 | 19 | 1 | 0 | 95% |
-| **Total** | | **146** | **8** | **95** | **59%** |
+| **Total** | | **159** | **9** | **97** | **60%** |

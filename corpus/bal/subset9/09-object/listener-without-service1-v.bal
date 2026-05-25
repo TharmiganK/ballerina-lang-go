@@ -17,13 +17,11 @@
 import ballerina/io;
 
 class SimpleListener {
-    function init() returns error? {
-        io:println("listener initialized");
-        return ();
+    function init() {
+        io:println("listener initialized"); // @output listener initialized
     }
 
     public function attach(service object {} svc, () attachPoint = ()) returns () {
-        io:println("attached");
     }
 
     public function detach(service object {} svc) returns error? {
@@ -39,8 +37,7 @@ class SimpleListener {
     }
 }
 
-service on new SimpleListener() { // @error inline listener expression in service `on` clause is not supported
-}
+listener SimpleListener l = new ();
 
 public function main() {
 }

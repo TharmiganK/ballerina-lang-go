@@ -14,12 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-class SimpleListener {
-    function init() returns error? {
-        return error("listener init failed");
-    }
-
-    public function attach(service object {} svc, () attachPoint = ()) returns () {
+class FailingListener {
+    public function attach(service object {} svc, () attachPoint = ()) returns error? {
+        return error("attach failed");
     }
 
     public function detach(service object {} svc) returns error? {
@@ -35,7 +32,7 @@ class SimpleListener {
     }
 }
 
-service on new SimpleListener() { // @error inline listener expression in service `on` clause is not supported
+service on new FailingListener() { // @panic attach failed
 }
 
 public function main() {

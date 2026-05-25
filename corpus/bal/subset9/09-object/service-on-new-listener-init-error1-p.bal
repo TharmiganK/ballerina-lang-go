@@ -14,9 +14,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-int notAListener = 5;
+class SimpleListener {
+    function init() returns error? {
+        return error("listener init failed");
+    }
 
-service on notAListener { // @error expression in 'on' clause is not a listener
+    public function attach(service object {} svc, () attachPoint = ()) returns () {
+    }
+
+    public function detach(service object {} svc) returns error? {
+    }
+
+    public function 'start() returns error? {
+    }
+
+    public function gracefulStop() returns error? {
+    }
+
+    public function immediateStop() returns error? {
+    }
+}
+
+service on new SimpleListener() { // @panic listener init failed
 }
 
 public function main() {

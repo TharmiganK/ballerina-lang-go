@@ -14,12 +14,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-class FailingListener {
-    public function attach(service object {} svc, () attachPoint = ()) returns error? {
-        return error("attach failed");
+public type ServiceLifeCycle service object {
+    public function onAttach(string message);
+    public function onDetach(string message);
+};
+
+public class MyListener {
+    public function attach(ServiceLifeCycle svc, () attachPoint = ()) returns () {
+        svc.onAttach("attached");
     }
 
-    public function detach(service object {} svc) returns error? {
+    public function detach(ServiceLifeCycle svc) returns error? {
+        svc.onDetach("detached");
     }
 
     public function 'start() returns error? {
@@ -30,10 +36,4 @@ class FailingListener {
 
     public function immediateStop() returns error? {
     }
-}
-
-service on new FailingListener() { // @error inline listener expression in service `on` clause is not supported
-}
-
-public function main() {
 }

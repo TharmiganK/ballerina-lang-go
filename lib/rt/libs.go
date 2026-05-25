@@ -34,4 +34,5 @@ import (
 	_ "ballerina-lang-go/stdlib/random/externs"
 	_ "ballerina-lang-go/stdlib/time/externs"
 	_ "ballerina-lang-go/stdlib/url/externs"
+	_ "ballerina-lang-go/stdlib/uuid/externs"
 )

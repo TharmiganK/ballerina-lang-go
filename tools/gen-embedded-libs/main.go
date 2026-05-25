@@ -55,7 +55,7 @@ var stdlibLevels = [][]string{
 	// L2: may import L1 packages.
 	{"crypto", "os"},
 	// L3: may import L2 packages.
-	{"file"},
+	{"file", "uuid"},
 	// L4, L5, ...: add slices here as new dependency tiers emerge.
 }
 

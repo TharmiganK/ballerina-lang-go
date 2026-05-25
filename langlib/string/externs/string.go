@@ -98,6 +98,14 @@ func initStringModule(rt *runtime.Runtime) {
 			return r
 		}), nil
 	})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "trim", func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		s, ok := args[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("first argument must be a string")
+		}
+		return strings.TrimSpace(s), nil
+	})
 }
 
 func equalsIgnoreCaseASCII(s1, s2 string) bool {

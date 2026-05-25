@@ -30,3 +30,5 @@ public isolated function equalsIgnoreCaseAscii(string str1, string str2) returns
 public isolated function toLowerAscii(string str) returns string = external;
 
 public isolated function toUpperAscii(string str) returns string = external;
+
+public isolated function trim(string str) returns string = external;

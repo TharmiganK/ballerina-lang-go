@@ -47,6 +47,31 @@ func initIntModule(rt *runtime.Runtime) {
 			return strconv.FormatInt(n, 16), nil
 		}
 	})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "fromHexString", func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		s, ok := args[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("argument must be a string")
+		}
+		negative := false
+		input := s
+		if len(input) > 0 && input[0] == '-' {
+			negative = true
+			input = input[1:]
+		}
+		if len(input) == 0 {
+			return values.NewErrorWithMessage("invalid hex string: \"" + s + "\""), nil
+		}
+		n, err := strconv.ParseUint(input, 16, 64)
+		if err != nil {
+			return values.NewErrorWithMessage("invalid hex string: \"" + s + "\""), nil
+		}
+		result := int64(n)
+		if negative {
+			result = -result
+		}
+		return result, nil
+	})
 }
 
 func init() {

@@ -17,6 +17,11 @@
 package runtime
 
 import (
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	"ballerina-lang-go/bir"
 	"ballerina-lang-go/model"
 	"ballerina-lang-go/platform/pal"
@@ -37,8 +42,11 @@ var dispatchHooks = extern.DispatchHandles{
 // Runtime represents a Ballerina runtime instance that owns a module registry
 // and is used as the execution context for interpreting BIR packages.
 type Runtime struct {
-	env     *extern.Env
-	cleanup []func()
+	env          *extern.Env
+	cleanup      []func()
+	listenerWg   sync.WaitGroup
+	listenerMu   sync.Mutex
+	listenerStop []func()
 }
 
 // ModuleInitializer is a function that can install modules (e.g. stdlibs) into
@@ -75,6 +83,23 @@ func (rt *Runtime) RegisterCleanup(fn func()) {
 	rt.cleanup = append(rt.cleanup, fn)
 }
 
+// RegisterActiveListener increments the active-listener wait group and stores
+// stopFn so it can be called on SIGINT/SIGTERM. ListenerDone must be called
+// once the corresponding server goroutine exits.
+func (rt *Runtime) RegisterActiveListener(stopFn func()) {
+	rt.listenerWg.Add(1)
+	rt.listenerMu.Lock()
+	rt.listenerStop = append(rt.listenerStop, stopFn)
+	rt.listenerMu.Unlock()
+}
+
+// ListenerDone decrements the active-listener wait group. It must be called by
+// each server goroutine when its Serve call returns (whether due to Close,
+// gracefulStop, or any other reason).
+func (rt *Runtime) ListenerDone() {
+	rt.listenerWg.Done()
+}
+
 // Interpret interprets a BIR package using this runtime instance.
 func (rt *Runtime) Interpret(pkg bir.BIRPackage) (err error) {
 	defer func() {
@@ -83,13 +108,67 @@ func (rt *Runtime) Interpret(pkg bir.BIRPackage) (err error) {
 		}
 		rt.cleanup = nil
 	}()
-	return exec.Interpret(pkg, rt.env)
+	if err = exec.Interpret(pkg, rt.env); err != nil {
+		return
+	}
+	rt.waitForListeners()
+	return
+}
+
+// waitForListeners blocks until all active listeners have stopped or a
+// SIGINT/SIGTERM is received. On signal it calls each registered stop function
+// and then waits for the goroutines to drain. If there are no active listeners
+// it returns immediately.
+func (rt *Runtime) waitForListeners() {
+	done := make(chan struct{})
+	go func() { rt.listenerWg.Wait(); close(done) }()
+	select {
+	case <-done:
+		return
+	default:
+	}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	select {
+	case <-done:
+	case <-sigCh:
+		rt.listenerMu.Lock()
+		stops := make([]func(), len(rt.listenerStop))
+		copy(stops, rt.listenerStop)
+		rt.listenerMu.Unlock()
+		for _, stop := range stops {
+			stop()
+		}
+		rt.listenerWg.Wait()
+	}
 }
 
 // RegisterModuleInitializer registers a module initializer that will be invoked
 // for every newly created runtime.
 func RegisterModuleInitializer(init ModuleInitializer) {
 	moduleInitializers = append(moduleInitializers, init)
+}
+
+// NewExternContext creates a properly initialised extern.Context with a fresh
+// call stack. Use this when dispatching Ballerina code from outside the main
+// interpreter loop, such as from HTTP handler goroutines. Each concurrent
+// execution path must have its own context.
+func (rt *Runtime) NewExternContext() *extern.Context {
+	return exec.NewContext(rt.env)
+}
+
+// GetBIRFunctionParamCount returns the number of required parameters of the BIR
+// function with the given lookup key, not counting the receiver. Returns -1 if
+// the function has no BIR body (extern-only native functions).
+// For resource methods this count includes both path-param parameters and any
+// extra user-supplied parameters.
+func GetBIRFunctionParamCount(ctx *extern.Context, lookupKey string) int {
+	fn := ctx.Env.Registry.(*modules.Registry).GetBIRFunction(lookupKey)
+	if fn == nil {
+		return -1
+	}
+	return len(fn.RequiredParams)
 }
 
 // GetTypeEnv returns the semantic type environment.

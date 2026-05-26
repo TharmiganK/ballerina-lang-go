@@ -924,14 +924,14 @@ func initHttpModule(rt *runtime.Runtime) {
 			state.mu.Unlock()
 
 			if !alreadyStarted {
-				server, err := startHTTPServer(ctx.Env, state)
+				server, err := startHTTPServer(rt, state, func() { rt.ListenerDone() })
 				if err != nil {
 					return values.NewErrorWithMessage("Listener.attach: " + err.Error()), nil
 				}
 				state.mu.Lock()
 				state.server = server
 				state.mu.Unlock()
-				rt.RegisterCleanup(func() { _ = server.Close() })
+				rt.RegisterActiveListener(func() { _ = server.Close() })
 			}
 			return nil, nil
 		})
@@ -1318,7 +1318,8 @@ func buildListenerTLSConfig(ssMap *values.Map, fs pal.FS) (*tls.Config, error) {
 }
 
 // startHTTPServer starts the HTTP server goroutine and returns the server.
-func startHTTPServer(env *extern.Env, state *listenerState) (*http.Server, error) {
+// done is called once the Serve goroutine exits; pass nil to omit.
+func startHTTPServer(rt *runtime.Runtime, state *listenerState, done func()) (*http.Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -1326,7 +1327,7 @@ func startHTTPServer(env *extern.Env, state *listenerState) (*http.Server, error
 				http.Error(w, fmt.Sprintf("%v", rec), http.StatusInternalServerError)
 			}
 		}()
-		dispatchRequest(env, state, w, r)
+		dispatchRequest(rt, state, w, r)
 	})
 
 	addr := fmt.Sprintf("%s:%d", state.host, state.port)
@@ -1357,12 +1358,17 @@ func startHTTPServer(env *extern.Env, state *listenerState) (*http.Server, error
 	if state.tlsCfg != nil {
 		serveLn = tls.NewListener(ln, state.tlsCfg)
 	}
-	go func() { _ = server.Serve(serveLn) }()
+	go func() {
+		_ = server.Serve(serveLn)
+		if done != nil {
+			done()
+		}
+	}()
 	return server, nil
 }
 
 // dispatchRequest routes an incoming HTTP request to the matching service and resource method.
-func dispatchRequest(env *extern.Env, state *listenerState, w http.ResponseWriter, r *http.Request) {
+func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseWriter, r *http.Request) {
 	state.mu.RLock()
 	var found *serviceEntry
 	var subPath string
@@ -1381,7 +1387,7 @@ func dispatchRequest(env *extern.Env, state *listenerState, w http.ResponseWrite
 	}
 
 	segments := splitURLPath(subPath)
-	ctx := extern.CreateContext(env)
+	ctx := rt.NewExternContext()
 
 	httpMethod := strings.ToLower(r.Method)
 	for _, accessorKey := range []string{httpMethod, "default"} {
@@ -1398,11 +1404,26 @@ func dispatchRequest(env *extern.Env, state *listenerState, w http.ResponseWrite
 			if !ok {
 				continue
 			}
+			// Count non-literal path params to determine how many user args the method expects.
+			nonLiteralCount := 0
+			for _, seg := range candidates[i].PathSegments {
+				if _, isLit := values.LiteralPathSegment(seg); !isLit {
+					nonLiteralCount++
+				}
+			}
+			totalParams := runtime.GetBIRFunctionParamCount(ctx, candidates[i].FunctionLookupKey)
+			extraArgCount := 0
+			if totalParams >= 0 {
+				extraArgCount = totalParams - nonLiteralCount
+			}
+
 			body, _ := readRequestBody(r)
-			reqObj := buildRequest(ctx.TypeCtx, r.Method, r.URL.Path, r.Proto, r.Header, body, r.URL.RawQuery)
-			// Always pass reqObj: buildResourceCallArgs appends extraArgs after path params,
-			// and initLocalsForFunction reads exactly requiredCount args so extras are ignored.
-			result, err := ctx.InvokeMethod(handle, []values.BalValue{reqObj})
+			var invocationArgs []values.BalValue
+			if extraArgCount > 0 {
+				reqObj := buildRequest(ctx.TypeCtx, r.Method, r.URL.Path, r.Proto, r.Header, body, r.URL.RawQuery)
+				invocationArgs = []values.BalValue{reqObj}
+			}
+			result, err := ctx.InvokeMethod(handle, invocationArgs)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

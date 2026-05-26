@@ -22,6 +22,15 @@ import (
 	"ballerina-lang-go/runtime/internal/modules"
 )
 
+// NewContext creates an extern.Context with a fresh call stack, suitable for
+// invoking Ballerina code outside the main interpreter loop (e.g. from HTTP
+// handler goroutines). Each concurrent execution path needs its own context.
+func NewContext(env *extern.Env) *extern.Context {
+	ctx := extern.CreateContext(env)
+	ctx.CallStack = &callStack{elements: make([]*Frame, 0, 32)}
+	return ctx
+}
+
 func Interpret(pkg bir.BIRPackage, env *extern.Env) (err error) {
 	ctx := extern.CreateContext(env)
 	cs := &callStack{elements: make([]*Frame, 0, 32)}

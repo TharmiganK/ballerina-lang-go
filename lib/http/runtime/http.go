@@ -1446,6 +1446,20 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 			return
 		}
 	}
+	// Path matched a service but no accessor+path combination worked. Check whether the
+	// path would have matched under a different HTTP method and return 405 if so.
+	for _, accessor := range found.svcObj.AllResourceMethodNames() {
+		if accessor == httpMethod || accessor == "default" {
+			continue
+		}
+		candidates, _ := found.svcObj.ResourceEntries(accessor)
+		for i := range candidates {
+			if _, ok := coercePathForCandidate(ctx.TypeCtx, &candidates[i], segments); ok {
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
+		}
+	}
 	http.NotFound(w, r)
 }
 
@@ -1489,12 +1503,35 @@ func coercePathForCandidate(tc semtypes.Context, entry *values.ResourceEntry, se
 	return result, true
 }
 
+// decodeBalIdentifier converts a Ballerina identifier token text to its URL-path form:
+// strips a leading quoted-identifier prefix (') and replaces backslash escapes (\X → X).
+func decodeBalIdentifier(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == '\'' {
+		s = s[1:]
+	}
+	if !strings.ContainsRune(s, '\\') {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			i++
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
+}
+
 // coerceSegment coerces a URL path segment string to a typed value matching segTy.
 func coerceSegment(tc semtypes.Context, segTy semtypes.SemType, s string) (values.BalValue, bool) {
-	// Literal segment: must equal the expected string constant.
+	// Literal segment: must equal the expected string constant, after decoding any
+	// Ballerina quoted-identifier prefix or backslash escapes from the stored literal.
 	if shape := semtypes.SingleShape(segTy); shape.IsPresent() {
 		if lit, ok := shape.Get().Value.(string); ok {
-			if s != lit {
+			if s != decodeBalIdentifier(lit) {
 				return nil, false
 			}
 			return s, true

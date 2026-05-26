@@ -1,0 +1,21 @@
+($resource$get$0
+  (bb0 () ()
+    (var-def
+      (variable resp (type
+        (user-defined-type http Response)) (expr
+        (new ()))))
+    (expression-stmt
+      (invocation setTextPayload expr:
+        (simple-var-ref resp) (
+        (literal Hello World))))
+    (return
+      (simple-var-ref resp))
+  )
+)
+(main
+  (bb0 () ()
+    (expression-stmt
+      (invocation io println (
+        (literal ok))))
+  )
+)

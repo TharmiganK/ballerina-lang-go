@@ -1,0 +1,27 @@
+($resource$post$0
+  (bb0 () ()
+    (var-def
+      (variable payload (type
+        (builtin-ref-type json)) (expr
+        (checked-expr
+          (invocation getJsonPayload expr:
+            (simple-var-ref req) ())))))
+    (var-def
+      (variable resp (type
+        (user-defined-type http Response)) (expr
+        (new ()))))
+    (expression-stmt
+      (invocation setJsonPayload expr:
+        (simple-var-ref resp) (
+        (simple-var-ref payload))))
+    (return
+      (simple-var-ref resp))
+  )
+)
+(main
+  (bb0 () ()
+    (expression-stmt
+      (invocation io println (
+        (literal ok))))
+  )
+)

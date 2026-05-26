@@ -1,0 +1,29 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina http (as http))
+  (import-package ballerina io (as io))
+  (service
+    (absolute-resource-path hello)
+    (on
+    (new
+      (user-defined-type http Listener) (
+      (literal 19090))))
+    (resource-function get name:greeting
+      (user-defined-type http Response)
+      (block-function-body
+        (var-def
+          (variable resp (type
+            (user-defined-type http Response)) (expr
+            (new ()))))
+        (expression-stmt
+          (invocation setTextPayload expr:
+            (simple-var-ref resp) (
+            (literal Hello World))))
+        (return
+          (simple-var-ref resp)))))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (expression-stmt
+        (invocation io println (
+          (literal ok)))))))

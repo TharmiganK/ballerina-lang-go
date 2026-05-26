@@ -1,0 +1,63 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+$desugar$0  object { public function attach(service object, nil|string|[string...]) returns nil|error; public function detach(service object) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function init(int, nil|{| host: string, secureSocket: nil|{| cert: string, ciphers: list, key: {| certFile: string, keyFile: string, keyPassword: string, never... |}, mutualSsl: boolean, protocol: list, shareSession: boolean, never... |}, timeout: decimal, never... |}) returns nil|error; public function start() returns nil|error };
+$moduleListeners  [object { public function attach(never, [string...]) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }|object { public function attach(never, string) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }|object { public function attach(never, nil) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }...];
+class $service$0 {
+
+  init() -> nil{
+    bb0 {
+      return;
+    }
+  }
+
+  resource post body $resource$post$0(object { public function getBinaryPayload() returns error|[int:Unsigned8...]; public function getHeader(string) returns string|error; public function getHeaders(string) returns error|[string...]; public function getJsonPayload() returns nil|boolean|int|float|decimal|string|error|[nil|boolean|int|float|decimal|string|...|......]|{| nil|boolean|int|float|decimal|string|...|...... |}; public function getQueryParamValue(string) returns nil|string; public function getQueryParams() returns {| [string...]... |}; public function getTextPayload() returns string|error; public function hasHeader(string) returns boolean; public string httpVersion; public string method; public string rawPath }) -> error|object { public function getBinaryPayload() returns error|[int:Unsigned8...]; public function getHeader(string, "LEADING"|"TRAILING") returns string|error; public function getHeaderNames("LEADING"|"TRAILING") returns [string...]; public function getHeaders(string, "LEADING"|"TRAILING") returns error|[string...]; public function getJsonPayload() returns nil|boolean|int|float|decimal|string|error|[nil|boolean|int|float|decimal|string|...|......]|{| nil|boolean|int|float|decimal|string|...|...... |}; public function getTextPayload() returns string; public function hasHeader(string, "LEADING"|"TRAILING") returns boolean; public function init() returns nil; public function setBinaryPayload([int:Unsigned8...]) returns nil; public function setHeader(string, string) returns nil; public function setJsonPayload(nil|boolean|int|float|decimal|string|[nil|boolean|int|float|decimal|string|...|......]|{| nil|boolean|int|float|decimal|string|...|...... |}) returns nil; public function setStatusCode(int) returns nil; public function setTextPayload(string) returns nil; public int statusCode }{
+    bb0 {
+      %3 = getJsonPayload(req) -> bb1;
+    }
+    bb1 {
+      $desugar$0 = %3;
+      %5 = $desugar$0 is error
+      %5 ? bb2 : bb3;
+    }
+    bb2 {
+      %0 = $desugar$0;
+      return;
+    }
+    bb3 {
+      payload = $desugar$0;
+      %7 = newObject ballerina/http:Response
+      %8 = init(%7) -> bb4;
+    }
+    bb4 {
+      %10 = %8 is nil
+      %10 ? bb5 : bb6;
+    }
+    bb5 {
+      %9 = %7;
+      GOTO bb7;
+    }
+    bb6 {
+      %9 = %8;
+      GOTO bb7;
+    }
+    bb7 {
+      resp = %9;
+      %12 = setJsonPayload(resp,payload) -> bb8;
+    }
+    bb8 {
+      %0 = resp;
+      return;
+    }
+  }
+}
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad ok
+    %2 = println(%1) -> bb1;
+  }
+  bb1 {
+    return;
+  }
+}

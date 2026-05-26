@@ -35,7 +35,13 @@ func GetHttpSymbols(ctx *context.CompilerContext) model.ExportedSymbolSpace {
 
 	addParseHeader(ctx, space)
 	configSemType := addClientConfiguration(ctx, space)
-	addClient(ctx, space, configSemType)
+	secureSocketTy := addListenerSecureSocket(ctx, space)
+	listenerConfigTy := addListenerConfiguration(ctx, space, secureSocketTy)
+	responseTy := addResponseType(ctx, space)
+	addRequestType(ctx, space)
+	serviceTy := addServiceType(ctx, space)
+	addClient(ctx, space, configSemType, responseTy)
+	addListener(ctx, space, listenerConfigTy, serviceTy)
 
 	return model.NewExportedSymbolSpace(space, nil)
 }
@@ -188,24 +194,63 @@ func registerDefaultLambda(ctx *context.CompilerContext, space *model.SymbolSpac
 	return ref
 }
 
-func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSemType semtypes.SemType) {
+// addListenerSecureSocket defines the ListenerSecureSocket type for TLS/mTLS.
+// Reuses CertKey already registered by addClientConfiguration.
+func addListenerSecureSocket(ctx *context.CompilerContext, space *model.SymbolSpace) semtypes.SemType {
+	env := ctx.GetTypeEnv()
+	certKeyRef, _ := space.GetSymbol("CertKey")
+	certKeySemType := ctx.SymbolType(certKeyRef)
+
+	md := semtypes.NewMappingDefinition()
+	secSocketTy := md.DefineMappingTypeWrapped(env, []semtypes.Field{
+		semtypes.FieldFrom("key", certKeySemType, false, false),
+		semtypes.FieldFrom("cert", semtypes.STRING, false, true),
+		semtypes.FieldFrom("mutualSsl", semtypes.BOOLEAN, false, true),
+		semtypes.FieldFrom("protocol", semtypes.LIST, false, true),
+		semtypes.FieldFrom("ciphers", semtypes.LIST, false, true),
+		semtypes.FieldFrom("shareSession", semtypes.BOOLEAN, false, true),
+	}, semtypes.NEVER)
+	sym := model.NewTypeSymbol("ListenerSecureSocket", true)
+	sym.SetType(secSocketTy)
+	space.AddSymbol("ListenerSecureSocket", &sym)
+	return secSocketTy
+}
+
+// addListenerConfiguration defines the ListenerConfiguration record type.
+func addListenerConfiguration(ctx *context.CompilerContext, space *model.SymbolSpace, secureSocketTy semtypes.SemType) semtypes.SemType {
+	env := ctx.GetTypeEnv()
+	md := semtypes.NewMappingDefinition()
+	configTy := md.DefineMappingTypeWrapped(env, []semtypes.Field{
+		semtypes.FieldFrom("host", semtypes.STRING, false, true),
+		semtypes.FieldFrom("timeout", semtypes.DECIMAL, false, true),
+		semtypes.FieldFrom("secureSocket", semtypes.Union(secureSocketTy, semtypes.NIL), false, true),
+	}, semtypes.NEVER)
+	sym := model.NewTypeSymbol("ListenerConfiguration", true)
+	sym.SetType(configTy)
+	space.AddSymbol("ListenerConfiguration", &sym)
+	return configTy
+}
+
+// addServiceType defines the http:Service type as service object {}.
+func addServiceType(ctx *context.CompilerContext, space *model.SymbolSpace) semtypes.SemType {
+	env := ctx.GetTypeEnv()
+	serviceTy := semtypes.CreateServiceObject(semtypes.ContextFrom(env))
+	sym := model.NewTypeSymbol("Service", true)
+	sym.SetType(serviceTy)
+	space.AddSymbol("Service", &sym)
+	return serviceTy
+}
+
+// addResponseType extracts Response type registration (read + write methods) from addClient.
+func addResponseType(ctx *context.CompilerContext, space *model.SymbolSpace) semtypes.SemType {
 	env := ctx.GetTypeEnv()
 
-	// headers: map<string|string[]>? — open mapping (any key, string|string[] values), optional.
-	// Build an explicit open mapping type so the field value type resolves to STRING|string[]
-	// rather than NEVER (which happens when the basic MAPPING atom is used directly), and so
-	// the list arm rejects non-string lists like int[] at compile time.
 	stringArrayLd := semtypes.NewListDefinition()
 	stringArrayType := stringArrayLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
 	byteArrayLd := semtypes.NewListDefinition()
 	byteArrayType := byteArrayLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
-	headersMd := semtypes.NewMappingDefinition()
-	headersMapType := headersMd.DefineMappingTypeWrapped(env,
-		[]semtypes.Field{},
-		semtypes.Union(semtypes.STRING, stringArrayType))
-	headersOptType := semtypes.Union(headersMapType, semtypes.NIL)
+	jsonType := semtypes.CreateJSON(semtypes.ContextFrom(env))
 
-	// HeaderPosition: "LEADING"|"TRAILING". TRAILING is accepted at compile time but ignored at runtime.
 	headerPositionSemType := semtypes.Union(semtypes.StringConst("LEADING"), semtypes.StringConst("TRAILING"))
 	headerPositionSym := model.NewTypeSymbol("HeaderPosition", true)
 	headerPositionSym.SetType(headerPositionSemType)
@@ -219,18 +264,8 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 	trailingSym.SetType(semtypes.StringConst("TRAILING"))
 	space.AddSymbol("TRAILING", &trailingSym)
 
-	// json — the proper recursive Ballerina json type: nil|boolean|int|float|decimal|string|list(json)|map(json).
-	jsonType := semtypes.CreateJSON(semtypes.ContextFrom(ctx.GetTypeEnv()))
-
-	// Response: declared as a class so the type checker knows about statusCode and
-	// the header API. Users never write `new http:Response()` — Response objects are
-	// only constructed on the Go side by Client.get. The raw headers map is intentionally
-	// not exposed; use hasHeader/getHeader/getHeaders/getHeaderNames instead.
-	gtpSig := model.FunctionSignature{
-		ParamTypes: []semtypes.SemType{},
-		ReturnType: semtypes.STRING,
-		Flags:      model.FuncSymbolFlagIsolated,
-	}
+	// Read method signatures.
+	gtpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: semtypes.STRING, Flags: model.FuncSymbolFlagIsolated}
 	gtpFnSemType := libcommon.FunctionSignatureToSemType(env, &gtpSig)
 
 	hasHeaderSig := model.FunctionSignature{
@@ -265,25 +300,47 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 	}
 	getHeaderNamesFnSemType := libcommon.FunctionSignatureToSemType(env, &getHeaderNamesSig)
 
-	gjpSig := model.FunctionSignature{
-		ParamTypes: []semtypes.SemType{},
-		ReturnType: semtypes.Union(jsonType, semtypes.ERROR),
-		Flags:      model.FuncSymbolFlagIsolated,
-	}
+	gjpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: semtypes.Union(jsonType, semtypes.ERROR), Flags: model.FuncSymbolFlagIsolated}
 	gjpFnSemType := libcommon.FunctionSignatureToSemType(env, &gjpSig)
 
-	gbpSig := model.FunctionSignature{
-		ParamTypes: []semtypes.SemType{},
-		ReturnType: semtypes.Union(byteArrayType, semtypes.ERROR),
+	gbpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: semtypes.Union(byteArrayType, semtypes.ERROR), Flags: model.FuncSymbolFlagIsolated}
+	gbpFnSemType := libcommon.FunctionSignatureToSemType(env, &gbpSig)
+
+	// Write method signatures.
+	initSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: semtypes.NIL, Flags: model.FuncSymbolFlagIsolated}
+	initFnSemType := libcommon.FunctionSignatureToSemType(env, &initSig)
+
+	stpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{semtypes.STRING}, ParamNames: []string{"payload"}, ReturnType: semtypes.NIL, Flags: model.FuncSymbolFlagIsolated}
+	stpFnSemType := libcommon.FunctionSignatureToSemType(env, &stpSig)
+
+	sjpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{jsonType}, ParamNames: []string{"payload"}, ReturnType: semtypes.NIL, Flags: model.FuncSymbolFlagIsolated}
+	sjpFnSemType := libcommon.FunctionSignatureToSemType(env, &sjpSig)
+
+	sbpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{byteArrayType}, ParamNames: []string{"payload"}, ReturnType: semtypes.NIL, Flags: model.FuncSymbolFlagIsolated}
+	sbpFnSemType := libcommon.FunctionSignatureToSemType(env, &sbpSig)
+
+	setHeaderSig := model.FunctionSignature{
+		ParamTypes: []semtypes.SemType{semtypes.STRING, semtypes.STRING},
+		ParamNames: []string{"headerName", "headerValue"},
+		ReturnType: semtypes.NIL,
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
-	gbpFnSemType := libcommon.FunctionSignatureToSemType(env, &gbpSig)
+	setHeaderFnSemType := libcommon.FunctionSignatureToSemType(env, &setHeaderSig)
+
+	sscSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{semtypes.INT}, ParamNames: []string{"statusCode"}, ReturnType: semtypes.NIL, Flags: model.FuncSymbolFlagIsolated}
+	sscFnSemType := libcommon.FunctionSignatureToSemType(env, &sscSig)
 
 	responseOd := semtypes.NewObjectDefinition()
 	responseTy := responseOd.Define(env,
 		semtypes.ObjectQualifiersDEFAULT,
 		[]semtypes.Member{
 			{Name: "statusCode", ValueTy: semtypes.INT, Kind: semtypes.MemberKindField, Visibility: semtypes.VisibilityPublic},
+			{Name: "init", ValueTy: initFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "setTextPayload", ValueTy: stpFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "setJsonPayload", ValueTy: sjpFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "setBinaryPayload", ValueTy: sbpFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "setHeader", ValueTy: setHeaderFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "setStatusCode", ValueTy: sscFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
 			{Name: "getTextPayload", ValueTy: gtpFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
 			{Name: "getJsonPayload", ValueTy: gjpFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
 			{Name: "getBinaryPayload", ValueTy: gbpFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
@@ -293,6 +350,7 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 			{Name: "getHeaderNames", ValueTy: getHeaderNamesFnSemType, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
 		})
 
+	// Read method symbols.
 	gtpSym := model.NewFunctionSymbol("$Response.getTextPayload", gtpSig, false)
 	space.AddSymbol("$Response.getTextPayload", gtpSym)
 	gtpRef, _ := space.GetSymbol("$Response.getTextPayload")
@@ -308,7 +366,6 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 	gbpRef, _ := space.GetSymbol("$Response.getBinaryPayload")
 	ctx.SetSymbolType(gbpRef, gbpFnSemType)
 
-	// Response header method default lambdas: position param → "LEADING"
 	posDefault1 := model.FunctionSignature{ParamTypes: []semtypes.SemType{semtypes.STRING}, ReturnType: headerPositionSemType, Flags: model.FuncSymbolFlagIsolated}
 	posDefault0 := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: headerPositionSemType, Flags: model.FuncSymbolFlagIsolated}
 
@@ -348,9 +405,46 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 	getHeaderNamesDefaultable.SetDefaultable(0, getHeaderNamesDefaultRef)
 	getHeaderNamesSym.SetDefaultableParams(getHeaderNamesDefaultable)
 
+	// Write method symbols.
+	initSym := model.NewFunctionSymbol("$Response.init", initSig, false)
+	space.AddSymbol("$Response.init", initSym)
+	initRef, _ := space.GetSymbol("$Response.init")
+	ctx.SetSymbolType(initRef, initFnSemType)
+
+	stpSym := model.NewFunctionSymbol("$Response.setTextPayload", stpSig, false)
+	space.AddSymbol("$Response.setTextPayload", stpSym)
+	stpRef, _ := space.GetSymbol("$Response.setTextPayload")
+	ctx.SetSymbolType(stpRef, stpFnSemType)
+
+	sjpSym := model.NewFunctionSymbol("$Response.setJsonPayload", sjpSig, false)
+	space.AddSymbol("$Response.setJsonPayload", sjpSym)
+	sjpRef, _ := space.GetSymbol("$Response.setJsonPayload")
+	ctx.SetSymbolType(sjpRef, sjpFnSemType)
+
+	sbpSym := model.NewFunctionSymbol("$Response.setBinaryPayload", sbpSig, false)
+	space.AddSymbol("$Response.setBinaryPayload", sbpSym)
+	sbpRef, _ := space.GetSymbol("$Response.setBinaryPayload")
+	ctx.SetSymbolType(sbpRef, sbpFnSemType)
+
+	setHeaderSym := model.NewFunctionSymbol("$Response.setHeader", setHeaderSig, false)
+	space.AddSymbol("$Response.setHeader", setHeaderSym)
+	setHeaderRef, _ := space.GetSymbol("$Response.setHeader")
+	ctx.SetSymbolType(setHeaderRef, setHeaderFnSemType)
+
+	sscSym := model.NewFunctionSymbol("$Response.setStatusCode", sscSig, false)
+	space.AddSymbol("$Response.setStatusCode", sscSym)
+	sscRef, _ := space.GetSymbol("$Response.setStatusCode")
+	ctx.SetSymbolType(sscRef, sscFnSemType)
+
 	responseSym := model.NewClassSymbol("Response", true)
 	responseSym.SetType(responseTy)
 	responseSym.SetMethods(map[string]model.SymbolRef{
+		"init":             initRef,
+		"setTextPayload":   stpRef,
+		"setJsonPayload":   sjpRef,
+		"setBinaryPayload": sbpRef,
+		"setHeader":        setHeaderRef,
+		"setStatusCode":    sscRef,
 		"getTextPayload":   gtpRef,
 		"getJsonPayload":   gjpRef,
 		"getBinaryPayload": gbpRef,
@@ -360,6 +454,214 @@ func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSem
 		"getHeaderNames":   getHeaderNamesRef,
 	})
 	space.AddSymbol("Response", responseSym)
+	return responseTy
+}
+
+// addRequestType defines the http:Request class for server-side use.
+func addRequestType(ctx *context.CompilerContext, space *model.SymbolSpace) {
+	env := ctx.GetTypeEnv()
+
+	stringArrayLd := semtypes.NewListDefinition()
+	stringArrayType := stringArrayLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
+	byteArrayLd := semtypes.NewListDefinition()
+	byteArrayType := byteArrayLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+	jsonType := semtypes.CreateJSON(semtypes.ContextFrom(env))
+
+	// map<string[]> for getQueryParams return type
+	strArrLd := semtypes.NewListDefinition()
+	strArrType := strArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
+	qpMapMd := semtypes.NewMappingDefinition()
+	queryParamsMapType := qpMapMd.DefineMappingTypeWrapped(env, []semtypes.Field{}, strArrType)
+
+	gtpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: semtypes.Union(semtypes.STRING, semtypes.ERROR), Flags: model.FuncSymbolFlagIsolated}
+	gjpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: semtypes.Union(jsonType, semtypes.ERROR), Flags: model.FuncSymbolFlagIsolated}
+	gbpSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: semtypes.Union(byteArrayType, semtypes.ERROR), Flags: model.FuncSymbolFlagIsolated}
+	getHdrSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{semtypes.STRING}, ParamNames: []string{"headerName"}, ReturnType: semtypes.Union(semtypes.STRING, semtypes.ERROR), Flags: model.FuncSymbolFlagIsolated}
+	getHdrsSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{semtypes.STRING}, ParamNames: []string{"headerName"}, ReturnType: semtypes.Union(stringArrayType, semtypes.ERROR), Flags: model.FuncSymbolFlagIsolated}
+	hasHdrSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{semtypes.STRING}, ParamNames: []string{"headerName"}, ReturnType: semtypes.BOOLEAN, Flags: model.FuncSymbolFlagIsolated}
+	getQPSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: queryParamsMapType, Flags: model.FuncSymbolFlagIsolated}
+	getQPVSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{semtypes.STRING}, ParamNames: []string{"paramName"}, ReturnType: semtypes.Union(semtypes.STRING, semtypes.NIL), Flags: model.FuncSymbolFlagIsolated}
+
+	requestOd := semtypes.NewObjectDefinition()
+	requestTy := requestOd.Define(env,
+		semtypes.ObjectQualifiersDEFAULT,
+		[]semtypes.Member{
+			{Name: "rawPath", ValueTy: semtypes.STRING, Kind: semtypes.MemberKindField, Visibility: semtypes.VisibilityPublic},
+			{Name: "method", ValueTy: semtypes.STRING, Kind: semtypes.MemberKindField, Visibility: semtypes.VisibilityPublic},
+			{Name: "httpVersion", ValueTy: semtypes.STRING, Kind: semtypes.MemberKindField, Visibility: semtypes.VisibilityPublic},
+			{Name: "getTextPayload", ValueTy: libcommon.FunctionSignatureToSemType(env, &gtpSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "getJsonPayload", ValueTy: libcommon.FunctionSignatureToSemType(env, &gjpSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "getBinaryPayload", ValueTy: libcommon.FunctionSignatureToSemType(env, &gbpSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "getHeader", ValueTy: libcommon.FunctionSignatureToSemType(env, &getHdrSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "getHeaders", ValueTy: libcommon.FunctionSignatureToSemType(env, &getHdrsSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "hasHeader", ValueTy: libcommon.FunctionSignatureToSemType(env, &hasHdrSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "getQueryParams", ValueTy: libcommon.FunctionSignatureToSemType(env, &getQPSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "getQueryParamValue", ValueTy: libcommon.FunctionSignatureToSemType(env, &getQPVSig), Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+		})
+
+	registerSymbol := func(name string, sig model.FunctionSignature) model.SymbolRef {
+		sym := model.NewFunctionSymbol(name, sig, false)
+		space.AddSymbol(name, sym)
+		ref, _ := space.GetSymbol(name)
+		ctx.SetSymbolType(ref, libcommon.FunctionSignatureToSemType(env, &sig))
+		return ref
+	}
+
+	gtpRef := registerSymbol("$Request.getTextPayload", gtpSig)
+	gjpRef := registerSymbol("$Request.getJsonPayload", gjpSig)
+	gbpRef := registerSymbol("$Request.getBinaryPayload", gbpSig)
+	getHdrRef := registerSymbol("$Request.getHeader", getHdrSig)
+	getHdrsRef := registerSymbol("$Request.getHeaders", getHdrsSig)
+	hasHdrRef := registerSymbol("$Request.hasHeader", hasHdrSig)
+	getQPRef := registerSymbol("$Request.getQueryParams", getQPSig)
+	getQPVRef := registerSymbol("$Request.getQueryParamValue", getQPVSig)
+
+	requestSym := model.NewClassSymbol("Request", true)
+	requestSym.SetType(requestTy)
+	requestSym.SetMethods(map[string]model.SymbolRef{
+		"getTextPayload":     gtpRef,
+		"getJsonPayload":     gjpRef,
+		"getBinaryPayload":   gbpRef,
+		"getHeader":          getHdrRef,
+		"getHeaders":         getHdrsRef,
+		"hasHeader":          hasHdrRef,
+		"getQueryParams":     getQPRef,
+		"getQueryParamValue": getQPVRef,
+	})
+	space.AddSymbol("Request", requestSym)
+}
+
+// addListener defines the http:Listener class.
+func addListener(ctx *context.CompilerContext, space *model.SymbolSpace, configTy, serviceTy semtypes.SemType) {
+	env := ctx.GetTypeEnv()
+
+	// attach-point type: string[]|string|()
+	strArrLd := semtypes.NewListDefinition()
+	strArrTy := strArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
+	attachPointTy := semtypes.Union(strArrTy, semtypes.Union(semtypes.STRING, semtypes.NIL))
+
+	errorOrNil := semtypes.Union(semtypes.ERROR, semtypes.NIL)
+
+	// Build listener structural type using ListenerTy (validated by validateListenerType).
+	listenerStructuralTy := semtypes.ListenerTy(semtypes.ContextFrom(env), serviceTy, attachPointTy)
+
+	// Build a custom listener object type that also includes init.
+	initListenerSig := model.FunctionSignature{
+		ParamTypes: []semtypes.SemType{semtypes.INT, semtypes.Union(configTy, semtypes.NIL)},
+		ParamNames: []string{"port", "config"},
+		ReturnType: errorOrNil,
+		Flags:      model.FuncSymbolFlagIsolated,
+	}
+	attachSig := model.FunctionSignature{
+		ParamTypes: []semtypes.SemType{serviceTy, attachPointTy},
+		ParamNames: []string{"httpService", "name"},
+		ReturnType: errorOrNil,
+		Flags:      model.FuncSymbolFlagIsolated,
+	}
+	detachSig := model.FunctionSignature{
+		ParamTypes: []semtypes.SemType{serviceTy},
+		ParamNames: []string{"httpService"},
+		ReturnType: errorOrNil,
+		Flags:      model.FuncSymbolFlagIsolated,
+	}
+	noParamSig := model.FunctionSignature{ParamTypes: []semtypes.SemType{}, ReturnType: errorOrNil, Flags: model.FuncSymbolFlagIsolated}
+
+	initListenerFnTy := libcommon.FunctionSignatureToSemType(env, &initListenerSig)
+	attachFnTy := libcommon.FunctionSignatureToSemType(env, &attachSig)
+	detachFnTy := libcommon.FunctionSignatureToSemType(env, &detachSig)
+	noParamFnTy := libcommon.FunctionSignatureToSemType(env, &noParamSig)
+
+	od := semtypes.NewObjectDefinition()
+	listenerTy := od.Define(env,
+		semtypes.ObjectQualifiersDEFAULT,
+		[]semtypes.Member{
+			{Name: "init", ValueTy: initListenerFnTy, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "attach", ValueTy: attachFnTy, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "detach", ValueTy: detachFnTy, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "start", ValueTy: noParamFnTy, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "gracefulStop", ValueTy: noParamFnTy, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+			{Name: "immediateStop", ValueTy: noParamFnTy, Kind: semtypes.MemberKindMethod, Visibility: semtypes.VisibilityPublic, Immutable: true},
+		})
+	_ = listenerStructuralTy // ensures structural type is memoized for validateListenerType
+
+	// Default lambda: $Listener.init$default$1(port) → empty ListenerConfiguration map
+	initDefaultRef := registerDefaultLambda(ctx, space, "$Listener.init$default$1", model.FunctionSignature{
+		ParamTypes: []semtypes.SemType{semtypes.INT},
+		ReturnType: semtypes.Union(configTy, semtypes.NIL),
+		Flags:      model.FuncSymbolFlagIsolated,
+	})
+	initListenerSym := model.NewFunctionSymbol("$Listener.init", initListenerSig, false)
+	space.AddSymbol("$Listener.init", initListenerSym)
+	initListenerRef, _ := space.GetSymbol("$Listener.init")
+	ctx.SetSymbolType(initListenerRef, initListenerFnTy)
+	initDefaultable := model.NewDefaultableParamInfo(len(initListenerSig.ParamTypes))
+	initDefaultable.SetDefaultable(1, initDefaultRef)
+	initListenerSym.SetDefaultableParams(initDefaultable)
+
+	// Default lambda: $Listener.attach$default$1(svc) → nil (name defaults to ())
+	attachDefaultRef := registerDefaultLambda(ctx, space, "$Listener.attach$default$1", model.FunctionSignature{
+		ParamTypes: []semtypes.SemType{serviceTy},
+		ReturnType: attachPointTy,
+		Flags:      model.FuncSymbolFlagIsolated,
+	})
+	attachSym := model.NewFunctionSymbol("$Listener.attach", attachSig, false)
+	space.AddSymbol("$Listener.attach", attachSym)
+	attachRef, _ := space.GetSymbol("$Listener.attach")
+	ctx.SetSymbolType(attachRef, attachFnTy)
+	attachDefaultable := model.NewDefaultableParamInfo(len(attachSig.ParamTypes))
+	attachDefaultable.SetDefaultable(1, attachDefaultRef)
+	attachSym.SetDefaultableParams(attachDefaultable)
+
+	detachSym := model.NewFunctionSymbol("$Listener.detach", detachSig, false)
+	space.AddSymbol("$Listener.detach", detachSym)
+	detachRef, _ := space.GetSymbol("$Listener.detach")
+	ctx.SetSymbolType(detachRef, detachFnTy)
+
+	startSym := model.NewFunctionSymbol("$Listener.start", noParamSig, false)
+	space.AddSymbol("$Listener.start", startSym)
+	startRef, _ := space.GetSymbol("$Listener.start")
+	ctx.SetSymbolType(startRef, noParamFnTy)
+
+	gracefulStopSym := model.NewFunctionSymbol("$Listener.gracefulStop", noParamSig, false)
+	space.AddSymbol("$Listener.gracefulStop", gracefulStopSym)
+	gracefulStopRef, _ := space.GetSymbol("$Listener.gracefulStop")
+	ctx.SetSymbolType(gracefulStopRef, noParamFnTy)
+
+	immediateStopSym := model.NewFunctionSymbol("$Listener.immediateStop", noParamSig, false)
+	space.AddSymbol("$Listener.immediateStop", immediateStopSym)
+	immediateStopRef, _ := space.GetSymbol("$Listener.immediateStop")
+	ctx.SetSymbolType(immediateStopRef, noParamFnTy)
+
+	listenerSym := model.NewClassSymbol("Listener", true)
+	listenerSym.SetType(listenerTy)
+	listenerSym.SetMethods(map[string]model.SymbolRef{
+		"init":          initListenerRef,
+		"attach":        attachRef,
+		"detach":        detachRef,
+		"start":         startRef,
+		"gracefulStop":  gracefulStopRef,
+		"immediateStop": immediateStopRef,
+	})
+	space.AddSymbol("Listener", listenerSym)
+}
+
+func addClient(ctx *context.CompilerContext, space *model.SymbolSpace, configSemType, responseTy semtypes.SemType) {
+	env := ctx.GetTypeEnv()
+
+	// headers: map<string|string[]>? — open mapping (any key, string|string[] values), optional.
+	// Build an explicit open mapping type so the field value type resolves to STRING|string[]
+	// rather than NEVER (which happens when the basic MAPPING atom is used directly), and so
+	// the list arm rejects non-string lists like int[] at compile time.
+	stringArrayLd := semtypes.NewListDefinition()
+	stringArrayType := stringArrayLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
+	headersMd := semtypes.NewMappingDefinition()
+	headersMapType := headersMd.DefineMappingTypeWrapped(env,
+		[]semtypes.Field{},
+		semtypes.Union(semtypes.STRING, stringArrayType))
+	headersOptType := semtypes.Union(headersMapType, semtypes.NIL)
+
+	// json — the proper recursive Ballerina json type: nil|boolean|int|float|decimal|string|list(json)|map(json).
+	jsonType := semtypes.CreateJSON(semtypes.ContextFrom(ctx.GetTypeEnv()))
 
 	// Member-level signatures: self is NOT included here because the BIR gen prepends
 	// the receiver object automatically. The type checker only sees user-provided args.

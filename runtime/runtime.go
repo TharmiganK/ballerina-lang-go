@@ -37,7 +37,8 @@ var dispatchHooks = extern.DispatchHandles{
 // Runtime represents a Ballerina runtime instance that owns a module registry
 // and is used as the execution context for interpreting BIR packages.
 type Runtime struct {
-	env *extern.Env
+	env     *extern.Env
+	cleanup []func()
 }
 
 // ModuleInitializer is a function that can install modules (e.g. stdlibs) into
@@ -51,7 +52,7 @@ var moduleInitializers []ModuleInitializer
 func NewRuntime(platform pal.Platform, tyEnv semtypes.Env) *Runtime {
 	registry := modules.NewRegistry()
 	env := extern.InitEnv(platform, tyEnv, registry, dispatchHooks)
-	rt := &Runtime{env}
+	rt := &Runtime{env: env}
 	for _, init := range moduleInitializers {
 		init(rt)
 	}
@@ -67,8 +68,21 @@ func (rt *Runtime) registry() *modules.Registry {
 	return rt.env.Registry.(*modules.Registry)
 }
 
+// RegisterCleanup registers a function to be called after Interpret returns,
+// regardless of whether it succeeds or fails. Used to release resources such
+// as listening sockets between test runs.
+func (rt *Runtime) RegisterCleanup(fn func()) {
+	rt.cleanup = append(rt.cleanup, fn)
+}
+
 // Interpret interprets a BIR package using this runtime instance.
 func (rt *Runtime) Interpret(pkg bir.BIRPackage) (err error) {
+	defer func() {
+		for _, fn := range rt.cleanup {
+			fn()
+		}
+		rt.cleanup = nil
+	}()
 	return exec.Interpret(pkg, rt.env)
 }
 

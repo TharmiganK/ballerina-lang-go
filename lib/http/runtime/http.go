@@ -1396,7 +1396,7 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 	state.mu.RUnlock()
 
 	if found == nil {
-		http.NotFound(w, r)
+		writeErrorJSON(w, r, http.StatusNotFound, "no matching resource found for path")
 		return
 	}
 
@@ -1439,10 +1439,10 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 			}
 			result, err := ctx.InvokeMethod(handle, invocationArgs)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				writeErrorJSON(w, r, http.StatusInternalServerError, err.Error())
 				return
 			}
-			writeResult(ctx.TypeCtx, w, result)
+			writeResult(ctx.TypeCtx, w, r, result)
 			return
 		}
 	}
@@ -1455,12 +1455,12 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 		candidates, _ := found.svcObj.ResourceEntries(accessor)
 		for i := range candidates {
 			if _, ok := coercePathForCandidate(ctx.TypeCtx, &candidates[i], segments); ok {
-				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				writeErrorJSON(w, r, http.StatusMethodNotAllowed, "method not allowed for path")
 				return
 			}
 		}
 	}
-	http.NotFound(w, r)
+	writeErrorJSON(w, r, http.StatusNotFound, "no matching resource found for path")
 }
 
 // splitURLPath splits a URL sub-path into segments, stripping leading/trailing slashes.
@@ -1534,7 +1534,9 @@ func coerceSegment(tc semtypes.Context, segTy semtypes.SemType, s string) (value
 			if s != decodeBalIdentifier(lit) {
 				return nil, false
 			}
-			return s, true
+			// Return the raw stored literal so that its singleton type matches the stored
+			// entry type when LookupResourceMethod re-validates via resourcePathMatches.
+			return lit, true
 		}
 	}
 	// Parameter segment: coerce based on type.
@@ -1619,13 +1621,37 @@ func buildRequest(tc semtypes.Context, method, rawPath, httpVersion string, head
 	)
 }
 
+// writeErrorJSON writes a JSON error response in the standard Ballerina HTTP error format.
+func writeErrorJSON(w http.ResponseWriter, r *http.Request, status int, message string) {
+	type errorPayload struct {
+		Timestamp string `json:"timestamp"`
+		Status    int    `json:"status"`
+		Reason    string `json:"reason"`
+		Message   string `json:"message"`
+		Path      string `json:"path"`
+		Method    string `json:"method"`
+	}
+	payload := errorPayload{
+		Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05.000000") + "Z",
+		Status:    status,
+		Reason:    http.StatusText(status),
+		Message:   message,
+		Path:      r.URL.Path,
+		Method:    r.Method,
+	}
+	body, _ := json.Marshal(payload)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}
+
 // writeResult writes a Ballerina resource method return value as an HTTP response.
-func writeResult(tc semtypes.Context, w http.ResponseWriter, result values.BalValue) {
+func writeResult(tc semtypes.Context, w http.ResponseWriter, r *http.Request, result values.BalValue) {
 	switch v := result.(type) {
 	case nil:
 		w.WriteHeader(http.StatusAccepted)
 	case *values.Error:
-		http.Error(w, v.Message, http.StatusInternalServerError)
+		writeErrorJSON(w, r, http.StatusInternalServerError, v.Message)
 	case *values.Object:
 		statusCodeVal, _ := v.Get("statusCode")
 		statusCode := http.StatusOK
@@ -1665,7 +1691,7 @@ func writeResult(tc semtypes.Context, w http.ResponseWriter, result values.BalVa
 			_, _ = w.Write([]byte(body))
 		}
 	default:
-		http.Error(w, "unexpected return type from resource method", http.StatusInternalServerError)
+		writeErrorJSON(w, r, http.StatusInternalServerError, "unexpected return type from resource method")
 	}
 }
 

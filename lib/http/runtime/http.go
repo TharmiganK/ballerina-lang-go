@@ -914,6 +914,10 @@ func initHttpModule(rt *runtime.Runtime) {
 			stateVal, _ := self.Get("$state")
 			state := stateVal.(*listenerState)
 
+			if msg := validateServiceForHTTP(svcObj); msg != "" {
+				return values.NewErrorWithMessage("Listener.attach: " + msg), nil
+			}
+
 			state.mu.Lock()
 			entry := &serviceEntry{basePath: basePath, svcObj: svcObj}
 			state.services = append(state.services, entry)
@@ -1315,6 +1319,16 @@ func buildListenerTLSConfig(ssMap *values.Map, fs pal.FS) (*tls.Config, error) {
 	}
 
 	return tlsCfg, nil
+}
+
+// validateServiceForHTTP rejects service objects that contain remote methods, which are
+// not supported for HTTP dispatch. Normal and resource methods are allowed.
+// Returns a non-empty error message if validation fails.
+func validateServiceForHTTP(svcObj *values.Object) string {
+	if svcObj.HasRemoteMethods() {
+		return "service object must not have remote methods"
+	}
+	return ""
 }
 
 // startHTTPServer starts the HTTP server goroutine and returns the server.

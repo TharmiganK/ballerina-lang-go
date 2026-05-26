@@ -16,7 +16,11 @@
 
 package values
 
-import "ballerina-lang-go/semtypes"
+import (
+	"strings"
+
+	"ballerina-lang-go/semtypes"
+)
 
 type Object struct {
 	Type       semtypes.SemType
@@ -83,4 +87,23 @@ func (o *Object) Get(field string) (BalValue, bool) {
 func (o *Object) MethodLookupKey(name string) (string, bool) {
 	key, ok := o.methodKeys[name]
 	return key, ok
+}
+
+// AllResourceMethodNames returns every accessor key present in the resource table.
+func (o *Object) AllResourceMethodNames() []string {
+	names := make([]string, 0, len(o.rtable))
+	for k := range o.rtable {
+		names = append(names, k)
+	}
+	return names
+}
+
+// HasRemoteMethods reports whether the object has any remote methods.
+func (o *Object) HasRemoteMethods() bool {
+	for k := range o.methodKeys {
+		if strings.HasPrefix(k, "$remote$") {
+			return true
+		}
+	}
+	return false
 }

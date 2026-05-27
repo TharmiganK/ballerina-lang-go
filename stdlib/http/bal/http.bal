@@ -120,6 +120,25 @@ public type FollowRedirects record {|
     boolean allowAuthHeaders = false;
 |};
 
+// Provides a set of configurations for controlling the connection pooling behaviour.
+// Defaults mirror jBallerina's PoolConfiguration:
+//   maxActiveConnections=-1 (unlimited), maxIdleConnections=100, waitTime=30s.
+//
+// Fields:
+//   maxActiveConnections         - Maximum number of active connections the client pool can create
+//                                  per endpoint. -1 means unlimited.
+//   maxIdleConnections           - Maximum number of idle connections the client pool can hold
+//                                  per endpoint.
+//   waitTime                     - Maximum time (in seconds) a request will wait to acquire an
+//                                  idle connection before erroring.
+//   maxActiveStreamsPerConnection - Maximum active streams per HTTP/2 connection (HTTP/2 only).
+public type PoolConfiguration record {|
+    int maxActiveConnections = -1;
+    int maxIdleConnections = 100;
+    decimal waitTime = 30;
+    int maxActiveStreamsPerConnection = 100;
+|};
+
 // HTTP protocol version constants, matching the jBallerina enum.
 // HTTP_1_0 is accepted at compile time but treated as HTTP_1_1 at runtime;
 // Go's HTTP stack does not implement an HTTP/1.0-only mode.
@@ -132,21 +151,24 @@ public enum HttpVersion {
 // Provides a set of configurations for controlling the behaviours when communicating with
 // a remote HTTP endpoint.
 //
-// Supported: timeout, httpVersion, followRedirects, secureSocket.
+// Supported: timeout, httpVersion, followRedirects, secureSocket, poolConfig.
 // Not supported: circuitBreaker, retryConfig, cookieConfig, cache, compression,
 //               auth, http1Settings, http2Settings, responseLimits, socketConfig,
 //               validation, laxDataBinding.
 //
 // Fields:
-//   timeout        - Max wait time in seconds before request times out (default: 30).
+//   timeout         - Max wait time in seconds before request times out (default: 30).
 //   followRedirects - Redirect handling configuration; () disables redirect following.
-//   httpVersion    - HTTP protocol version (default: HTTP_2_0). HTTP_1_0 is treated as HTTP_1_1.
-//   secureSocket   - TLS settings; () uses default TLS verification.
+//   httpVersion     - HTTP protocol version (default: HTTP_2_0). HTTP_1_0 is treated as HTTP_1_1.
+//   secureSocket    - TLS settings; () uses default TLS verification.
+//   poolConfig      - Connection pool settings; () uses platform defaults
+//                     (maxIdleConnections=100, maxActiveConnections=-1, waitTime=30s).
 public type ClientConfiguration record {|
     decimal timeout = 30;
     FollowRedirects? followRedirects = ();
     HttpVersion httpVersion = HTTP_2_0;
     ClientSecureSocket? secureSocket = ();
+    PoolConfiguration? poolConfig = ();
 |};
 
 // ── Header position ───────────────────────────────────────────────────────────
@@ -392,7 +414,7 @@ public class Request {
 # services based on path-based routing.
 #
 # Use `service /path on new http:Listener(port)` to attach a service at declaration time,
-# or call `attach` programmatically and then `'start()`.
+# or call `attach` programmatically and then `start`.
 public class Listener {
 
     # Initialises the HTTP listener on the specified port.

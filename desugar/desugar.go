@@ -804,24 +804,22 @@ func createArrayPushInvocation(pkgCtx *packageContext, listExpr, valueExpr ast.B
 		pkgCtx.internalError(pkgName + " symbol space not found")
 		return nil
 	}
-	genericRef, ok := space.GetSymbol("push")
+	pushRef, ok := space.GetSymbol("push")
 	if !ok {
 		pkgCtx.internalError(pkgName + ":push symbol not found")
 		return nil
 	}
-	genericSym, ok := pkgCtx.getSymbol(genericRef).(model.ContainerGenericFunctionSymbol)
-	if !ok {
-		pkgCtx.internalError(pkgName + ":push is not a container generic symbol")
-		return nil
-	}
-	symbolRef := genericSym.Monomorphize(listExpr.GetDeterminedType())
 	pkgCtx.addImplicitImport(pkgName, ast.BLangImportPackage{
 		OrgName:      &ast.BLangIdentifier{Value: "ballerina"},
 		PkgNameComps: []ast.BLangIdentifier{{Value: "lang"}, {Value: "array"}},
 		Alias:        &ast.BLangIdentifier{Value: pkgName},
 	})
+	symbolRef := pushRef
+	if genericSym, ok := pkgCtx.getSymbol(pushRef).(model.ContainerGenericFunctionSymbol); ok {
+		symbolRef = genericSym.Monomorphize(listExpr.GetDeterminedType())
+	}
 	inv := &ast.BLangInvocation{PkgAlias: &ast.BLangIdentifier{Value: pkgName}}
-	inv.Name = &ast.BLangIdentifier{Value: pkgCtx.getSymbol(symbolRef).Name()}
+	inv.Name = &ast.BLangIdentifier{Value: "push"}
 	inv.ArgExprs = []ast.BLangExpression{listExpr, valueExpr}
 	inv.SetSymbol(symbolRef)
 	inv.SetDeterminedType(semtypes.NIL)

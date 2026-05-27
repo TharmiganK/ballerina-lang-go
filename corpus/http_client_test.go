@@ -710,6 +710,85 @@ public function main() returns error? {
 	}
 }
 
+// TestHttpClientForward verifies that Client.forward correctly forwards the
+// original method, headers, and body from an http:Request to a backend server.
+func TestHttpClientForward(t *testing.T) {
+	var receivedMethod string
+	var receivedBody []byte
+	var receivedHeader string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		receivedHeader = r.Header.Get("X-Forwarded-From")
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(200)
+		_, _ = fmt.Fprint(w, "forwarded ok")
+	}))
+	defer server.Close()
+
+	balFile := filepath.Join(externTestDataDir, "http-client-forward-v.bal")
+	absPath, err := filepath.Abs(balFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fsys := os.DirFS(filepath.Dir(absPath))
+	ballerinaEnvPath, err := getBallerinaEnvPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ballerinaEnvFs := os.DirFS(ballerinaEnvPath)
+
+	result, err := projects.Load(fsys, filepath.Base(absPath), projects.ProjectLoadConfig{
+		BallerinaEnvFs: ballerinaEnvFs,
+	})
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	currentPkg := result.Project().CurrentPackage()
+	compilation := currentPkg.Compilation()
+	if compilation.DiagnosticResult().HasErrors() {
+		for _, d := range compilation.DiagnosticResult().Diagnostics() {
+			t.Logf("diagnostic: %v", d)
+		}
+		t.Fatal("compilation had errors")
+	}
+
+	backend := projects.NewBallerinaBackend(compilation)
+	birPkg := backend.BIR()
+
+	stdoutBuf := &bytes.Buffer{}
+	testPal := test_util.TestPal(stdoutBuf, os.Stderr)
+	testPal.HTTP = pal.HTTP{
+		NewClient: func(cfg pal.ClientConfig) pal.HTTPClient {
+			return &rewritingHTTPClient{
+				serverURL: server.URL,
+				client:    &http.Client{Timeout: cfg.Timeout},
+			}
+		},
+	}
+
+	rt := runtime.NewRuntime(testPal, result.Project().Environment().TypeEnv())
+	if err := rt.Interpret(*birPkg); err != nil {
+		t.Fatalf("runtime error: %v", err)
+	}
+
+	if receivedMethod != "POST" {
+		t.Errorf("expected forwarded method POST, got %q", receivedMethod)
+	}
+	if string(receivedBody) != "hello body" {
+		t.Errorf("expected forwarded body %q, got %q", "hello body", string(receivedBody))
+	}
+	if receivedHeader != "test" {
+		t.Errorf("expected X-Forwarded-From header %q, got %q", "test", receivedHeader)
+	}
+	expected := "200\nforwarded ok\n"
+	if stdoutBuf.String() != expected {
+		t.Errorf("expected stdout %q, got %q", expected, stdoutBuf.String())
+	}
+}
+
 // generateTestCerts generates a self-signed CA, a server cert for 127.0.0.1,
 // and a client cert. All leaves are signed by the CA. Returns PEM-encoded
 // bytes ready for use with tls.X509KeyPair or file writes.

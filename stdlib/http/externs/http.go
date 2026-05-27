@@ -184,16 +184,17 @@ func initHttpModule(rt *runtime.Runtime) {
 			{Name: "httpVersion", Ty: semtypes.STRING},
 		},
 		VTable: map[string]*bir.BIRFunction{
-			"init":            {FunctionLookupKey: "ballerina/http:Client.init"},
-			"initNative":      {FunctionLookupKey: "ballerina/http:Client.initNative"},
-			"$remote$get":     {FunctionLookupKey: "ballerina/http:Client.$remote$get"},
-			"$remote$post":    {FunctionLookupKey: "ballerina/http:Client.$remote$post"},
-			"$remote$head":    {FunctionLookupKey: "ballerina/http:Client.$remote$head"},
-			"$remote$options": {FunctionLookupKey: "ballerina/http:Client.$remote$options"},
-			"$remote$put":     {FunctionLookupKey: "ballerina/http:Client.$remote$put"},
-			"$remote$patch":   {FunctionLookupKey: "ballerina/http:Client.$remote$patch"},
-			"$remote$delete":  {FunctionLookupKey: "ballerina/http:Client.$remote$delete"},
-			"$remote$execute": {FunctionLookupKey: "ballerina/http:Client.$remote$execute"},
+			"init":             {FunctionLookupKey: "ballerina/http:Client.init"},
+			"initNative":       {FunctionLookupKey: "ballerina/http:Client.initNative"},
+			"$remote$get":      {FunctionLookupKey: "ballerina/http:Client.$remote$get"},
+			"$remote$post":     {FunctionLookupKey: "ballerina/http:Client.$remote$post"},
+			"$remote$head":     {FunctionLookupKey: "ballerina/http:Client.$remote$head"},
+			"$remote$options":  {FunctionLookupKey: "ballerina/http:Client.$remote$options"},
+			"$remote$put":      {FunctionLookupKey: "ballerina/http:Client.$remote$put"},
+			"$remote$patch":    {FunctionLookupKey: "ballerina/http:Client.$remote$patch"},
+			"$remote$delete":   {FunctionLookupKey: "ballerina/http:Client.$remote$delete"},
+			"$remote$execute":  {FunctionLookupKey: "ballerina/http:Client.$remote$execute"},
+			"$remote$forward":  {FunctionLookupKey: "ballerina/http:Client.$remote$forward"},
 		},
 	}
 	runtime.RegisterExternClassDef(rt, clientClassDef)
@@ -526,6 +527,57 @@ func initHttpModule(rt *runtime.Runtime) {
 			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBody), nil
 		})
 
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$forward",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			path := args[1].(string)
+			reqObj := args[2].(*values.Object)
+
+			methodVal, _ := reqObj.Get("method")
+			method, _ := methodVal.(string)
+			if method == "" {
+				method = "GET"
+			}
+
+			hdrsVal, _ := reqObj.Get("$headers")
+			var reqHeaders map[string][]string
+			if hdrs, ok := hdrsVal.(*values.Map); ok {
+				reqHeaders = make(map[string][]string, hdrs.Len())
+				for _, k := range hdrs.Keys() {
+					v, _ := hdrs.Get(k)
+					if list, ok := v.(*values.List); ok {
+						strs := make([]string, list.Len())
+						for i := range list.Len() {
+							if s, ok := list.Get(i).(string); ok {
+								strs[i] = s
+							}
+						}
+						reqHeaders[k] = strs
+					}
+				}
+			}
+
+			bodyVal, _ := reqObj.Get("$body")
+			var body []byte
+			if s, ok := bodyVal.(string); ok {
+				body = []byte(s)
+			}
+
+			contentType := ""
+			if cts, ok := reqHeaders["content-type"]; ok && len(cts) > 0 {
+				contentType = cts[0]
+			}
+
+			urlVal, _ := self.Get("url")
+			clientHandle, _ := self.Get("$httpClient")
+			statusCode, respHeaders, respBody, err := clientHandle.(pal.HTTPClient).Execute(
+				method, urlVal.(string)+path, body, contentType, reqHeaders)
+			if err != nil {
+				return values.NewErrorWithMessage(err.Error()), nil
+			}
+			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBody), nil
+		})
+
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getTextPayload",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
@@ -628,7 +680,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			{Name: "statusCode", Ty: semtypes.INT},
 		},
 		VTable: map[string]*bir.BIRFunction{
-			"init":             {FunctionLookupKey: "ballerina/http:Response.init"},
+			"initNative":       {FunctionLookupKey: "ballerina/http:Response.initNative"},
 			"setTextPayload":   {FunctionLookupKey: "ballerina/http:Response.setTextPayload"},
 			"setJsonPayload":   {FunctionLookupKey: "ballerina/http:Response.setJsonPayload"},
 			"setBinaryPayload": {FunctionLookupKey: "ballerina/http:Response.setBinaryPayload"},
@@ -646,7 +698,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternClassDef(rt, responseClassDef)
 
 	// Response write methods.
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.init",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.initNative",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			self.Put("statusCode", int64(200))
@@ -719,6 +771,11 @@ func initHttpModule(rt *runtime.Runtime) {
 			{Name: "httpVersion", Ty: semtypes.STRING},
 		},
 		VTable: map[string]*bir.BIRFunction{
+			"initNative":         {FunctionLookupKey: "ballerina/http:Request.initNative"},
+			"setTextPayload":     {FunctionLookupKey: "ballerina/http:Request.setTextPayload"},
+			"setJsonPayload":     {FunctionLookupKey: "ballerina/http:Request.setJsonPayload"},
+			"setBinaryPayload":   {FunctionLookupKey: "ballerina/http:Request.setBinaryPayload"},
+			"setHeader":          {FunctionLookupKey: "ballerina/http:Request.setHeader"},
 			"getTextPayload":     {FunctionLookupKey: "ballerina/http:Request.getTextPayload"},
 			"getJsonPayload":     {FunctionLookupKey: "ballerina/http:Request.getJsonPayload"},
 			"getBinaryPayload":   {FunctionLookupKey: "ballerina/http:Request.getBinaryPayload"},
@@ -730,6 +787,64 @@ func initHttpModule(rt *runtime.Runtime) {
 		},
 	}
 	runtime.RegisterExternClassDef(rt, requestClassDef)
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.initNative",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			self.Put("$body", "")
+			self.Put("$contentType", "")
+			self.Put("$headers", newMappingValue(ctx.TypeCtx))
+			return nil, nil
+		})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setTextPayload",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			payload, _ := args[1].(string)
+			self.Put("$body", payload)
+			self.Put("$contentType", "text/plain")
+			setRequestHeader(self, "content-type", "text/plain", ctx.TypeCtx)
+			return nil, nil
+		})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setJsonPayload",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			payload := args[1]
+			b, _ := json.Marshal(balToGoJSON(payload))
+			self.Put("$body", string(b))
+			self.Put("$contentType", "application/json")
+			setRequestHeader(self, "content-type", "application/json", ctx.TypeCtx)
+			return nil, nil
+		})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setBinaryPayload",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			list, ok := args[1].(*values.List)
+			if !ok {
+				return nil, nil
+			}
+			raw := make([]byte, list.Len())
+			for i := range list.Len() {
+				if b, ok := list.Get(i).(int64); ok {
+					raw[i] = byte(b)
+				}
+			}
+			self.Put("$body", string(raw))
+			self.Put("$contentType", "application/octet-stream")
+			setRequestHeader(self, "content-type", "application/octet-stream", ctx.TypeCtx)
+			return nil, nil
+		})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setHeader",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			name := strings.ToLower(args[1].(string))
+			val, _ := args[2].(string)
+			setRequestHeader(self, name, val, ctx.TypeCtx)
+			return nil, nil
+		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getTextPayload",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
@@ -854,7 +969,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		LookupKey: "ballerina/http:Listener",
 		Fields:    []bir.ObjectField{},
 		VTable: map[string]*bir.BIRFunction{
-			"init":          {FunctionLookupKey: "ballerina/http:Listener.init"},
+			"initNative":    {FunctionLookupKey: "ballerina/http:Listener.initNative"},
 			"attach":        {FunctionLookupKey: "ballerina/http:Listener.attach"},
 			"detach":        {FunctionLookupKey: "ballerina/http:Listener.detach"},
 			"start":         {FunctionLookupKey: "ballerina/http:Listener.start"},
@@ -874,14 +989,15 @@ func initHttpModule(rt *runtime.Runtime) {
 			return nil, nil
 		})
 
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "Listener.init",
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Listener.initNative",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			port := int(args[1].(int64))
 			state := &listenerState{
-				host:    "0.0.0.0",
-				port:    port,
-				timeout: 60 * time.Second,
+				host:        "0.0.0.0",
+				port:        port,
+				timeout:     60 * time.Second,
+				httpVersion: "2.0",
 			}
 			if len(args) > 2 {
 				if cfg, ok := args[2].(*values.Map); ok {
@@ -893,6 +1009,11 @@ func initHttpModule(rt *runtime.Runtime) {
 					if v, ok := cfg.Get("timeout"); ok {
 						if d, ok := v.(*decimal.Decimal); ok {
 							state.timeout = decimalToDuration(d)
+						}
+					}
+					if v, ok := cfg.Get("httpVersion"); ok {
+						if s, ok := v.(string); ok && s != "" {
+							state.httpVersion = s
 						}
 					}
 					if v, ok := cfg.Get("secureSocket"); ok {
@@ -1122,6 +1243,19 @@ func buildResponse(tc semtypes.Context, statusCode int, respHeaders map[string][
 }
 
 // responseHeaders returns the internal header map stored on a Response object.
+func setRequestHeader(self *values.Object, name, val string, tc semtypes.Context) {
+	hdrsVal, ok := self.Get("$headers")
+	var hdrs *values.Map
+	if ok {
+		hdrs, _ = hdrsVal.(*values.Map)
+	}
+	if hdrs == nil {
+		hdrs = newMappingValue(tc)
+		self.Put("$headers", hdrs)
+	}
+	hdrs.Put(tc, name, newListValue(tc, []values.BalValue{val}))
+}
+
 func responseHeaders(self *values.Object) *values.Map {
 	h, _ := self.Get("$headers")
 	return h.(*values.Map)
@@ -1186,13 +1320,14 @@ func toJSONBytes(v values.BalValue) ([]byte, error) {
 
 // listenerState holds per-listener runtime state stored in the $state field.
 type listenerState struct {
-	host     string
-	port     int
-	timeout  time.Duration
-	tlsCfg   *tls.Config
-	mu       sync.RWMutex
-	services []*serviceEntry
-	server   *http.Server
+	host        string
+	port        int
+	timeout     time.Duration
+	httpVersion string
+	tlsCfg      *tls.Config
+	mu          sync.RWMutex
+	services    []*serviceEntry
+	server      *http.Server
 }
 
 type serviceEntry struct {
@@ -1354,9 +1489,11 @@ func startHTTPServer(rt *runtime.Runtime, state *listenerState, done func()) (*h
 	addr := fmt.Sprintf("%s:%d", state.host, state.port)
 	protocols := new(http.Protocols)
 	protocols.SetHTTP1(true)
-	protocols.SetHTTP2(true)
-	if state.tlsCfg == nil {
-		protocols.SetUnencryptedHTTP2(true)
+	if state.httpVersion == "2.0" {
+		protocols.SetHTTP2(true)
+		if state.tlsCfg == nil {
+			protocols.SetUnencryptedHTTP2(true)
+		}
 	}
 
 	timeout := state.timeout

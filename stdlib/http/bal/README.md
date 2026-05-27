@@ -8,17 +8,20 @@ This module provides the HTTP client and listener APIs for building and consumin
 
 **Service / Listener** — an HTTP listener with configurable host, TLS, HTTP version, and request limits; service definition with path-based routing and resource function dispatch; automatic binding of path parameters, query parameters, headers, and payloads in resource signatures; caller-based response dispatch; request/response interceptor pipeline; service-level and resource-level annotations (`@http:ServiceConfig`, `@http:ResourceConfig`, `@http:Payload`, `@http:Header`, `@http:Query`, `@http:Cache`); CORS configuration; listener authentication and authorization (File user store, LDAP, JWT, OAuth2); status code response types from resources; and SSE streaming responses.
 
-The Go Native Interpreter currently supports the **HTTP client subset only**: the eight core remote methods, TLS/mTLS (PEM-based), redirect following, and manual payload extraction from responses. The service/listener side is not yet implemented.
+The Go Native Interpreter currently supports the **HTTP client and basic service/listener subsets**: the eight core remote methods, request forwarding (`forward`), TLS/mTLS (PEM-based), redirect following, manual payload extraction from responses, an HTTP listener with path-based routing, and resource function dispatch with `http:Request`/`http:Response` parameters.
 
 ## Key Functionalities
 
 - Send HTTP requests using GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, and custom verbs.
+- Forward inbound `http:Request` objects to a backend via `client->forward(path, req)`.
 - Configure request timeout, HTTP version (1.1 / 2.0), and redirect behaviour.
 - Secure connections with TLS and mutual TLS using PEM certificate and key files.
 - Set custom request headers and override the inferred Content-Type.
 - Read the response status code, text, JSON, or binary payload.
 - Inspect response headers by name or enumerate all header names.
 - Parse structured header values (value + parameter map) with the header parsing utility.
+- Declare HTTP services with `service /path on new http:Listener(port)` and implement resource functions.
+- Construct and return `http:Response` objects from resource functions with status codes and payloads.
 
 ## Examples
 
@@ -94,7 +97,7 @@ Support Levels:
 | TCP socket configuration | Not Yet Supported | `socketConfig` (`ClientSocketConfig`) is not implemented. |
 | Client-side payload validation | Not Yet Supported | The `validation` and `laxDataBinding` flags in `ClientConfiguration` are not implemented. |
 | Proxy support | Not Yet Supported | `ProxyConfig` (available via `http1Settings.proxy` in jBallerina) is not implemented. |
-| Request forwarding via incoming request | Not Yet Supported | The `forward` remote method requires an `http:Request` object, which is not yet implemented. |
+| Request forwarding via incoming request | Supported | `forward(path, request)` extracts the HTTP method, headers, and body from an inbound `http:Request` object and forwards to `baseURL + path`. |
 | Async request submission | Not Yet Supported | `submit`, `getResponse`, and `HttpFuture` are not implemented. |
 | HTTP/2 server push | Not Yet Supported | `hasPromise`, `getNextPromise`, `getPromisedResponse`, and `rejectPromise` are not implemented. |
 | Resource function call syntax | Not Yet Supported | The `client->/path.get(...)` path-template syntax is not supported; use the remote method form instead. |
@@ -103,7 +106,7 @@ Support Levels:
 
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
-| Request object | Not Yet Supported | The `Request` class (raw path, method, HTTP version, headers, payload read methods, query params, mutual SSL handshake info) is not implemented. It cannot be used as a client message body or accessed in resource function signatures. |
+| Request object | Supported | `Request` class with public fields `rawPath`, `method`, `httpVersion`; read methods `getTextPayload`, `getJsonPayload`, `getBinaryPayload`, `getHeader`, `getHeaders`, `hasHeader`, `getQueryParams`, `getQueryParamValue`; and write methods `setTextPayload`, `setJsonPayload`, `setBinaryPayload`, `setHeader`. Mutual SSL handshake info is not available. |
 | Path parameter binding | Not Yet Supported | Automatic extraction of URL path segments into resource function parameters is not implemented. |
 | Query parameter binding | Not Yet Supported | Automatic binding of URL query parameters to resource function parameters is not implemented. |
 | Inbound header binding | Not Yet Supported | Automatic binding of request headers to resource function parameters via `@http:Header` is not implemented. |
@@ -120,7 +123,7 @@ Support Levels:
 | Response payload as JSON | Supported | `getJsonPayload()` parses the body and returns `json\|error`. |
 | Response payload as raw bytes | Supported | `getBinaryPayload()` returns `byte[]\|error`. |
 | Response header inspection | Supported | `hasHeader`, `getHeader`, `getHeaders`, and `getHeaderNames` operate on transport (leading) headers. Trailing header position is accepted at compile time but has no runtime effect. |
-| Response write methods | Not Yet Supported | `setPayload`, `setJsonPayload`, `setHeader`, `addHeader`, `removeHeader`, `setStatusCode`, etc. are not implemented; `Response` is read-only in the current client-only implementation. |
+| Response write methods | Partially Supported | `setTextPayload`, `setJsonPayload`, `setBinaryPayload`, `setHeader`, and `setStatusCode` are implemented. `setPayload`, `addHeader`, `removeHeader`, and multipart/streaming write methods are not implemented. |
 | Streaming response body | Not Yet Supported | `getByteStream()` is not implemented. |
 | Server-Sent Events | Not Yet Supported | `getSseEventStream()` and consuming a `stream<SseEvent, error?>` response are not implemented. |
 | Response XML payload | Not Yet Supported | The `xml` type and related payload handling methods (`getXmlPayload()`, `setXmlPayload()`) are not implemented due to the lack of XML support in the Go runtime. |
@@ -129,9 +132,9 @@ Support Levels:
 
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
-| HTTP Listener | Not Yet Supported | The `Listener` class (start, graceful stop, attach, detach) is not implemented; no server-side listener can be created. |
-| Listener configuration | Not Yet Supported | `ListenerConfiguration` (host, timeout, HTTP version, HTTP/1.x settings, HTTP/2 window size, graceful stop timeout, request limits, server name, socket config) is not implemented. |
-| Listener TLS / mTLS | Not Yet Supported | `ListenerSecureSocket` (server certificate, mutual TLS, protocol, ciphers, etc.) is not implemented. |
+| HTTP Listener | Supported | `Listener` class with `init(port, config?)`, `attach(svc, name?)`, `detach(svc)`, `'start()`, `gracefulStop()`, and `immediateStop()`. The listener binds on the given port and dispatches incoming HTTP requests to attached services by path prefix. |
+| Listener configuration | Partially Supported | `ListenerConfiguration` supports `host`, `timeout`, and `httpVersion`. `HTTP_2_0` (default) enables both HTTP/1.1 and HTTP/2; `HTTP_1_1` restricts to HTTP/1.1 only; `HTTP_1_0` is accepted but treated as `HTTP_1_1` at runtime. HTTP/1.x settings, HTTP/2 window size, graceful stop timeout, request limits, server name, and socket config are not supported. |
+| Listener TLS / mTLS | Partially Supported | `ListenerSecureSocket` supports `key` (`CertKey` for server cert/key), `cert` (CA PEM path for mTLS), `mutualSsl`, `protocol` (version list), `ciphers`, and `shareSession`. `crypto:TrustStore` and `crypto:KeyStore` are not supported. |
 | Default listener | Not Yet Supported | The module-level default listener (`http:defaultListener`) is not implemented. |
 | Listener authentication and authorization | Not Yet Supported | `ListenerAuthConfig` and listener-side auth handlers (file user store, LDAP, JWT, OAuth2) are not implemented. |
 
@@ -139,8 +142,8 @@ Support Levels:
 
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
-| HTTP service definition and routing | Not Yet Supported | Declaring `service on listener` with path-based routing is not implemented. |
-| Resource function dispatch | Not Yet Supported | Resource functions with path parameters, accessor methods, and typed response returns are not implemented. |
+| HTTP service definition and routing | Partially Supported | `service /path on new http:Listener(port)` declarations are supported. Path-based routing dispatches to the longest-matching base path prefix. The `http:Service` type is declared. |
+| Resource function dispatch | Partially Supported | Resource functions with path parameters (fixed segments and capture variables) and accessor methods (`get`, `post`, `put`, `patch`, `delete`, `head`, `options`) are dispatched. `http:Request` and `http:Response` parameters in resource signatures are supported. Typed payload binding (`@http:Payload`), `http:Caller`, and annotation-driven routing are not supported. |
 | Caller-based response dispatch | Not Yet Supported | The `Caller` class and its `respond()` method for sending responses back to the client are not implemented. |
 | Status code response types from resources | Not Yet Supported | Returning `http:Ok`, `http:Created`, `http:NotFound`, and other `StatusCodeResponse` subtypes from resource functions is not implemented. |
 | Service-level annotation | Not Yet Supported | `@http:ServiceConfig` (host, compression, chunking, CORS, auth, validation, lax data binding) is not implemented. |
@@ -164,6 +167,6 @@ Support Levels:
 
 ### Notable Behavioural Changes
 
-- **HTTP/1.0 is a compile error.** Specifying `httpVersion: "1.0"` in `ClientConfiguration` is rejected at compile time. Go's HTTP client cannot send HTTP/1.0 requests, so this is a permanent restriction rather than a missing runtime feature.
+- **`HTTP_1_0` is treated as `HTTP_1_1`.** The `HTTP_1_0` enum constant is accepted at compile time for both `ClientConfiguration` and `ListenerConfiguration`, but Go's HTTP stack does not implement an HTTP/1.0-only mode. At runtime `HTTP_1_0` behaves identically to `HTTP_1_1`.
 - **Trailing headers are not modelled.** The `TRAILING` header position constant is accepted at compile time for API compatibility, but all header operations (`getHeader`, `getHeaders`, `hasHeader`, `getHeaderNames`) act on transport (leading) headers at runtime. HTTP trailers sent by the server are silently discarded.
 - **TLS protocol name has no effect.** The `protocol.name` field accepts `"SSL"`, `"TLS"`, and `"DTLS"` at compile time, but only TLS is supported at runtime. `"SSL"` and `"DTLS"` values are ignored because Go's standard TLS stack does not expose separate SSL or DTLS stacks.

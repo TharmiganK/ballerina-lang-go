@@ -971,8 +971,11 @@ func analyzeCheckedExpr[A analyzer](a A, expr *ast.BLangCheckedExpr, expectedTyp
 	}
 	retTy := expectedReturnType(a)
 	if retTy == nil {
-		a.ctx().SemanticError("check expression not allowed outside a function", expr.GetPosition())
-		return false
+		if !isAtModuleLevel(a) {
+			a.ctx().SemanticError("check expression not allowed outside a function", expr.GetPosition())
+			return false
+		}
+		return validateResolvedType(a, expr, expectedType)
 	}
 	exprTy := expr.Expr.GetDeterminedType()
 	errorPart := semtypes.Intersect(exprTy, semtypes.ERROR)
@@ -982,6 +985,16 @@ func analyzeCheckedExpr[A analyzer](a A, expr *ast.BLangCheckedExpr, expectedTyp
 		}
 	}
 	return validateResolvedType(a, expr, expectedType)
+}
+
+func isAtModuleLevel(a analyzer) bool {
+	for current := a; current != nil; current = current.parentAnalyzer() {
+		switch current.(type) {
+		case *functionAnalyzer, *constantAnalyzer:
+			return false
+		}
+	}
+	return true
 }
 
 func analyzeTrapExpr[A analyzer](a A, expr *ast.BLangTrapExpr, expectedType semtypes.SemType) bool {

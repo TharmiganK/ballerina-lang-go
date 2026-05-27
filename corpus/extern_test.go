@@ -29,7 +29,6 @@ import (
 	bircodec "ballerina-lang-go/bir/codec"
 	"ballerina-lang-go/context"
 	"ballerina-lang-go/desugar"
-	ioruntime "ballerina-lang-go/lib/io/runtime"
 	"ballerina-lang-go/model"
 	"ballerina-lang-go/model/symbolpool"
 	"ballerina-lang-go/parser"
@@ -483,7 +482,10 @@ func TestDependentlyTypedMethod(t *testing.T) {
 }
 
 func TestExternResourceMethod(t *testing.T) {
-	projectDir := filepath.Join(testDataDir, "resource-method-v")
+	projectDir := filepath.Join(externTestDataDir, "resource-method-v")
+	if _, err := os.Stat(projectDir); os.IsNotExist(err) {
+		t.Skipf("test data not yet created: %s", projectDir)
+	}
 	absPath, err := filepath.Abs(projectDir)
 	if err != nil {
 		t.Fatal(err)
@@ -537,7 +539,10 @@ func TestExternResourceMethod(t *testing.T) {
 }
 
 func TestListenerDispatch(t *testing.T) {
-	projectDir := filepath.Join(testDataDir, "listener-dispatch-v")
+	projectDir := filepath.Join(externTestDataDir, "listener-dispatch-v")
+	if _, err := os.Stat(projectDir); os.IsNotExist(err) {
+		t.Skipf("test data not yet created: %s", projectDir)
+	}
 	absPath, err := filepath.Abs(projectDir)
 	if err != nil {
 		t.Fatal(err)
@@ -595,7 +600,7 @@ func TestListenerDispatch(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			ioruntime.Println(rt, out)
+			_, _ = rt.Platform().IO.Stdout(fmt.Appendln(nil, values.String(out, make(map[uintptr]bool))))
 
 			mh, ok := ctx.LookupRemoteMethod(svc, "shutdown")
 			if !ok {
@@ -605,7 +610,7 @@ func TestListenerDispatch(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			ioruntime.Println(rt, out)
+			_, _ = rt.Platform().IO.Stdout(fmt.Appendln(nil, values.String(out, make(map[uintptr]bool))))
 
 			return nil, nil
 		})

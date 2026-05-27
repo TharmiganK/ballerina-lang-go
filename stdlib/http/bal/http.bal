@@ -120,9 +120,14 @@ public type FollowRedirects record {|
     boolean allowAuthHeaders = false;
 |};
 
-// HTTP protocol version. "1.1" or "2.0" (default).
-// HTTP/1.0 is not supported — Go's HTTP client cannot send HTTP/1.0 requests.
-public type HttpVersion "1.1"|"2.0";
+// HTTP protocol version constants, matching the jBallerina enum.
+// HTTP_1_0 is accepted at compile time but treated as HTTP_1_1 at runtime;
+// Go's HTTP stack does not implement an HTTP/1.0-only mode.
+public enum HttpVersion {
+    HTTP_1_0 = "1.0",
+    HTTP_1_1 = "1.1",
+    HTTP_2_0 = "2.0"
+}
 
 // Provides a set of configurations for controlling the behaviours when communicating with
 // a remote HTTP endpoint.
@@ -135,12 +140,12 @@ public type HttpVersion "1.1"|"2.0";
 // Fields:
 //   timeout        - Max wait time in seconds before request times out (default: 30).
 //   followRedirects - Redirect handling configuration; () disables redirect following.
-//   httpVersion    - HTTP protocol version: "1.1" or "2.0" (default: "2.0").
+//   httpVersion    - HTTP protocol version (default: HTTP_2_0). HTTP_1_0 is treated as HTTP_1_1.
 //   secureSocket   - TLS settings; () uses default TLS verification.
 public type ClientConfiguration record {|
     decimal timeout = 30;
     FollowRedirects? followRedirects = ();
-    HttpVersion httpVersion = "2.0";
+    HttpVersion httpVersion = HTTP_2_0;
     ClientSecureSocket? secureSocket = ();
 |};
 
@@ -160,16 +165,48 @@ public const HeaderPosition TRAILING = "TRAILING";
 
 // ── Response ──────────────────────────────────────────────────────────────────
 
-# Represents an HTTP response received from a remote endpoint.
+# Represents an HTTP response.
 #
-# `Response` objects are created by the HTTP client after a successful request —
-# they are never constructed directly by user code. All write methods (`addHeader`,
-# `setHeader`, `setPayload`, etc.) are not supported in this implementation.
-#
-# + statusCode - The HTTP status code of the response
+# `Response` objects are created by the HTTP client after a successful request.
+# They can also be constructed explicitly in resource functions using `new http:Response()`
+# and populated with `setTextPayload`, `setJsonPayload`, `setBinaryPayload`, `setHeader`,
+# and `setStatusCode` before being returned to the caller.
 public class Response {
-    # The HTTP status code of the response (e.g., 200, 404, 500).
+    # The HTTP status code (e.g., 200, 404, 500). Initialised to 200 by `init`.
     public int statusCode = 0;
+
+    # Initialises the response with status code 200 and empty headers and body.
+    public isolated function init() {
+        self.initNative();
+    }
+
+    private isolated function initNative() = external;
+
+    # Sets the response body to a plain string and Content-Type to `text/plain`.
+    #
+    # + payload - The string payload
+    public isolated function setTextPayload(string payload) = external;
+
+    # Sets the response body to a JSON value and Content-Type to `application/json`.
+    #
+    # + payload - The JSON payload
+    public isolated function setJsonPayload(json payload) = external;
+
+    # Sets the response body to a byte array and Content-Type to `application/octet-stream`.
+    #
+    # + payload - The binary payload
+    public isolated function setBinaryPayload(byte[] payload) = external;
+
+    # Sets or replaces a response header.
+    #
+    # + headerName  - The header name (case-insensitive)
+    # + headerValue - The header value
+    public isolated function setHeader(string headerName, string headerValue) = external;
+
+    # Sets the HTTP status code on this response object.
+    #
+    # + statusCode - The HTTP status code to set
+    public isolated function setStatusCode(int statusCode) = external;
 
     # Returns the response body as a plain string.
     #
@@ -218,15 +255,196 @@ public class Response {
     public isolated function getHeaderNames(HeaderPosition position = LEADING) returns string[] = external;
 }
 
+// ── Listener secure socket ────────────────────────────────────────────────────
+
+// Provides configurations for facilitating secure communication with a remote HTTP endpoint
+// on the listener side.
+//
+// Fields:
+//   key         - Server certificate and private key (required for TLS).
+//   cert        - PEM CA certificate path for mTLS client verification.
+//   mutualSsl   - Enable mutual TLS; requires cert to be set.
+//   protocol    - Enabled TLS protocol versions (e.g., ["TLSv1.2", "TLSv1.3"]).
+//   ciphers     - IANA cipher suite names; unknown names silently skipped.
+//   shareSession - Enable/disable TLS session ticket reuse.
+public type ListenerSecureSocket record {|
+    CertKey key;
+    string cert?;
+    boolean mutualSsl?;
+    string[] protocol?;
+    string[] ciphers?;
+    boolean shareSession?;
+|};
+
+// ── Listener configuration ────────────────────────────────────────────────────
+
+// Provides a set of configurations for the HTTP listener.
+//
+// Fields:
+//   host         - Bind address (default "0.0.0.0").
+//   timeout      - Read/write timeout in seconds (default 60).
+//   httpVersion  - Highest HTTP version supported (default HTTP_2_0).
+//                  HTTP_2_0 enables both HTTP/1.1 and HTTP/2; HTTP_1_1 restricts to HTTP/1.1 only.
+//                  HTTP_1_0 is treated as HTTP_1_1 at runtime.
+//   secureSocket - TLS settings; () disables TLS (plain HTTP).
+public type ListenerConfiguration record {|
+    string host?;
+    decimal timeout?;
+    HttpVersion httpVersion = HTTP_2_0;
+    ListenerSecureSocket? secureSocket?;
+|};
+
+// ── Service ───────────────────────────────────────────────────────────────────
+
+// Represents the type of service objects that can be attached to an `http:Listener`.
+public type Service service object {};
+
+// ── Request ───────────────────────────────────────────────────────────────────
+
+# Represents an inbound HTTP request received by a service resource function.
+#
+# `Request` objects are constructed by the HTTP listener for each incoming request and
+# passed to matching resource functions. They expose the raw path, HTTP method, protocol
+# version, request headers, and the request body (as text, JSON, or bytes).
+public class Request {
+    # The raw URI path of the request (including query string if present).
+    public string rawPath = "";
+    # The HTTP method of the request (e.g., "GET", "POST").
+    public string method = "";
+    # The HTTP protocol version of the request (e.g., "HTTP/1.1").
+    public string httpVersion = "";
+
+    public isolated function init() {
+        self.initNative();
+    }
+
+    private isolated function initNative() = external;
+
+    # Sets the request body as plain text with `Content-Type: text/plain`.
+    #
+    # + payload - The text body to set
+    public isolated function setTextPayload(string payload) = external;
+
+    # Sets the request body as JSON with `Content-Type: application/json`.
+    #
+    # + payload - The JSON value to set
+    public isolated function setJsonPayload(json payload) = external;
+
+    # Sets the request body as bytes with `Content-Type: application/octet-stream`.
+    #
+    # + payload - The byte array to set
+    public isolated function setBinaryPayload(byte[] payload) = external;
+
+    # Sets a header on the outbound request.
+    #
+    # + headerName  - The header name
+    # + headerValue - The header value
+    public isolated function setHeader(string headerName, string headerValue) = external;
+
+    # Returns the request body as a plain string.
+    #
+    # + return - The request body as a `string`, or an `error` if extraction fails
+    public isolated function getTextPayload() returns string|error = external;
+
+    # Parses the request body as JSON.
+    #
+    # + return - The parsed `json` value, or an `error` if the body is not valid JSON
+    public isolated function getJsonPayload() returns json|error = external;
+
+    # Returns the request body as a byte array.
+    #
+    # + return - The request body as `byte[]`, or an `error` if extraction fails
+    public isolated function getBinaryPayload() returns byte[]|error = external;
+
+    # Returns the first value for the specified request header.
+    #
+    # + headerName - The header name (case-insensitive)
+    # + return - The first header value, or an `error` if the header is not found
+    public isolated function getHeader(string headerName) returns string|error = external;
+
+    # Returns all values for the specified request header.
+    #
+    # + headerName - The header name (case-insensitive)
+    # + return - A `string[]` of all values for the header, or an `error` if not found
+    public isolated function getHeaders(string headerName) returns string[]|error = external;
+
+    # Checks whether the specified header is present in the request.
+    #
+    # + headerName - The header name (case-insensitive)
+    # + return - `true` if the header exists, `false` otherwise
+    public isolated function hasHeader(string headerName) returns boolean = external;
+
+    # Returns all query parameters as a map of string arrays.
+    #
+    # + return - A `map<string[]>` of query parameter names to value lists
+    public isolated function getQueryParams() returns map<string[]> = external;
+
+    # Returns the first value of a query parameter by name.
+    #
+    # + paramName - The query parameter name
+    # + return - The first value as a `string`, or `()` if the parameter is not present
+    public isolated function getQueryParamValue(string paramName) returns string? = external;
+}
+
+// ── Listener ──────────────────────────────────────────────────────────────────
+
+# An HTTP listener that accepts incoming connections and dispatches requests to attached
+# services based on path-based routing.
+#
+# Use `service /path on new http:Listener(port)` to attach a service at declaration time,
+# or call `attach` programmatically and then `'start()`.
+public class Listener {
+
+    # Initialises the HTTP listener on the specified port.
+    #
+    # + port   - The TCP port to listen on
+    # + config - Optional listener configuration (host, timeout, TLS)
+    # + return - `()` on success, or an `error` if initialisation fails
+    public isolated function init(int port, ListenerConfiguration? config = ()) returns error? {
+        return self.initNative(port, config);
+    }
+
+    private isolated function initNative(int port, ListenerConfiguration? config) returns error? = external;
+
+    # Attaches a service to this listener.
+    #
+    # + svc  - The service object to attach
+    # + name - Optional base path string or path segment array; defaults to `"/"` when `()`
+    # + return - `()` on success, or an `error` if attachment fails
+    public isolated function attach(Service svc, string|string[]? name = ()) returns error? = external;
+
+    # Detaches a previously attached service from this listener.
+    #
+    # + svc    - The service object to detach
+    # + return - `()` on success, or an `error` if detachment fails
+    public isolated function detach(Service svc) returns error? = external;
+
+    # Starts the listener (no-op if already started by `attach`).
+    #
+    # + return - `()` on success, or an `error` if starting fails
+    public isolated function 'start() returns error? = external;
+
+    # Gracefully stops the listener, waiting for in-flight requests to complete.
+    #
+    # + return - `()` on success, or an `error` if stopping fails
+    public isolated function gracefulStop() returns error? = external;
+
+    # Immediately stops the listener, closing all active connections.
+    #
+    # + return - `()` on success, or an `error` if stopping fails
+    public isolated function immediateStop() returns error? = external;
+}
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 # The HTTP client provides functionality to connect to remote HTTP services and perform
 # requests using the standard HTTP methods GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS,
-# and EXECUTE.
+# EXECUTE, and FORWARD.
 #
-# **Supported methods:** `get`, `post`, `put`, `patch`, `delete`, `head`, `options`, `execute`.
+# **Supported methods:** `get`, `post`, `put`, `patch`, `delete`, `head`, `options`,
+# `execute`, `forward`.
 #
-# **Not supported:** `forward`, `submit`/`getResponse`, HTTP/2 server push methods
+# **Not supported:** `submit`/`getResponse`, HTTP/2 server push methods
 # (`hasPromise`, `getNextPromise`, etc.), and resource function syntax (`client->/path.get(...)`).
 #
 # **Message body:** The `message` parameter accepts `json`, which in Ballerina includes
@@ -333,4 +551,13 @@ public isolated client class Client {
     # + return - The `http:Response` or an `error` if the request fails
     remote isolated function execute(string httpVerb, string path, json message,
             map<string|string[]>? headers = (), string? mediaType = ()) returns Response|error = external;
+
+    # Forwards the inbound `Request` to the specified path, preserving the original HTTP method,
+    # headers, and body. Useful for proxy and gateway patterns where the incoming request must be
+    # relayed to an upstream service without modification.
+    #
+    # + path    - The request path (appended to the base URL)
+    # + request - The inbound `http:Request` whose method, headers, and body are forwarded
+    # + return  - The `http:Response` from the upstream service, or an `error` if the request fails
+    remote isolated function forward(string path, Request request) returns Response|error = external;
 }

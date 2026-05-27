@@ -181,8 +181,8 @@ func computeExpectedPath(inputPath, inputBaseDir, outputBaseDir, outputExt strin
 
 type stubHTTPClient struct{}
 
-func (c *stubHTTPClient) Execute(_, _ string, _ []byte, _ string, _ map[string][]string) (int, map[string][]string, []byte, error) {
-	return 200, map[string][]string{}, []byte("test body"), nil
+func (c *stubHTTPClient) Execute(_, _ string, _ io.Reader, _ string, _ map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
+	return 200, map[string][]string{}, io.NopCloser(strings.NewReader("test body")), nil
 }
 
 func TestPal(stdout io.Writer, stderr io.Writer) pal.Platform {

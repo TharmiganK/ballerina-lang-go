@@ -50,17 +50,13 @@ type rewritingHTTPClient struct {
 	client    *http.Client
 }
 
-func (c *rewritingHTTPClient) Execute(method, url string, body []byte, contentType string, reqHeaders map[string][]string) (int, map[string][]string, []byte, error) {
+func (c *rewritingHTTPClient) Execute(method, url string, body io.Reader, contentType string, reqHeaders map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
 	const prefix = "http://testserver"
 	if !strings.HasPrefix(url, prefix) {
 		return 0, nil, nil, fmt.Errorf("rewritingHTTPClient: expected URL with prefix %q, got %q", prefix, url)
 	}
 	realURL := c.serverURL + url[len(prefix):]
-	var bodyReader io.Reader
-	if body != nil {
-		bodyReader = bytes.NewReader(body)
-	}
-	req, err := http.NewRequest(method, realURL, bodyReader)
+	req, err := http.NewRequest(method, realURL, body)
 	if err != nil {
 		return 0, nil, nil, err
 	}
@@ -76,9 +72,7 @@ func (c *rewritingHTTPClient) Execute(method, url string, body []byte, contentTy
 	if err != nil {
 		return 0, nil, nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-	respBody, err := io.ReadAll(resp.Body)
-	return resp.StatusCode, map[string][]string(resp.Header), respBody, err
+	return resp.StatusCode, map[string][]string(resp.Header), resp.Body, nil
 }
 
 func TestHttpClientGet(t *testing.T) {

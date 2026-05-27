@@ -22,14 +22,15 @@
 package palnative
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"ballerina-lang-go/platform/pal"
 )
@@ -38,12 +39,8 @@ type httpClient struct {
 	client *http.Client
 }
 
-func (c *httpClient) Execute(method, url string, body []byte, contentType string, reqHeaders map[string][]string) (int, map[string][]string, []byte, error) {
-	var bodyReader io.Reader
-	if body != nil {
-		bodyReader = bytes.NewReader(body)
-	}
-	req, err := http.NewRequest(method, url, bodyReader)
+func (c *httpClient) Execute(method, url string, body io.Reader, contentType string, reqHeaders map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return 0, nil, nil, err
 	}
@@ -67,9 +64,10 @@ func (c *httpClient) Execute(method, url string, body []byte, contentType string
 	if err != nil {
 		return 0, nil, nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-	respBody, err := io.ReadAll(resp.Body)
-	return resp.StatusCode, map[string][]string(resp.Header), respBody, err
+	// resp.Body is returned directly to the caller as an io.ReadCloser.
+	// The caller is responsible for draining and closing it. This enables
+	// streaming passthrough without buffering the full response body.
+	return resp.StatusCode, map[string][]string(resp.Header), resp.Body, nil
 }
 
 // NewHTTPClient is the pal.HTTP.NewClient factory for the native-CLI
@@ -115,9 +113,32 @@ func NewHTTPClient(cfg pal.ClientConfig) pal.HTTPClient {
 			fmt.Fprintf(os.Stderr, "warning: no valid cipher suites resolved from cfg.TLS.CipherSuiteNames %v; keeping secure defaults\n", cfg.TLS.CipherSuiteNames)
 		}
 	}
+	// Build a net.Dialer with a configurable connect timeout.
+	// TCP keep-alive is disabled (KeepAlive:-1) to match jBallerina's default
+	// socketConfig.keepAlive=false; HTTP-level connection reuse is handled by the Transport pool.
+	dialer := &net.Dialer{
+		Timeout:   poolDefault(cfg.Pool.DialTimeout, 15*time.Second),
+		KeepAlive: -1,
+	}
 	transport := &http.Transport{
+		DialContext:         dialer.DialContext,
 		TLSClientConfig:     tlsConfig,
 		TLSHandshakeTimeout: cfg.TLS.HandshakeTimeout,
+		// Pool sizing — defaults mirror jBallerina's PoolConfiguration:
+		//   maxIdleConnections=100, maxActiveConnections=-1 (unlimited),
+		//   minEvictableIdleTime=300s.
+		// Go's default MaxIdleConnsPerHost=2 is far too low for concurrent workloads
+		// and is the root cause of EAGAIN / file-descriptor exhaustion under load.
+		MaxIdleConns:          poolDefaultInt(cfg.Pool.MaxIdleConns, 512),
+		MaxIdleConnsPerHost:   poolDefaultInt(cfg.Pool.MaxIdleConnsPerHost, 100),
+		MaxConnsPerHost:       cfg.Pool.MaxConnsPerHost, // 0 = unlimited; matches jBallerina -1
+		IdleConnTimeout:       poolDefault(cfg.Pool.IdleConnTimeout, 300*time.Second),
+		ResponseHeaderTimeout: cfg.Pool.ResponseHeaderTimeout, // 0 = disabled
+		// Larger user-space I/O buffers reduce syscall count for typical payloads
+		// (4 KB default → 32 KB: ~6–8 syscalls per 10 KB payload → ~2).
+		WriteBufferSize:    poolDefaultInt(cfg.Pool.WriteBufferSize, 32*1024),
+		ReadBufferSize:     poolDefaultInt(cfg.Pool.ReadBufferSize, 32*1024),
+		DisableCompression: cfg.Pool.DisableCompression,
 	}
 	// Always enable HTTP/1 so default-config clients can talk to plain HTTP/1.1
 	// servers (and so ALPN can fall back to http/1.1 for HTTPS servers that
@@ -222,4 +243,21 @@ func tlsMatchCN(pattern, host string) error {
 		}
 	}
 	return fmt.Errorf("x509: certificate CN %q does not match host %q", pattern, host)
+}
+
+// poolDefault returns d when it is non-zero, otherwise it returns dflt.
+// Used to apply jBallerina-compatible defaults for transport pool settings.
+func poolDefault(d, dflt time.Duration) time.Duration {
+	if d != 0 {
+		return d
+	}
+	return dflt
+}
+
+// poolDefaultInt returns v when it is non-zero, otherwise it returns dflt.
+func poolDefaultInt(v, dflt int) int {
+	if v != 0 {
+		return v
+	}
+	return dflt
 }

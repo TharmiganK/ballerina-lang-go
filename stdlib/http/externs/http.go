@@ -17,10 +17,12 @@
 package http
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -52,6 +54,38 @@ const (
 	moduleName = "http"
 )
 
+// hopByHopHeaders is the set of headers that must not be forwarded by a proxy per
+// RFC 7230 §6.1 and RFC 2616 §13.5.1. Keys are lowercase canonical form.
+var hopByHopHeaders = map[string]struct{}{
+	"connection":          {},
+	"keep-alive":          {},
+	"proxy-authenticate":  {},
+	"proxy-authorization": {},
+	"proxy-connection":    {},
+	"te":                  {},
+	"trailer":             {},
+	"transfer-encoding":   {},
+	"upgrade":             {},
+}
+
+// removeHopByHopHeaders deletes hop-by-hop entries from h in place.
+// It also honours the Connection header's own token list per RFC 7230 §6.1:
+// any token named there is itself a hop-by-hop header for this hop.
+func removeHopByHopHeaders(h map[string][]string) {
+	if connVals, ok := h["connection"]; ok {
+		for _, f := range connVals {
+			for _, tok := range strings.Split(f, ",") {
+				delete(h, strings.ToLower(strings.TrimSpace(tok)))
+			}
+		}
+	}
+	for k := range h {
+		if _, skip := hopByHopHeaders[strings.ToLower(k)]; skip {
+			delete(h, k)
+		}
+	}
+}
+
 func init() {
 	runtime.RegisterModuleInitializer(initHttpModule)
 }
@@ -63,6 +97,125 @@ type httpTypes struct {
 	strArrTy   semtypes.SemType
 	jsonListTy semtypes.SemType
 	jsonMapTy  semtypes.SemType
+}
+
+// requestBodyHolder holds the inbound request body in one of two states:
+// lazy — stream (io.ReadCloser) has not been read yet;
+// materialized — the body has been read into buf.
+// Only one state is active at a time; mu protects transitions.
+type requestBodyHolder struct {
+	mu     sync.Mutex
+	stream io.ReadCloser
+	buf    []byte
+}
+
+// materialize reads the stream into buf if not already done.
+// Safe to call concurrently; only the first call performs I/O.
+// Returns the buffered bytes, or an empty slice if the body was nil/empty.
+func (h *requestBodyHolder) materialize() []byte {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.buf != nil {
+		return h.buf
+	}
+	if h.stream != nil {
+		data, _ := io.ReadAll(h.stream)
+		_ = h.stream.Close()
+		h.stream = nil
+		h.buf = data
+	} else {
+		h.buf = []byte{}
+	}
+	return h.buf
+}
+
+// takeStream atomically takes ownership of the stream for zero-copy passthrough.
+// Returns the stream (and clears it) when the body has not yet been read.
+// Returns nil if already materialized; the caller should fall back to materialize().
+// Sets buf=[]byte{} so subsequent materialize() returns empty without double-read.
+func (h *requestBodyHolder) takeStream() io.ReadCloser {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.stream != nil {
+		s := h.stream
+		h.stream = nil
+		h.buf = []byte{}
+		return s
+	}
+	return nil
+}
+
+// responseBodyHolder holds an HTTP response body in one of two states:
+// streaming — stream (io.ReadCloser) is available for direct io.Copy;
+// materialized — the body has been read into buf (e.g. by a getPayload call).
+// Only one state is active at a time; mu protects transitions.
+// close must be called if the stream is never consumed (e.g. Ballerina code
+// discards the response without writing it to the caller).
+type responseBodyHolder struct {
+	mu     sync.Mutex
+	stream io.ReadCloser
+	buf    []byte
+}
+
+func newResponseBodyHolder(stream io.ReadCloser) *responseBodyHolder {
+	if stream == nil {
+		return &responseBodyHolder{buf: []byte{}}
+	}
+	return &responseBodyHolder{stream: stream}
+}
+
+// materialize reads the stream into buf if not already done.
+func (h *responseBodyHolder) materialize() []byte {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.buf != nil {
+		return h.buf
+	}
+	if h.stream != nil {
+		data, _ := io.ReadAll(h.stream)
+		_ = h.stream.Close()
+		h.stream = nil
+		h.buf = data
+	} else {
+		h.buf = []byte{}
+	}
+	return h.buf
+}
+
+// writeStream writes the body to w via io.Copy (streaming) or w.Write (buffered),
+// then closes the stream. After this call the holder is exhausted.
+func (h *responseBodyHolder) writeStream(w io.Writer) error {
+	h.mu.Lock()
+	s := h.stream
+	buf := h.buf
+	h.stream = nil
+	h.buf = []byte{}
+	h.mu.Unlock()
+
+	if s != nil {
+		// Stream the response body directly to w without buffering, then close.
+		// Do NOT use a deferred close here: the closure would capture h.stream
+		// (a nil pointer by the time the defer runs) and panic.
+		_, err := io.Copy(w, s)
+		_ = s.Close()
+		return err
+	}
+	if len(buf) > 0 {
+		_, err := w.Write(buf)
+		return err
+	}
+	return nil
+}
+
+// close releases any unconsumed stream. Safe to call multiple times.
+func (h *responseBodyHolder) close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.stream != nil {
+		_ = h.stream.Close()
+		h.stream = nil
+		h.buf = []byte{}
+	}
 }
 
 // newMappingValue builds a fresh open `map<anydata|error>` value.
@@ -164,11 +317,15 @@ func initHttpModule(rt *runtime.Runtime) {
 		}
 		urlVal, _ := self.Get("url")
 		clientHandle, _ := self.Get("$httpClient")
-		statusCode, respHeaders, respBody, err := clientHandle.(pal.HTTPClient).Execute(verb, urlVal.(string)+path, body, contentType, reqHeaders)
+		var bodyReader io.Reader
+		if len(body) > 0 {
+			bodyReader = bytes.NewReader(body)
+		}
+		statusCode, respHeaders, respBodyStream, err := clientHandle.(pal.HTTPClient).Execute(verb, urlVal.(string)+path, bodyReader, contentType, reqHeaders)
 		if err != nil {
 			return values.NewErrorWithMessage(err.Error()), nil
 		}
-		return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBody), nil
+		return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
 	}
 
 	// Remote method name uses the "$remote$" prefix (model.RemoteMethodName).
@@ -237,6 +394,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			httpVersion := "2.0"
 
 			var tlsCfg pal.TLSConfig
+			var poolCfg pal.PoolConfig
 			if cfg, ok := args[2].(*values.Map); ok {
 					if v, ok := cfg.Get("timeout"); ok {
 						if d, ok := v.(*decimal.Decimal); ok {
@@ -365,12 +523,37 @@ func initHttpModule(rt *runtime.Runtime) {
 							// certValidation/sessionTimeout: accepted at compile time, not supported at runtime
 						}
 					}
+					if v, ok := cfg.Get("poolConfig"); ok {
+						if pcMap, ok := v.(*values.Map); ok {
+							if mv, ok := pcMap.Get("maxIdleConnections"); ok {
+								if n, ok := mv.(int64); ok {
+									poolCfg.MaxIdleConnsPerHost = int(n)
+								}
+							}
+							if mv, ok := pcMap.Get("maxActiveConnections"); ok {
+								if n, ok := mv.(int64); ok {
+									if n < 0 {
+										poolCfg.MaxConnsPerHost = 0 // -1 means unlimited in Ballerina → 0 in Go
+									} else {
+										poolCfg.MaxConnsPerHost = int(n)
+									}
+								}
+							}
+							if mv, ok := pcMap.Get("waitTime"); ok {
+								if d, ok := mv.(*decimal.Decimal); ok {
+									poolCfg.ResponseHeaderTimeout = decimalToDuration(d)
+								}
+							}
+							// maxActiveStreamsPerConnection: HTTP/2 only; stored for future use
+						}
+					}
 				}
 			httpClient := rt.Platform().HTTP.NewClient(pal.ClientConfig{
 				Timeout:         decimalToDuration(timeout),
 				FollowRedirects: followRedirects,
 				HTTPVersion:     httpVersion,
 				TLS:             tlsCfg,
+				Pool:            poolCfg,
 			})
 			self.Put("url", url)
 			self.Put("timeout", timeout)
@@ -392,11 +575,11 @@ func initHttpModule(rt *runtime.Runtime) {
 
 			urlVal, _ := self.Get("url")
 			clientHandle, _ := self.Get("$httpClient")
-			statusCode, respHeaders, body, err := clientHandle.(pal.HTTPClient).Execute("GET", urlVal.(string)+path, nil, "", reqHeaders)
+			statusCode, respHeaders, respBodyStream, err := clientHandle.(pal.HTTPClient).Execute("GET", urlVal.(string)+path, nil, "", reqHeaders)
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, body), nil
+			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
 		})
 
 	// Default lambdas for post optional params (both return nil = Ballerina ())
@@ -423,11 +606,11 @@ func initHttpModule(rt *runtime.Runtime) {
 			}
 			urlVal, _ := self.Get("url")
 			clientHandle, _ := self.Get("$httpClient")
-			statusCode, respHeaders, body, err := clientHandle.(pal.HTTPClient).Execute("HEAD", urlVal.(string)+path, nil, "", reqHeaders)
+			statusCode, respHeaders, respBodyStream, err := clientHandle.(pal.HTTPClient).Execute("HEAD", urlVal.(string)+path, nil, "", reqHeaders)
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, body), nil
+			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
 		})
 
 	// options: body-less, like get
@@ -443,11 +626,11 @@ func initHttpModule(rt *runtime.Runtime) {
 			}
 			urlVal, _ := self.Get("url")
 			clientHandle, _ := self.Get("$httpClient")
-			statusCode, respHeaders, body, err := clientHandle.(pal.HTTPClient).Execute("OPTIONS", urlVal.(string)+path, nil, "", reqHeaders)
+			statusCode, respHeaders, respBodyStream, err := clientHandle.(pal.HTTPClient).Execute("OPTIONS", urlVal.(string)+path, nil, "", reqHeaders)
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, body), nil
+			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
 		})
 
 	// put: body required, like post
@@ -520,11 +703,15 @@ func initHttpModule(rt *runtime.Runtime) {
 
 			urlVal, _ := self.Get("url")
 			clientHandle, _ := self.Get("$httpClient")
-			statusCode, respHeaders, respBody, err := clientHandle.(pal.HTTPClient).Execute(verb, urlVal.(string)+path, body, contentType, reqHeaders)
+			var bodyReader io.Reader
+			if len(body) > 0 {
+				bodyReader = bytes.NewReader(body)
+			}
+			statusCode, respHeaders, respBodyStream, err := clientHandle.(pal.HTTPClient).Execute(verb, urlVal.(string)+path, bodyReader, contentType, reqHeaders)
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBody), nil
+			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$forward",
@@ -556,11 +743,25 @@ func initHttpModule(rt *runtime.Runtime) {
 					}
 				}
 			}
+			// Strip hop-by-hop headers per RFC 7230 §6.1 before forwarding.
+			// Forwarding Connection/Transfer-Encoding to a backend (e.g. Netty)
+			// desynchronises its keep-alive state machine and causes connection resets.
+			removeHopByHopHeaders(reqHeaders)
 
+			// Obtain the request body as an io.Reader for streaming passthrough.
+			// If the Ballerina code has not called getPayload(), takeStream() hands
+			// ownership of the live r.Body directly to Execute — zero buffering.
+			// If the body was already materialized by a getPayload() call, we wrap
+			// the buffered bytes in a bytes.Reader instead.
 			bodyVal, _ := reqObj.Get("$body")
-			var body []byte
-			if s, ok := bodyVal.(string); ok {
-				body = []byte(s)
+			var bodyReader io.Reader
+			if holder, ok := bodyVal.(*requestBodyHolder); ok {
+				if stream := holder.takeStream(); stream != nil {
+					bodyReader = stream
+					defer func() { _ = stream.Close() }()
+				} else if buf := holder.materialize(); len(buf) > 0 {
+					bodyReader = bytes.NewReader(buf)
+				}
 			}
 
 			contentType := ""
@@ -570,19 +771,23 @@ func initHttpModule(rt *runtime.Runtime) {
 
 			urlVal, _ := self.Get("url")
 			clientHandle, _ := self.Get("$httpClient")
-			statusCode, respHeaders, respBody, err := clientHandle.(pal.HTTPClient).Execute(
-				method, urlVal.(string)+path, body, contentType, reqHeaders)
+			statusCode, respHeaders, respBodyStream, err := clientHandle.(pal.HTTPClient).Execute(
+				method, urlVal.(string)+path, bodyReader, contentType, reqHeaders)
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBody), nil
+			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getTextPayload",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			body, _ := self.Get("body")
-			return body, nil
+			bodyVal, _ := self.Get("body")
+			holder, _ := bodyVal.(*responseBodyHolder)
+			if holder == nil {
+				return "", nil
+			}
+			return string(holder.materialize()), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getJsonPayload",
@@ -590,8 +795,12 @@ func initHttpModule(rt *runtime.Runtime) {
 			ensureTypes()
 			self := args[0].(*values.Object)
 			bodyVal, _ := self.Get("body")
-			body := bodyVal.(string)
-			dec := json.NewDecoder(strings.NewReader(body))
+			holder, _ := bodyVal.(*responseBodyHolder)
+			var body []byte
+			if holder != nil {
+				body = holder.materialize()
+			}
+			dec := json.NewDecoder(bytes.NewReader(body))
 			dec.UseNumber()
 			var v interface{}
 			if err := dec.Decode(&v); err != nil {
@@ -605,8 +814,11 @@ func initHttpModule(rt *runtime.Runtime) {
 			ensureTypes()
 			self := args[0].(*values.Object)
 			bodyVal, _ := self.Get("body")
-			body := bodyVal.(string)
-			raw := []byte(body)
+			holder, _ := bodyVal.(*responseBodyHolder)
+			var raw []byte
+			if holder != nil {
+				raw = holder.materialize()
+			}
 			items := make([]values.BalValue, len(raw))
 			for i, b := range raw {
 				items[i] = int64(b)
@@ -703,7 +915,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			self.Put("statusCode", int64(200))
 			self.Put("$headers", newMappingValue(ctx.TypeCtx))
-			self.Put("body", "")
+			self.Put("body", &responseBodyHolder{buf: []byte{}})
 			self.Put("$contentType", "")
 			return nil, nil
 		})
@@ -711,7 +923,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.setTextPayload",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			self.Put("body", args[1].(string))
+			self.Put("body", &responseBodyHolder{buf: []byte(args[1].(string))})
 			self.Put("$contentType", "text/plain")
 			return nil, nil
 		})
@@ -723,7 +935,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage("setJsonPayload: " + err.Error()), nil
 			}
-			self.Put("body", string(b))
+			self.Put("body", &responseBodyHolder{buf: b})
 			self.Put("$contentType", "application/json")
 			return nil, nil
 		})
@@ -739,7 +951,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if !ok {
 				return values.NewErrorWithMessage("setBinaryPayload: invalid byte value"), nil
 			}
-			self.Put("body", string(b))
+			self.Put("body", &responseBodyHolder{buf: b})
 			self.Put("$contentType", "application/octet-stream")
 			return nil, nil
 		})
@@ -791,7 +1003,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.initNative",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			self.Put("$body", "")
+			self.Put("$body", &requestBodyHolder{buf: []byte{}})
 			self.Put("$contentType", "")
 			self.Put("$headers", newMappingValue(ctx.TypeCtx))
 			return nil, nil
@@ -801,7 +1013,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			payload, _ := args[1].(string)
-			self.Put("$body", payload)
+			self.Put("$body", &requestBodyHolder{buf: []byte(payload)})
 			self.Put("$contentType", "text/plain")
 			setRequestHeader(self, "content-type", "text/plain", ctx.TypeCtx)
 			return nil, nil
@@ -812,7 +1024,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			payload := args[1]
 			b, _ := json.Marshal(balToGoJSON(payload))
-			self.Put("$body", string(b))
+			self.Put("$body", &requestBodyHolder{buf: b})
 			self.Put("$contentType", "application/json")
 			setRequestHeader(self, "content-type", "application/json", ctx.TypeCtx)
 			return nil, nil
@@ -831,7 +1043,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					raw[i] = byte(b)
 				}
 			}
-			self.Put("$body", string(raw))
+			self.Put("$body", &requestBodyHolder{buf: raw})
 			self.Put("$contentType", "application/octet-stream")
 			setRequestHeader(self, "content-type", "application/octet-stream", ctx.TypeCtx)
 			return nil, nil
@@ -849,8 +1061,12 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getTextPayload",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			body, _ := self.Get("$body")
-			return body, nil
+			bodyVal, _ := self.Get("$body")
+			holder, _ := bodyVal.(*requestBodyHolder)
+			if holder == nil {
+				return "", nil
+			}
+			return string(holder.materialize()), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getJsonPayload",
@@ -858,8 +1074,12 @@ func initHttpModule(rt *runtime.Runtime) {
 			ensureTypes()
 			self := args[0].(*values.Object)
 			bodyVal, _ := self.Get("$body")
-			body, _ := bodyVal.(string)
-			dec := json.NewDecoder(strings.NewReader(body))
+			holder, _ := bodyVal.(*requestBodyHolder)
+			var body []byte
+			if holder != nil {
+				body = holder.materialize()
+			}
+			dec := json.NewDecoder(bytes.NewReader(body))
 			dec.UseNumber()
 			var v interface{}
 			if err := dec.Decode(&v); err != nil {
@@ -873,8 +1093,11 @@ func initHttpModule(rt *runtime.Runtime) {
 			ensureTypes()
 			self := args[0].(*values.Object)
 			bodyVal, _ := self.Get("$body")
-			body, _ := bodyVal.(string)
-			raw := []byte(body)
+			holder, _ := bodyVal.(*requestBodyHolder)
+			var raw []byte
+			if holder != nil {
+				raw = holder.materialize()
+			}
 			items := make([]values.BalValue, len(raw))
 			for i, b := range raw {
 				items[i] = int64(b)
@@ -1213,7 +1436,10 @@ func extractHeaders(arg values.BalValue) map[string][]string {
 
 // buildResponse constructs a Ballerina Response object from HTTP response data.
 // All header values are stored as *values.List under the internal "$headers" key.
-func buildResponse(tc semtypes.Context, statusCode int, respHeaders map[string][]string, body []byte) *values.Object {
+// bodyStream is the response body from the backend; it is stored lazily in a
+// responseBodyHolder so it can be streamed directly to the downstream client
+// without buffering when the Ballerina resource method does not inspect the body.
+func buildResponse(tc semtypes.Context, statusCode int, respHeaders map[string][]string, bodyStream io.ReadCloser) *values.Object {
 	headersMap := newMappingValue(tc)
 	for k, vals := range respHeaders {
 		items := make([]values.BalValue, len(vals))
@@ -1227,7 +1453,7 @@ func buildResponse(tc semtypes.Context, statusCode int, respHeaders map[string][
 		map[string]values.BalValue{
 			"statusCode": int64(statusCode),
 			"$headers":   headersMap,
-			"body":       string(body),
+			"body":       newResponseBodyHolder(bodyStream),
 		},
 		map[string]string{
 			"getTextPayload":   "ballerina/http:Response.getTextPayload",
@@ -1496,16 +1722,23 @@ func startHTTPServer(rt *runtime.Runtime, state *listenerState, done func()) (*h
 		}
 	}
 
-	timeout := state.timeout
-	if timeout == 0 {
-		timeout = 60 * time.Second
+	writeTimeout := state.timeout
+	if writeTimeout == 0 {
+		writeTimeout = 60 * time.Second
 	}
 	server := &http.Server{
-		Addr:         addr,
-		Handler:      mux,
-		Protocols:    protocols,
-		ReadTimeout:  timeout,
-		WriteTimeout: timeout,
+		Addr:      addr,
+		Handler:   mux,
+		Protocols: protocols,
+		// ReadHeaderTimeout guards against slow-loris without aborting request bodies
+		// mid-stream (ReadTimeout would do that and breaks proxies/uploads).
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      writeTimeout,
+		// Evict idle HTTP/1.1 keep-alive connections that haven't been used; matches
+		// jBallerina's minEvictableIdleTime=300s on the server side.
+		IdleTimeout: 300 * time.Second,
+		// 16 KB max header size; the default 1 MB is wasteful for typical REST APIs.
+		MaxHeaderBytes: 1 << 14,
 	}
 
 	ln, err := net.Listen("tcp", addr)
@@ -1575,11 +1808,16 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 				extraArgCount = totalParams - nonLiteralCount
 			}
 
-			body, _ := readRequestBody(r)
 			var invocationArgs []values.BalValue
 			if extraArgCount > 0 {
-				reqObj := buildRequest(ctx.TypeCtx, r.Method, r.URL.Path, r.Proto, r.Header, body, r.URL.RawQuery)
+				// Pass r.Body as a lazy stream; the body is only read from the network
+				// when the Ballerina code calls a getPayload method, or streamed
+				// directly to the backend by forward() without ever buffering.
+				reqObj := buildRequest(ctx.TypeCtx, r.Method, r.URL.Path, r.Proto, r.Header, r.Body, r.URL.RawQuery)
 				invocationArgs = []values.BalValue{reqObj}
+			} else if r.Body != nil {
+				// Resource method does not take a Request parameter; discard the body.
+				_ = r.Body.Close()
 			}
 			result, err := ctx.InvokeMethod(handle, invocationArgs)
 			if err != nil {
@@ -1711,28 +1949,11 @@ func coerceSegment(tc semtypes.Context, segTy semtypes.SemType, s string) (value
 	return s, true
 }
 
-// readRequestBody reads the request body bytes.
-func readRequestBody(r *http.Request) ([]byte, error) {
-	if r.Body == nil {
-		return nil, nil
-	}
-	defer r.Body.Close()
-	buf := make([]byte, 0, 512)
-	tmp := make([]byte, 512)
-	for {
-		n, err := r.Body.Read(tmp)
-		if n > 0 {
-			buf = append(buf, tmp[:n]...)
-		}
-		if err != nil {
-			break
-		}
-	}
-	return buf, nil
-}
-
 // buildRequest constructs a Ballerina Request object from HTTP request data.
-func buildRequest(tc semtypes.Context, method, rawPath, httpVersion string, headers map[string][]string, body []byte, rawQuery string) *values.Object {
+// bodyStream is the raw request body; it is stored lazily in a requestBodyHolder
+// so that the body is only read from the network when a getPayload method is called.
+// For passthrough (forward), the stream is handed off directly without buffering.
+func buildRequest(tc semtypes.Context, method, rawPath, httpVersion string, headers map[string][]string, bodyStream io.ReadCloser, rawQuery string) *values.Object {
 	headersMap := newMappingValue(tc)
 	for k, vals := range headers {
 		items := make([]values.BalValue, len(vals))
@@ -1741,6 +1962,12 @@ func buildRequest(tc semtypes.Context, method, rawPath, httpVersion string, head
 		}
 		headersMap.Put(tc, strings.ToLower(k), newListValue(tc, items))
 	}
+	var holder *requestBodyHolder
+	if bodyStream != nil {
+		holder = &requestBodyHolder{stream: bodyStream}
+	} else {
+		holder = &requestBodyHolder{buf: []byte{}}
+	}
 	return values.NewObject(
 		semtypes.OBJECT,
 		map[string]values.BalValue{
@@ -1748,7 +1975,7 @@ func buildRequest(tc semtypes.Context, method, rawPath, httpVersion string, head
 			"method":      method,
 			"httpVersion": httpVersion,
 			"$headers":    headersMap,
-			"$body":       string(body),
+			"$body":       holder,
 			"$queryStr":   rawQuery,
 		},
 		map[string]string{
@@ -1803,14 +2030,20 @@ func writeResult(tc semtypes.Context, w http.ResponseWriter, r *http.Request, re
 			statusCode = int(sc)
 		}
 		bodyVal, _ := v.Get("body")
-		body, _ := bodyVal.(string)
+		holder, _ := bodyVal.(*responseBodyHolder)
 		contentTypeVal, _ := v.Get("$contentType")
 		contentType, _ := contentTypeVal.(string)
 
-		// Emit headers from the response object.
+		// Emit headers from the response object, excluding hop-by-hop headers.
+		// Forwarding hop-by-hop headers (e.g. Transfer-Encoding, Connection) from a
+		// backend response to the downstream client violates RFC 7230 §6.1 and can
+		// cause framing errors in HTTP/1.1 keep-alive connections.
 		if hdrsVal, ok := v.Get("$headers"); ok {
 			if hdrs, ok := hdrsVal.(*values.Map); ok {
 				for _, k := range hdrs.Keys() {
+					if _, skip := hopByHopHeaders[strings.ToLower(k)]; skip {
+						continue
+					}
 					val, _ := hdrs.Get(k)
 					list, ok := val.(*values.List)
 					if !ok {
@@ -1830,9 +2063,11 @@ func writeResult(tc semtypes.Context, w http.ResponseWriter, r *http.Request, re
 		if contentType != "" {
 			w.Header().Set("Content-Type", contentType)
 		}
+		// WriteHeader must be called before writing the body; once body bytes
+		// start flowing via writeStream, headers are already committed.
 		w.WriteHeader(statusCode)
-		if body != "" {
-			_, _ = w.Write([]byte(body))
+		if holder != nil {
+			_ = holder.writeStream(w)
 		}
 	default:
 		writeErrorJSON(w, r, http.StatusInternalServerError, "unexpected return type from resource method")

@@ -135,7 +135,10 @@ func TestNewHTTPClient_InsecureSkipVerify(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		TLS: pal.TLSConfig{InsecureSkipVerify: true},
 	})
-	status, _, _, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	status, _, body, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	if body != nil {
+		_ = body.Close()
+	}
 	if err != nil {
 		t.Fatalf("expected successful connection with InsecureSkipVerify=true, got: %v", err)
 	}
@@ -193,7 +196,10 @@ func TestNewHTTPClient_RedirectsDisabled(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		FollowRedirects: pal.FollowRedirects{Enabled: false},
 	})
-	status, _, _, err := client.Execute("GET", server.URL+"/redirect", nil, "", nil)
+	status, _, body, err := client.Execute("GET", server.URL+"/redirect", nil, "", nil)
+	if body != nil {
+		_ = body.Close()
+	}
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -217,7 +223,10 @@ func TestNewHTTPClient_RedirectsEnabled(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		FollowRedirects: pal.FollowRedirects{Enabled: true, MaxCount: 3},
 	})
-	status, _, _, err := client.Execute("GET", server.URL+"/redirect", nil, "", nil)
+	status, _, body, err := client.Execute("GET", server.URL+"/redirect", nil, "", nil)
+	if body != nil {
+		_ = body.Close()
+	}
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -241,7 +250,10 @@ func TestNewHTTPClient_TLSVersionRange(t *testing.T) {
 			InsecureSkipVerify: true,
 		},
 	})
-	status, _, _, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	status, _, body, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	if body != nil {
+		_ = body.Close()
+	}
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -273,7 +285,10 @@ func TestNewHTTPClient_ValidCipherSuites(t *testing.T) {
 			InsecureSkipVerify: true,
 		},
 	})
-	status, _, _, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	status, _, body, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	if body != nil {
+		_ = body.Close()
+	}
 	if err != nil {
 		t.Fatalf("unexpected error with valid cipher suites: %v", err)
 	}

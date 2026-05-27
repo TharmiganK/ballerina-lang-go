@@ -1,0 +1,27 @@
+(SimpleListener
+  (init
+    (bb0 () ()
+      (expression-stmt
+        (invocation io println (
+          (literal listener initialized))))
+    )
+  )
+  (attach
+    (bb0 () ())
+  )
+  (detach
+    (bb0 () ())
+  )
+  (gracefulStop
+    (bb0 () ())
+  )
+  (immediateStop
+    (bb0 () ())
+  )
+  (start
+    (bb0 () ())
+  )
+)
+(main
+  (bb0 () ())
+)

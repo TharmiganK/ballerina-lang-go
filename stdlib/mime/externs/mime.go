@@ -296,6 +296,7 @@ func initMimeModule(rt *runtime.Runtime) {
 					"getBaseType": "ballerina/mime:MediaType.getBaseType",
 					"toString":    "ballerina/mime:MediaType.toString",
 				},
+				nil,
 			), nil
 		})
 
@@ -322,6 +323,7 @@ func initMimeModule(rt *runtime.Runtime) {
 				map[string]string{
 					"toString": "ballerina/mime:ContentDisposition.toString",
 				},
+				nil,
 			), nil
 		})
 

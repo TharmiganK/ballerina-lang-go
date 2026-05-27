@@ -192,8 +192,20 @@ func (p *PrettyPrinter) PrintInstruction(instruction BIRInstruction) string {
 		return p.PrintTypeTest(instruction)
 	case *Panic:
 		return p.PrintPanic(instruction)
+	case *LockStart:
+		return p.PrintLockStart(instruction)
+	case *LockEnd:
+		return p.PrintLockEnd(instruction)
+	case *ResourceFunctionCall:
+		return p.PrintResourceFunctionCall(instruction)
 	case *NewObject:
 		return p.PrintNewObject(instruction)
+	case *NewStream:
+		return p.PrintNewStream(instruction)
+	case *StreamNext:
+		return p.PrintStreamNext(instruction)
+	case *StreamClose:
+		return p.PrintStreamClose(instruction)
 	case *FPLoad:
 		return p.PrintFPLoad(instruction)
 	case *PushScopeFrame:
@@ -308,6 +320,18 @@ func (p *PrettyPrinter) PrintNewObject(n *NewObject) string {
 	return fmt.Sprintf("%s = newObject %s", p.PrintOperand(*n.LhsOp), n.ClassDefRef)
 }
 
+func (p *PrettyPrinter) PrintNewStream(n *NewStream) string {
+	return fmt.Sprintf("%s = newStream %s %s", p.PrintOperand(*n.LhsOp), p.PrintSemType(n.StreamType), p.PrintOperand(*n.ImplOp))
+}
+
+func (p *PrettyPrinter) PrintStreamNext(n *StreamNext) string {
+	return fmt.Sprintf("%s = streamNext %s", p.PrintOperand(*n.LhsOp), p.PrintOperand(*n.StreamOp))
+}
+
+func (p *PrettyPrinter) PrintStreamClose(n *StreamClose) string {
+	return fmt.Sprintf("%s = streamClose %s", p.PrintOperand(*n.LhsOp), p.PrintOperand(*n.StreamOp))
+}
+
 func (p *PrettyPrinter) PrintClassDef(classDef BIRClassDef) {
 	p.write("class ")
 	p.write(classDef.Name.Value())
@@ -327,8 +351,50 @@ func (p *PrettyPrinter) PrintClassDef(classDef BIRClassDef) {
 		p.PrintFunction(*classDef.VTable[name])
 		p.write("\n")
 	}
+	var rmNames []string
+	for name := range classDef.RTable {
+		rmNames = append(rmNames, name)
+	}
+	sort.Strings(rmNames)
+	for _, name := range rmNames {
+		for _, entry := range classDef.RTable[name] {
+			p.write("\n")
+			p.writeIndent()
+			p.write("resource ")
+			p.write(name)
+			p.write(" ")
+			p.write(p.printResourcePath(entry))
+			p.write(" ")
+			p.PrintFunction(*entry.Fn)
+			p.write("\n")
+		}
+	}
 	p.decreaseIndent()
 	p.write("}")
+}
+
+func literalPathSegment(seg ResourcePathSegmentDef) (string, bool) {
+	shape := semtypes.SingleShape(seg.Ty)
+	if !shape.IsPresent() {
+		return "", false
+	}
+	s, ok := shape.Get().Value.(string)
+	return s, ok
+}
+
+func (p *PrettyPrinter) printResourcePath(entry BIRResourceMethod) string {
+	parts := []string{}
+	for _, seg := range entry.PathSegments {
+		if s, ok := literalPathSegment(seg); ok {
+			parts = append(parts, s)
+		} else {
+			parts = append(parts, "["+p.PrintSemType(seg.Ty)+"]")
+		}
+	}
+	if !semtypes.IsNever(entry.RestSegmentTy) {
+		parts = append(parts, "["+p.PrintSemType(entry.RestSegmentTy)+"...]")
+	}
+	return strings.Join(parts, "/")
 }
 
 func (p *PrettyPrinter) PrintReturn(r *Return) string {
@@ -339,12 +405,38 @@ func (p *PrettyPrinter) PrintPanic(pa *Panic) string {
 	return fmt.Sprintf("panic %s;", p.PrintOperand(*pa.ErrorOp))
 }
 
+func (p *PrettyPrinter) PrintLockStart(l *LockStart) string {
+	return fmt.Sprintf("lock-start %q GOTO %s;", l.LockKey, l.ThenBB.Id.Value())
+}
+
+func (p *PrettyPrinter) PrintLockEnd(l *LockEnd) string {
+	return fmt.Sprintf("lock-end %q GOTO %s;", l.LockKey, l.ThenBB.Id.Value())
+}
+
 func (p *PrettyPrinter) PrintBranch(b *Branch) string {
 	return fmt.Sprintf("%s ? %s : %s;", p.PrintOperand(*b.Op), b.TrueBB.Id.Value(), b.FalseBB.Id.Value())
 }
 
 func (p *PrettyPrinter) PrintGoto(g *Goto) string {
 	return fmt.Sprintf("GOTO %s;", g.ThenBB.Id.Value())
+}
+
+func (p *PrettyPrinter) PrintResourceFunctionCall(call *ResourceFunctionCall) string {
+	segs := strings.Builder{}
+	for i, seg := range call.PathSegments {
+		if i > 0 {
+			segs.WriteString(",")
+		}
+		segs.WriteString(p.PrintOperand(seg))
+	}
+	args := strings.Builder{}
+	for i, arg := range call.Args {
+		if i > 0 {
+			args.WriteString(",")
+		}
+		args.WriteString(p.PrintOperand(arg))
+	}
+	return fmt.Sprintf("%s = %s->[%s].%s(%s) -> %s;", p.PrintOperand(*call.LhsOp), p.PrintOperand(call.Receiver), segs.String(), call.MethodName, args.String(), call.ThenBB.Id.Value())
 }
 
 func (p *PrettyPrinter) PrintCall(call *Call) string {

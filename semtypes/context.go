@@ -30,16 +30,30 @@ type context struct {
 
 	_conjunctions []conjunction
 
-	_jsonMemo           SemType
-	_anydataMemo        SemType
-	_cloneableMemo      SemType
-	_orderedMemo        SemType
-	_isolatedObjectMemo SemType
-	_serviceObjectMemo  SemType
-	_isolatedTopMemo    SemType
-	_iterableMemo       SemType
-	_comparableMemo     map[comparableMemoKey]*comparableMemo
-	_fillerMemo         map[atomicType]Filler
+	_jsonMemo              SemType
+	_anydataMemo           SemType
+	_cloneableMemo         SemType
+	_orderedMemo           SemType
+	_isolatedObjectMemo    SemType
+	_serviceObjectMemo     SemType
+	_clientObjectMemo      SemType
+	_isolatedFnMemo        SemType
+	_isolatedMemo          SemType
+	_iterableMemo          SemType
+	_comparableMemo        map[comparableMemoKey]*comparableMemo
+	_fillerMemo            map[atomicType]Filler
+	_streamImplementorMemo map[streamImplementorMemoKey]SemType
+	_listenerMemo          map[listenerMemoKey]SemType
+}
+
+type streamImplementorMemoKey struct {
+	valueTy      SemType
+	completionTy SemType
+}
+
+type listenerMemoKey struct {
+	t SemType
+	a SemType
 }
 
 type comparableMemo struct {
@@ -122,6 +136,14 @@ func (c *context) setServiceObjectMemo(t SemType) {
 	c._serviceObjectMemo = t
 }
 
+func (c *context) clientObjectMemo() SemType {
+	return c._clientObjectMemo
+}
+
+func (c *context) setClientObjectMemo(t SemType) {
+	c._clientObjectMemo = t
+}
+
 func (c *context) iterableMemo() SemType {
 	return c._iterableMemo
 }
@@ -178,14 +200,34 @@ func (c *context) resetConjunctionStack(depth int32) {
 
 func ContextFrom(env Env) Context {
 	return &context{
-		_env:            env,
-		_listMemo:       make(map[string]*bddMemo),
-		_mappingMemo:    make(map[string]*bddMemo),
-		_functionMemo:   make(map[string]*bddMemo),
-		_comparableMemo: make(map[comparableMemoKey]*comparableMemo),
-		_fillerMemo:     make(map[atomicType]Filler),
-		_conjunctions:   make([]conjunction, 0, 64),
+		_env:                   env,
+		_listMemo:              make(map[string]*bddMemo),
+		_mappingMemo:           make(map[string]*bddMemo),
+		_functionMemo:          make(map[string]*bddMemo),
+		_comparableMemo:        make(map[comparableMemoKey]*comparableMemo),
+		_fillerMemo:            make(map[atomicType]Filler),
+		_streamImplementorMemo: make(map[streamImplementorMemoKey]SemType),
+		_listenerMemo:          make(map[listenerMemoKey]SemType),
+		_conjunctions:          make([]conjunction, 0, 64),
 	}
+}
+
+func (c *context) streamImplementorMemo(valueTy, completionTy SemType) (SemType, bool) {
+	t, ok := c._streamImplementorMemo[streamImplementorMemoKey{valueTy: valueTy, completionTy: completionTy}]
+	return t, ok
+}
+
+func (c *context) setStreamImplementorMemo(valueTy, completionTy, t SemType) {
+	c._streamImplementorMemo[streamImplementorMemoKey{valueTy: valueTy, completionTy: completionTy}] = t
+}
+
+func (c *context) listenerMemo(t, a SemType) (SemType, bool) {
+	ty, ok := c._listenerMemo[listenerMemoKey{t: t, a: a}]
+	return ty, ok
+}
+
+func (c *context) setListenerMemo(t, a, listenerTy SemType) {
+	c._listenerMemo[listenerMemoKey{t: t, a: a}] = listenerTy
 }
 
 func (c *context) comparableMemo(b1, b2 Bdd) *comparableMemo {

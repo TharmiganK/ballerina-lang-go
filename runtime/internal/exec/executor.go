@@ -70,7 +70,7 @@ func initLocalsForFunction(ctx *extern.Context, birFunc *bir.BIRFunction, args [
 	localVars := &birFunc.LocalVars
 	locals := make([]values.BalValue, len(*localVars))
 	argOffset := 0
-	if hasFunctionFlag(birFunc.Flags, model.Flag_ATTACHED) {
+	if birFunc.Flags.Has(model.FlagAttached) {
 		locals[1] = args[0]
 		argOffset = 1
 	}
@@ -181,6 +181,12 @@ func execInstruction(ctx *extern.Context, inst bir.BIRNonTerminator, frame *Fram
 		execNewError(ctx, v, frame)
 	case *bir.NewObject:
 		execNewObject(ctx, v, frame)
+	case *bir.NewStream:
+		execNewStream(ctx, v, frame)
+	case *bir.StreamNext:
+		execStreamNext(ctx, v, frame)
+	case *bir.StreamClose:
+		execStreamClose(ctx, v, frame)
 	case *bir.FieldAccess:
 		switch v.GetKind() {
 		case bir.INSTRUCTION_KIND_ARRAY_STORE:
@@ -331,14 +337,18 @@ func execTerminator(ctx *extern.Context, term bir.BIRTerminator, frame *Frame) *
 		}
 	case *bir.Return:
 		return nil
+	case *bir.LockStart:
+		ctx.AcquireLock(v.LockKey)
+		return v.ThenBB
+	case *bir.LockEnd:
+		ctx.ReleaseLock()
+		return v.ThenBB
+	case *bir.ResourceFunctionCall:
+		return execResourceCall(ctx, v, frame)
 	default:
 		fmt.Printf("UNKNOWN_TERMINATOR_TYPE(%T)\n", term)
 	}
 	return nil
-}
-
-func hasFunctionFlag(flags int64, flag model.Flag) bool {
-	return flags&(1<<int64(flag)) != 0
 }
 
 func panicValueToErrorValue(r any) values.BalValue {

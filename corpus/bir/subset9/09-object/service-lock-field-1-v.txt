@@ -1,0 +1,177 @@
+module $anon.. v 0.0.0;
+import ballerina.io v 0.0.0;
+import ballerina.io v 0.0.0;
+$moduleListeners  [object { public function attach(never, [string...]) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }|object { public function attach(never, string) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }|object { public function attach(never, nil) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }...];
+l  object { public function attach(isolated service object { private function get() returns int; private function inc() returns nil }, nil) returns nil; public function detach(isolated service object { private function get() returns int; private function inc() returns nil }) returns nil|error; private function get() returns int; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; private function inc() returns nil; public function init() returns nil; private nil|isolated service object { private function get() returns int; private function inc() returns nil } s; public function start() returns nil|error };
+class SimpleListener {
+  s nil|isolated service object { private function get() returns int; private function inc() returns nil }
+
+  attach(isolated service object { private function get() returns int; private function inc() returns nil },nil) -> nil{
+    bb0 {
+      %4 = ConstantLoad s
+      self[%4] = svc;
+      return;
+    }
+  }
+
+  detach(isolated service object { private function get() returns int; private function inc() returns nil }) -> nil|error{
+    bb0 {
+      %3 = ConstantLoad <nil>
+      %4 = ConstantLoad s
+      self[%4] = %3;
+      return;
+    }
+  }
+
+  get() -> int{
+    bb0 {
+      %3 = ConstantLoad s
+      %2 = self[%3];
+      svc = %2;
+      %6 = ConstantLoad <nil>
+      %7 = %6;
+      %5 = == svc %7;
+      %5 ? bb1 : bb2;
+    }
+    bb1 {
+      %8 = ConstantLoad no service
+      %9 = newError error(%8)
+      panic %9;
+    }
+    bb2 {
+      %10 = get(svc) -> bb3;
+    }
+    bb3 {
+      %0 = %10;
+      return;
+    }
+  }
+
+  gracefulStop() -> nil|error{
+    bb0 {
+      return;
+    }
+  }
+
+  immediateStop() -> nil|error{
+    bb0 {
+      return;
+    }
+  }
+
+  inc() -> nil{
+    bb0 {
+      %3 = ConstantLoad s
+      %2 = self[%3];
+      svc = %2;
+      %6 = ConstantLoad <nil>
+      %7 = %6;
+      %5 = == svc %7;
+      %5 ? bb1 : bb2;
+    }
+    bb1 {
+      %8 = ConstantLoad no service
+      %9 = newError error(%8)
+      panic %9;
+    }
+    bb2 {
+      %10 = inc(svc) -> bb3;
+    }
+    bb3 {
+      return;
+    }
+  }
+
+  init() -> nil{
+    bb0 {
+      %2 = ConstantLoad <nil>
+      %3 = ConstantLoad s
+      self[%3] = %2;
+      return;
+    }
+  }
+
+  start() -> nil|error{
+    bb0 {
+      return;
+    }
+  }
+}
+class $service$0 {
+  count int
+
+  get() -> int{
+    bb0 {
+      lock-start "$anon/.:$service.11.0.count" GOTO bb1;
+    }
+    bb1 {
+      %3 = ConstantLoad count
+      %2 = self[%3];
+      %0 = %2;
+      lock-end "$anon/.:$service.11.0.count" GOTO bb2;
+    }
+    bb2 {
+      return;
+    }
+    bb3 {
+      return;
+    }
+  }
+
+  inc() -> nil{
+    bb0 {
+      lock-start "$anon/.:$service.11.0.count" GOTO bb1;
+    }
+    bb1 {
+      %4 = ConstantLoad count
+      %3 = self[%4];
+      %5 = %3;
+      %6 = ConstantLoad 1
+      %7 = %6;
+      %2 = + %5 %7;
+      %8 = ConstantLoad count
+      self[%8] = %2;
+      lock-end "$anon/.:$service.11.0.count" GOTO bb2;
+    }
+    bb2 {
+      return;
+    }
+  }
+
+  init() -> nil{
+    bb0 {
+      %2 = ConstantLoad 0
+      %3 = ConstantLoad count
+      self[%3] = %2;
+      return;
+    }
+  }
+}
+main() -> nil{
+  bb0 {
+    %1 = inc(l) -> bb1;
+  }
+  bb1 {
+    %2 = inc(l) -> bb2;
+  }
+  bb2 {
+    %3 = inc(l) -> bb3;
+  }
+  bb3 {
+    %4 = get(l) -> bb4;
+  }
+  bb4 {
+    %5 = %4;
+    %6 = println(%5) -> bb5;
+  }
+  bb5 {
+    return;
+  }
+}
+$default$0(isolated service object { private function get() returns int; private function inc() returns nil }) -> nil{
+  bb0 {
+    %2 = ConstantLoad <nil>
+    %0 = %2;
+    return;
+  }
+}

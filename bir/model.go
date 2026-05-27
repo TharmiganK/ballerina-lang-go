@@ -46,11 +46,6 @@ type (
 		Pos Location
 	}
 
-	BIRDocumentableNodeBase struct {
-		BIRNodeBase
-		MarkdownDocAttachment model.MarkdownDocAttachment
-	}
-
 	// BIRAbstractInstruction
 	BIRInstructionBase struct {
 		BIRNodeBase
@@ -86,6 +81,19 @@ type (
 		LookupKey string
 		Fields    []ObjectField
 		VTable    map[string]*BIRFunction
+		RTable    map[string][]BIRResourceMethod
+	}
+
+	BIRResourceMethod struct {
+		PathSegments  []ResourcePathSegmentDef
+		RestSegmentTy semtypes.SemType
+		Fn            *BIRFunction
+	}
+
+	ResourcePathSegmentDef struct {
+		// Ty is a singleton string type for literal path segments
+		// and the parameter type for path-parameter segments.
+		Ty semtypes.SemType
 	}
 
 	BIRImportModule struct {
@@ -105,18 +113,16 @@ type (
 
 	BIRGlobalVariableDcl struct {
 		birVariableDclBase
-		Flags              int64
+		Flags              model.Flag
 		PkgId              *model.PackageID
-		Origin             model.SymbolOrigin
 		GlobalVarLookupKey string
 	}
 
 	BIRFunction struct {
-		BIRDocumentableNodeBase
+		BIRNodeBase
 		Name           model.Name
 		OriginalName   model.Name
-		Flags          int64
-		Origin         model.SymbolOrigin
+		Flags          model.Flag
 		RequiredParams []BIRParameter
 		RestParams     *BIRParameter
 		ArgsCount      int
@@ -148,7 +154,7 @@ type (
 	BIRParameter struct {
 		BIRNodeBase
 		Name  model.Name
-		Flags int64
+		Flags model.Flag
 	}
 
 	BIRFunctionParameter struct {
@@ -247,6 +253,7 @@ const (
 	INSTRUCTION_KIND_WAIT_ALL
 	INSTRUCTION_KIND_WK_ALT_RECEIVE
 	INSTRUCTION_KIND_WK_MULTIPLE_RECEIVE
+	INSTRUCTION_KIND_RESOURCE_CALL
 )
 
 const (
@@ -284,6 +291,8 @@ const (
 	INSTRUCTION_KIND_NEW_TABLE
 	INSTRUCTION_KIND_NEW_TYPEDESC
 	INSTRUCTION_KIND_NEW_STREAM
+	INSTRUCTION_KIND_STREAM_NEXT
+	INSTRUCTION_KIND_STREAM_CLOSE
 	INSTRUCTION_KIND_TABLE_STORE
 	INSTRUCTION_KIND_TABLE_LOAD
 	INSTRUCTION_KIND_ARRAY_FILLING_LOAD

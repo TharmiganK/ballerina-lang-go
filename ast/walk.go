@@ -17,7 +17,6 @@
 package ast
 
 import (
-	"ballerina-lang-go/model"
 	"fmt"
 )
 
@@ -26,7 +25,7 @@ import (
 // of node with the visitor w, followed by a call of w.Visit(nil).
 type Visitor interface {
 	Visit(node BLangNode) (w Visitor)
-	VisitTypeData(typeData *model.TypeData) (w Visitor)
+	VisitTypeData(typeData *TypeData) (w Visitor)
 }
 
 // Walk traverses an AST in depth-first order: It starts by calling
@@ -148,36 +147,19 @@ func Walk(v Visitor, node BLangNode) {
 		for _, expr := range node.AttachedExprs {
 			Walk(v, expr.(BLangNode))
 		}
-		if node.ServiceClass != nil {
-			Walk(v, node.ServiceClass)
+		if node.AttachPointLiteral != nil {
+			Walk(v, node.AttachPointLiteral)
 		}
-		if node.Name != nil {
-			Walk(v, node.Name)
+		for i := range node.AbsoluteResourcePath {
+			Walk(v, &node.AbsoluteResourcePath[i])
 		}
-		for i := range node.AnnAttachments {
-			Walk(v, &node.AnnAttachments[i])
-		}
-		for i := range node.ResourceFunctions {
-			Walk(v, &node.ResourceFunctions[i])
-		}
+		walkClassDefnBody(v, &node.classDefnBase)
 
 	case *BLangClassDefinition:
 		if node.Name != nil {
 			Walk(v, node.Name)
 		}
-		for i := range node.AnnAttachments {
-			Walk(v, &node.AnnAttachments[i])
-		}
-		if node.InitFunction != nil {
-			Walk(v, node.InitFunction)
-		}
-		for _, method := range node.Methods {
-			Walk(v, method)
-		}
-		for _, field := range node.Fields {
-			Walk(v, field.(BLangNode))
-		}
-		WalkTypeData(v, &node.typeData)
+		walkClassDefnBody(v, &node.classDefnBase)
 
 	case *BLangAnnotation:
 		if node.Name != nil {
@@ -244,7 +226,29 @@ func Walk(v Visitor, node BLangNode) {
 		if node.RestParam != nil {
 			Walk(v, node.RestParam.(BLangNode))
 		}
-		walkTypeDescriptor(v, node.returnTypeDescriptor)
+		if node.returnTypeDescriptor != nil {
+			walkTypeDescriptor(v, node.returnTypeDescriptor)
+		}
+		if node.Body != nil {
+			Walk(v, node.Body.(BLangNode))
+		}
+
+	case *BLangResourceMethod:
+		Walk(v, &node.Name)
+		for i := range node.ResourcePath {
+			if tn := node.ResourcePath[i].ParamType; tn != nil {
+				walkTypeDescriptor(v, tn)
+			}
+		}
+		for i := range node.RequiredParams {
+			Walk(v, &node.RequiredParams[i])
+		}
+		if node.RestParam != nil {
+			Walk(v, node.RestParam.(BLangNode))
+		}
+		if node.returnTypeDescriptor != nil {
+			walkTypeDescriptor(v, node.returnTypeDescriptor)
+		}
 		if node.Body != nil {
 			Walk(v, node.Body.(BLangNode))
 		}
@@ -321,6 +325,9 @@ func Walk(v Visitor, node BLangNode) {
 		Walk(v, &node.Body)
 		Walk(v, &node.OnFailClause)
 
+	case *BLangLock:
+		Walk(v, &node.Body)
+
 	case *BLangMatchStatement:
 		if node.Expr != nil {
 			Walk(v, node.Expr.(BLangNode))
@@ -334,7 +341,7 @@ func Walk(v Visitor, node BLangNode) {
 			Walk(v, pattern.(BLangNode))
 		}
 		if node.Guard != nil {
-			Walk(v, node.Guard.(BLangNode))
+			Walk(v, node.Guard)
 		}
 		Walk(v, &node.Body)
 
@@ -382,14 +389,6 @@ func Walk(v Visitor, node BLangNode) {
 		}
 		if node.RhsExpr != nil {
 			Walk(v, node.RhsExpr.(BLangNode))
-		}
-
-	case *BLangDynamicArgExpr:
-		if node.Condition != nil {
-			Walk(v, node.Condition.(BLangNode))
-		}
-		if node.ConditionalArgument != nil {
-			Walk(v, node.ConditionalArgument.(BLangNode))
 		}
 
 	case *BLangCheckedExpr:
@@ -447,8 +446,8 @@ func Walk(v Visitor, node BLangNode) {
 		for _, arg := range node.PositionalArgs {
 			Walk(v, arg.(BLangNode))
 		}
-		for _, arg := range node.NamedArgs {
-			Walk(v, arg)
+		for i := range node.NamedArgs {
+			Walk(v, &node.NamedArgs[i])
 		}
 
 	case *BLangInvocation:
@@ -510,9 +509,6 @@ func Walk(v Visitor, node BLangNode) {
 
 	case *BLangCommitExpr:
 		panic("unimplemented")
-
-	case *BLangCollectContextInvocation:
-		Walk(v, &node.Invocation)
 
 	// Section 6: Expressions - Variable Refs
 	case *BLangSimpleVarRef:
@@ -621,6 +617,9 @@ func Walk(v Visitor, node BLangNode) {
 	case *BLangConstrainedType:
 		WalkTypeData(v, &node.Type)
 		WalkTypeData(v, &node.Constraint)
+	case *BLangStreamType:
+		WalkTypeData(v, &node.ValueType)
+		WalkTypeData(v, &node.CompletionType)
 	case *BLangTupleTypeNode:
 		for i := range node.Members {
 			Walk(v, node.Members[i].TypeDesc.(BLangNode))
@@ -750,7 +749,7 @@ func Walk(v Visitor, node BLangNode) {
 			Walk(v, node.Collection.(BLangNode))
 		}
 		if node.VariableDefinitionNode != nil {
-			Walk(v, node.VariableDefinitionNode.(BLangNode))
+			Walk(v, node.VariableDefinitionNode)
 		}
 
 	case *BLangJoinClause:
@@ -761,7 +760,7 @@ func Walk(v Visitor, node BLangNode) {
 			Walk(v, node.OnClause.OnExpr.(BLangNode))
 		}
 		if node.VariableDefinitionNode != nil {
-			Walk(v, node.VariableDefinitionNode.(BLangNode))
+			Walk(v, node.VariableDefinitionNode)
 		}
 		if node.OnClause.EqualsExpr != nil {
 			Walk(v, node.OnClause.EqualsExpr.(BLangNode))
@@ -774,7 +773,7 @@ func Walk(v Visitor, node BLangNode) {
 
 	case *BLangLetClause:
 		for i := range node.LetVarDeclarations {
-			Walk(v, node.LetVarDeclarations[i].(BLangNode))
+			Walk(v, &node.LetVarDeclarations[i])
 		}
 
 	case *BLangWhereClause:
@@ -815,7 +814,7 @@ func Walk(v Visitor, node BLangNode) {
 			Walk(v, node.Body)
 		}
 		if node.VariableDefinitionNode != nil {
-			Walk(v, node.VariableDefinitionNode.(BLangNode))
+			Walk(v, node.VariableDefinitionNode)
 		}
 
 	case *BLangDoClause:
@@ -889,8 +888,8 @@ func Walk(v Visitor, node BLangNode) {
 		Walk(v, node.Expr.(BLangNode))
 
 	case *BLangNewExpression:
-		if node.UserDefinedType != nil {
-			Walk(v, node.UserDefinedType)
+		if node.TypeDescriptor != nil {
+			Walk(v, node.TypeDescriptor)
 		}
 		for _, arg := range node.ArgsExprs {
 			Walk(v, arg.(BLangNode))
@@ -907,6 +906,19 @@ func Walk(v Visitor, node BLangNode) {
 			Walk(v, arg.(BLangNode))
 		}
 
+	case *BLangClientResourceAccessAction:
+		if node.Expr != nil {
+			Walk(v, node.Expr)
+		}
+		for i := range node.Path {
+			if e := node.Path[i].Expr; e != nil {
+				Walk(v, e)
+			}
+		}
+		for _, arg := range node.ArgExprs {
+			Walk(v, arg)
+		}
+
 	default:
 		panic(fmt.Sprintf("unexpected node type %T", node))
 	}
@@ -915,18 +927,41 @@ func Walk(v Visitor, node BLangNode) {
 
 // We need to do this because TypeData is not a ast node but within it there can be ast nodes. Need to think if this is
 // the correct appraoch.
-func WalkTypeData(v Visitor, typeData *model.TypeData) {
-	v.VisitTypeData(typeData)
+func WalkTypeData(v Visitor, typeData *TypeData) {
+	if w := v.VisitTypeData(typeData); w != nil {
+		v = w
+	}
 	if typeData.TypeDescriptor == nil {
+		v.Visit(nil)
 		return
 	}
 	td := typeData.TypeDescriptor
 	if tdNode, ok := td.(BLangNode); ok {
 		Walk(v, tdNode)
 	}
+	v.Visit(nil)
 }
 
-func walkTypeDescriptor(v Visitor, td model.TypeDescriptor) {
+func walkClassDefnBody(v Visitor, b *classDefnBase) {
+	for i := range b.AnnAttachments {
+		Walk(v, &b.AnnAttachments[i])
+	}
+	if b.InitFunction != nil {
+		Walk(v, b.InitFunction)
+	}
+	for _, method := range b.Methods {
+		Walk(v, method)
+	}
+	for _, method := range b.ResourceMethods {
+		Walk(v, method)
+	}
+	for _, field := range b.Fields {
+		Walk(v, field.(BLangNode))
+	}
+	WalkTypeData(v, &b.typeData)
+}
+
+func walkTypeDescriptor(v Visitor, td TypeDescriptor) {
 	if td == nil {
 		return
 	}

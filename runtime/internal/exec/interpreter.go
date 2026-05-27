@@ -20,8 +20,16 @@ import (
 	"ballerina-lang-go/bir"
 	"ballerina-lang-go/runtime/extern"
 	"ballerina-lang-go/runtime/internal/modules"
-	"ballerina-lang-go/values"
 )
+
+// NewContext creates an extern.Context with a fresh call stack, suitable for
+// invoking Ballerina code outside the main interpreter loop (e.g. from HTTP
+// handler goroutines). Each concurrent execution path needs its own context.
+func NewContext(env *extern.Env) *extern.Context {
+	ctx := extern.CreateContext(env)
+	ctx.CallStack = &callStack{elements: make([]*Frame, 0, 32)}
+	return ctx
+}
 
 func Interpret(pkg bir.BIRPackage, env *extern.Env) (err error) {
 	ctx := extern.CreateContext(env)
@@ -30,32 +38,30 @@ func Interpret(pkg bir.BIRPackage, env *extern.Env) (err error) {
 	env.Registry.(*modules.Registry).RegisterModule(pkg.PackageID, modules.NewBIRModule(ctx, &pkg))
 	defer func() {
 		if r := recover(); r != nil {
+			ctx.ReleaseAllHeldLocks()
 			err = getFormattedError(cs, r)
 		}
 	}()
 	if pkg.InitFunction != nil {
 		defer func() {
 			if r := recover(); r != nil {
+				ctx.ReleaseAllHeldLocks()
 				err = getFormattedError(cs, r)
 			}
 		}()
 		if result := executeFunction(ctx, *pkg.InitFunction, nil, nil); result != nil {
-			if _, ok := result.(*values.Error); ok {
-				err = getFormattedError(cs, result)
-				return
-			}
+			panic(result)
 		}
 	}
 	if pkg.MainFunction != nil {
 		defer func() {
 			if r := recover(); r != nil {
+				ctx.ReleaseAllHeldLocks()
 				err = getFormattedError(cs, r)
 			}
 		}()
 		if result := executeFunction(ctx, *pkg.MainFunction, nil, nil); result != nil {
-			if _, ok := result.(*values.Error); ok {
-				err = getFormattedError(cs, result)
-			}
+			panic(result)
 		}
 	}
 	return err

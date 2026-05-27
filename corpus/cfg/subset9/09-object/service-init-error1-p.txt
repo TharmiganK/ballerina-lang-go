@@ -1,0 +1,27 @@
+(SimpleListener
+  (attach
+    (bb0 () ())
+  )
+  (detach
+    (bb0 () ())
+  )
+  (gracefulStop
+    (bb0 () ())
+  )
+  (immediateStop
+    (bb0 () ())
+  )
+  (start
+    (bb0 () ())
+  )
+)
+(init
+  (bb0 () ()
+    (return
+      (error-constructor-expr (
+        (literal service init failed))))
+  )
+)
+(main
+  (bb0 () ())
+)

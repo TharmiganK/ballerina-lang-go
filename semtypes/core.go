@@ -947,7 +947,7 @@ func createIsolatedObject(context Context) SemType {
 	return isolatedObj
 }
 
-func createServiceObject(context Context) SemType {
+func CreateServiceObject(context Context) SemType {
 	memo := context.serviceObjectMemo()
 	if memo != nil {
 		return memo
@@ -958,6 +958,19 @@ func createServiceObject(context Context) SemType {
 	serviceObj := od.Define(context.Env(), quals, []Member{})
 	context.setServiceObjectMemo(serviceObj)
 	return serviceObj
+}
+
+func CreateClientObject(context Context) SemType {
+	memo := context.clientObjectMemo()
+	if memo != nil {
+		return memo
+	}
+
+	quals := ObjectQualifiersFrom(false, false, NetworkQualifierClient)
+	od := NewObjectDefinition()
+	clientObj := od.Define(context.Env(), quals, []Member{})
+	context.setClientObjectMemo(clientObj)
+	return clientObj
 }
 
 func CreateIterable(context Context) SemType {
@@ -1148,4 +1161,18 @@ func ContainsUndef(t SemType) bool {
 	default:
 		panic("unexpected semtype")
 	}
+}
+
+func HasNoStorageIdentity(ty SemType) bool {
+	return IsSubtypeSimple(ty, SIMPLE_BASIC)
+}
+
+// CreateIsolated returns the top type of isolated values:
+// `readonly | isolated object {}`. Used by isolation analysis to test
+// whether an expression's static type is intrinsically isolated.
+func CreateIsolated(cx Context) SemType {
+	if cx._isolatedMemo == nil {
+		cx._isolatedMemo = Union(VAL_READONLY, createIsolatedObject(cx))
+	}
+	return cx._isolatedMemo
 }

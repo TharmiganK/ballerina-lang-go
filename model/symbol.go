@@ -73,9 +73,20 @@ type symbolTypeSetter interface {
 
 type FuncSymbolFlags uint8
 
+type valueSymbolFlags uint8
+
 const (
 	FuncSymbolFlagIsolated FuncSymbolFlags = 1 << iota
 	FuncSymbolFlagTransactional
+)
+
+const (
+	valueSymbolFlagConst valueSymbolFlags = 1 << iota
+	valueSymbolFlagParameter
+	valueSymbolFlagIsolated
+	valueSymbolFlagFinal
+	valueSymbolFlagConfigurable
+	valueSymbolFlagListener
 )
 
 type FunctionSymbol interface {
@@ -248,10 +259,19 @@ type (
 		members []InclusionMember
 	}
 
-	ClassSymbol struct {
+	classSymbolBase struct {
 		TypeSymbol
 		memberHolderBase
-		methods map[string]SymbolRef
+		methods         map[string]SymbolRef
+		resourceMethods []SymbolRef
+	}
+
+	classSymbol struct {
+		classSymbolBase
+	}
+
+	NetworkClassSymbol struct {
+		classSymbolBase
 	}
 
 	RecordSymbol struct {
@@ -271,8 +291,7 @@ type (
 
 	ValueSymbol struct {
 		symbolBase
-		isConst     bool
-		isParameter bool
+		flags valueSymbolFlags
 	}
 
 	functionSymbol struct {
@@ -285,6 +304,13 @@ type (
 	monomorphicFunctionSymbol struct {
 		functionSymbol
 		polymorhpicFn SymbolRef
+	}
+
+	ResourceMethodSymbol struct {
+		functionSymbol
+		methodName   string
+		pathListType semtypes.SemType
+		pathParams   []SymbolRef
 	}
 
 	containerGenericFunctionSymbol struct {
@@ -368,39 +394,39 @@ type FieldDescriptor struct {
 	ty           semtypes.SemType
 	flags        FieldDescriptorFlag
 	DefaultFnRef SymbolRef
-	visibility   Visibility
+	isPublic     bool
 }
 
-func NewFieldDescriptor(name string, flags FieldDescriptorFlag, visibility Visibility) FieldDescriptor {
-	return FieldDescriptor{name: name, flags: flags, visibility: visibility}
+func NewFieldDescriptor(name string, flags FieldDescriptorFlag, isPublic bool) FieldDescriptor {
+	return FieldDescriptor{name: name, flags: flags, isPublic: isPublic}
 }
 
 func (f *FieldDescriptor) MemberName() string                { return f.name }
 func (f *FieldDescriptor) MemberKind() InclusionMemberKind   { return InclusionMemberKindField }
 func (f *FieldDescriptor) MemberType() semtypes.SemType      { return f.ty }
 func (f *FieldDescriptor) SetMemberType(ty semtypes.SemType) { f.ty = ty }
-func (f *FieldDescriptor) Visibility() Visibility            { return f.visibility }
+func (f *FieldDescriptor) IsPublic() bool                    { return f.isPublic }
 func (f *FieldDescriptor) IsReadonly() bool                  { return f.flags&FieldDescriptorReadonly != 0 }
 func (f *FieldDescriptor) IsOptional() bool                  { return f.flags&FieldDescriptorOptional != 0 }
 func (f *FieldDescriptor) HasDefault() bool                  { return f.flags&FieldDescriptorHasDefault != 0 }
 
 type MethodDescriptor struct {
-	name       string
-	kind       InclusionMemberKind
-	ty         semtypes.SemType
-	MethodRef  SymbolRef
-	visibility Visibility
+	name      string
+	kind      InclusionMemberKind
+	ty        semtypes.SemType
+	MethodRef SymbolRef
+	isPublic  bool
 }
 
-func NewMethodDescriptor(name string, kind InclusionMemberKind, visibility Visibility, methodRef SymbolRef) MethodDescriptor {
-	return MethodDescriptor{name: name, kind: kind, visibility: visibility, MethodRef: methodRef}
+func NewMethodDescriptor(name string, kind InclusionMemberKind, isPublic bool, methodRef SymbolRef) MethodDescriptor {
+	return MethodDescriptor{name: name, kind: kind, isPublic: isPublic, MethodRef: methodRef}
 }
 
 func (m *MethodDescriptor) MemberName() string                { return m.name }
 func (m *MethodDescriptor) MemberKind() InclusionMemberKind   { return m.kind }
 func (m *MethodDescriptor) MemberType() semtypes.SemType      { return m.ty }
 func (m *MethodDescriptor) SetMemberType(ty semtypes.SemType) { m.ty = ty }
-func (m *MethodDescriptor) Visibility() Visibility            { return m.visibility }
+func (m *MethodDescriptor) IsPublic() bool                    { return m.isPublic }
 
 type RestTypeDescriptor struct {
 	ty semtypes.SemType
@@ -426,10 +452,14 @@ var (
 	_ Scope                          = &FunctionScope{}
 	_ Scope                          = &BlockScope{}
 	_ Symbol                         = &TypeSymbol{}
-	_ Symbol                         = &ClassSymbol{}
+	_ Symbol                         = &classSymbol{}
+	_ Symbol                         = &NetworkClassSymbol{}
+	_ ClassSymbol                    = &classSymbol{}
+	_ ClassSymbol                    = &NetworkClassSymbol{}
 	_ Symbol                         = &RecordSymbol{}
 	_ Symbol                         = &ObjectTypeSymbol{}
-	_ MemberCarrier                  = &ClassSymbol{}
+	_ MemberCarrier                  = &classSymbol{}
+	_ MemberCarrier                  = &NetworkClassSymbol{}
 	_ MemberCarrier                  = &RecordSymbol{}
 	_ MemberCarrier                  = &ObjectTypeSymbol{}
 	_ Symbol                         = &ValueSymbol{}
@@ -438,6 +468,7 @@ var (
 	_ ContainerGenericFunctionSymbol = &containerGenericFunctionSymbol{}
 	_ DependentlyTypedFunctionSymbol = &dependentlyTypedFunctionSymbol{}
 	_ MonomorphicFunctionSymbol      = &monomorphicFunctionSymbol{}
+	_ FunctionSymbol                 = &ResourceMethodSymbol{}
 	_ Symbol                         = &SymbolRef{}
 	_ SymbolSpaceProvider            = &ModuleScope{}
 )
@@ -510,12 +541,15 @@ func (space *SymbolSpace) Symbols() iter.Seq2[int, Symbol] {
 }
 
 func NewSymbolSpaceInner(packageID PackageID, index int) *SymbolSpace {
-	pkg := PackageIdentifier{
-		Organization: packageID.OrgName.Value(),
-		Package:      packageID.PkgName.Value(),
-		Version:      packageID.Version.Value(),
+	return &SymbolSpace{index: index, Pkg: PackageIdentifierFromID(&packageID), lookupTable: make(map[string]int), symbols: make([]Symbol, 0)}
+}
+
+func PackageIdentifierFromID(id *PackageID) PackageIdentifier {
+	return PackageIdentifier{
+		Organization: id.OrgName.Value(),
+		Package:      id.PkgName.Value(),
+		Version:      id.Version.Value(),
 	}
-	return &SymbolSpace{index: index, Pkg: pkg, lookupTable: make(map[string]int), symbols: make([]Symbol, 0)}
 }
 
 func (ms *ModuleScope) Exports() ExportedSymbolSpace {
@@ -706,6 +740,13 @@ type MemberCarrier interface {
 	FieldDefaults() []FieldDefault
 }
 
+type ClassSymbol interface {
+	Symbol
+	MemberCarrier
+	SetMethods(map[string]SymbolRef)
+	MethodSymbol(name string) (SymbolRef, bool)
+}
+
 func (m *memberHolderBase) Members() []InclusionMember { return m.members }
 func (m *memberHolderBase) AddMember(im InclusionMember) {
 	m.members = append(m.members, im)
@@ -754,18 +795,40 @@ func (r *RecordSymbol) RestField() (*RestTypeDescriptor, bool) {
 }
 
 func (vs *ValueSymbol) Kind() SymbolKind {
-	if vs.isConst {
+	if vs.hasFlag(valueSymbolFlagConst) {
 		return SymbolKindConstant
 	}
-	if vs.isParameter {
+	if vs.hasFlag(valueSymbolFlagParameter) {
 		return SymbolKindParemeter
 	}
 	return SymbolKindVariable
 }
 
 func (vs *ValueSymbol) IsConst() bool {
-	return vs.isConst || vs.isParameter
+	return vs.hasFlag(valueSymbolFlagConst) || vs.hasFlag(valueSymbolFlagParameter)
 }
+
+func (vs *ValueSymbol) IsParameter() bool { return vs.hasFlag(valueSymbolFlagParameter) }
+
+func (vs *ValueSymbol) IsIsolated() bool { return vs.hasFlag(valueSymbolFlagIsolated) }
+
+func (vs *ValueSymbol) SetIsolated() { vs.setFlag(valueSymbolFlagIsolated) }
+
+func (vs *ValueSymbol) IsFinal() bool { return vs.hasFlag(valueSymbolFlagFinal) }
+
+func (vs *ValueSymbol) SetFinal() { vs.setFlag(valueSymbolFlagFinal) }
+
+func (vs *ValueSymbol) IsConfigurable() bool { return vs.hasFlag(valueSymbolFlagConfigurable) }
+
+func (vs *ValueSymbol) SetConfigurable() { vs.setFlag(valueSymbolFlagConfigurable) }
+
+func (vs *ValueSymbol) IsListener() bool { return vs.hasFlag(valueSymbolFlagListener) }
+
+func (vs *ValueSymbol) SetListener() { vs.setFlag(valueSymbolFlagListener) }
+
+func (vs *ValueSymbol) hasFlag(flag valueSymbolFlags) bool { return vs.flags&flag != 0 }
+
+func (vs *ValueSymbol) setFlag(flag valueSymbolFlags) { vs.flags |= flag }
 
 func (vs *ValueSymbol) Copy() Symbol {
 	cp := *vs
@@ -893,10 +956,16 @@ func (fs *FunctionSignature) IsTransactional() bool {
 }
 
 func NewValueSymbol(name string, isPublic bool, isConst bool, isParameter bool) ValueSymbol {
+	var flags valueSymbolFlags
+	if isConst {
+		flags |= valueSymbolFlagConst
+	}
+	if isParameter {
+		flags |= valueSymbolFlagParameter
+	}
 	return ValueSymbol{
-		symbolBase:  symbolBase{name: name, ty: nil, isPublic: isPublic},
-		isConst:     isConst,
-		isParameter: isParameter,
+		symbolBase: symbolBase{name: name, ty: nil, isPublic: isPublic},
+		flags:      flags,
 	}
 }
 
@@ -907,11 +976,69 @@ func NewTypeSymbol(name string, isPublic bool) TypeSymbol {
 }
 
 func NewClassSymbol(name string, isPublic bool) ClassSymbol {
-	return ClassSymbol{
+	return &classSymbol{
+		classSymbolBase: newClassSymbolBase(name, isPublic),
+	}
+}
+
+// NewNetworkClassSymbol creates a ClassSymbol for classes representing network
+// interaction objects (e.g. clients and services).
+func NewNetworkClassSymbol(name string, isPublic bool) ClassSymbol {
+	return &NetworkClassSymbol{
+		classSymbolBase: newClassSymbolBase(name, isPublic),
+	}
+}
+
+func newClassSymbolBase(name string, isPublic bool) classSymbolBase {
+	return classSymbolBase{
 		TypeSymbol: TypeSymbol{
 			symbolBase: symbolBase{name: name, ty: nil, isPublic: isPublic},
 		},
+		methods: map[string]SymbolRef{},
 	}
+}
+
+func (c *classSymbolBase) ResourceMethods() []SymbolRef {
+	return c.resourceMethods
+}
+
+func (c *classSymbolBase) AddResourceMethod(ref SymbolRef) {
+	c.resourceMethods = append(c.resourceMethods, ref)
+}
+
+func NewResourceMethodSymbol(name, methodName string, isPublic bool) *ResourceMethodSymbol {
+	return &ResourceMethodSymbol{
+		functionSymbol: functionSymbol{
+			symbolBase: symbolBase{name: name, ty: nil, isPublic: isPublic},
+		},
+		methodName: methodName,
+	}
+}
+
+func (r *ResourceMethodSymbol) MethodName() string {
+	return r.methodName
+}
+
+// PR-TODO: rename
+func (r *ResourceMethodSymbol) PathType() semtypes.SemType {
+	return r.pathListType
+}
+
+func (r *ResourceMethodSymbol) SetPathType(ty semtypes.SemType) {
+	r.pathListType = ty
+}
+
+func (r *ResourceMethodSymbol) PathParams() []SymbolRef {
+	return r.pathParams
+}
+
+func (r *ResourceMethodSymbol) SetPathParams(params []SymbolRef) {
+	r.pathParams = params
+}
+
+func (r *ResourceMethodSymbol) Copy() Symbol {
+	cp := *r
+	return &cp
 }
 
 func NewRecordSymbol(name string, isPublic bool) RecordSymbol {
@@ -930,11 +1057,11 @@ func NewObjectTypeSymbol(name string, isPublic bool) ObjectTypeSymbol {
 	}
 }
 
-func (c *ClassSymbol) SetMethods(methods map[string]SymbolRef) {
+func (c *classSymbolBase) SetMethods(methods map[string]SymbolRef) {
 	c.methods = methods
 }
 
-func (c *ClassSymbol) MethodSymbol(name string) (SymbolRef, bool) {
+func (c *classSymbolBase) MethodSymbol(name string) (SymbolRef, bool) {
 	ref, ok := c.methods[name]
 	return ref, ok
 }

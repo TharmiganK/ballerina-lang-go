@@ -29,6 +29,7 @@ import (
 	bircodec "ballerina-lang-go/bir/codec"
 	"ballerina-lang-go/context"
 	"ballerina-lang-go/desugar"
+	ioruntime "ballerina-lang-go/lib/io/runtime"
 	"ballerina-lang-go/model"
 	"ballerina-lang-go/model/symbolpool"
 	"ballerina-lang-go/parser"
@@ -481,6 +482,146 @@ func TestDependentlyTypedMethod(t *testing.T) {
 	}
 }
 
+func TestExternResourceMethod(t *testing.T) {
+	projectDir := filepath.Join(testDataDir, "resource-method-v")
+	absPath, err := filepath.Abs(projectDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fsys := os.DirFS(filepath.Dir(absPath))
+	result, err := projects.Load(fsys, filepath.Base(absPath))
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	currentPkg := result.Project().CurrentPackage()
+	compilation := currentPkg.Compilation()
+	if compilation.DiagnosticResult().HasErrors() {
+		for _, d := range compilation.DiagnosticResult().Diagnostics() {
+			t.Logf("diagnostic: %v", d)
+		}
+		t.Fatal("compilation had errors")
+	}
+
+	backend := projects.NewBallerinaBackend(compilation)
+	birPkgs := backend.BIRPackages()
+
+	stdoutBuf := &bytes.Buffer{}
+	rt := runtime.NewRuntime(test_util.TestPal(stdoutBuf, os.Stderr), result.Project().Environment().TypeEnv())
+
+	// args layout: [receiver, path-computed-segments..., user-args...]
+	runtime.RegisterExternFunction(rt, "testorg", "externresourcemethod.api",
+		"Client.$resource$get$0",
+		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			id := values.String(args[1], nil)
+			return "items/" + id, nil
+		})
+	runtime.RegisterExternFunction(rt, "testorg", "externresourcemethod.api",
+		"Client.$resource$get$1",
+		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			n := args[2].(int64)
+			return n * 2, nil
+		})
+
+	for _, birPkg := range birPkgs {
+		if err := rt.Interpret(*birPkg); err != nil {
+			t.Fatalf("runtime error: %v", err)
+		}
+	}
+
+	expected := "items/foo\n14\n"
+	if stdoutBuf.String() != expected {
+		t.Errorf("expected %q, got %q", expected, stdoutBuf.String())
+	}
+}
+
+func TestListenerDispatch(t *testing.T) {
+	projectDir := filepath.Join(testDataDir, "listener-dispatch-v")
+	absPath, err := filepath.Abs(projectDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fsys := os.DirFS(filepath.Dir(absPath))
+	result, err := projects.Load(fsys, filepath.Base(absPath))
+	if err != nil {
+		t.Fatalf("failed to load project: %v", err)
+	}
+
+	currentPkg := result.Project().CurrentPackage()
+	compilation := currentPkg.Compilation()
+	if compilation.DiagnosticResult().HasErrors() {
+		for _, d := range compilation.DiagnosticResult().Diagnostics() {
+			t.Logf("diagnostic: %v", d)
+		}
+		t.Fatal("compilation had errors")
+	}
+
+	backend := projects.NewBallerinaBackend(compilation)
+	birPkgs := backend.BIRPackages()
+
+	stdoutBuf := &bytes.Buffer{}
+	rt := runtime.NewRuntime(test_util.TestPal(stdoutBuf, os.Stderr), result.Project().Environment().TypeEnv())
+
+	// attach stashes the service value on the listener instance for the
+	// later trigger() call to retrieve.
+	runtime.RegisterExternFunction(rt, "testorg", "externlistener.lst",
+		"Listener.attach",
+		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			receiver := args[0].(*values.Object)
+			svc := args[1].(*values.Object)
+			receiver.Put("svc", svc)
+			return nil, nil
+		})
+
+	// trigger drives the resource + remote dispatch via the new public API.
+	runtime.RegisterExternFunction(rt, "testorg", "externlistener.lst",
+		"Listener.trigger",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			receiver := args[0].(*values.Object)
+			svcVal, ok := receiver.Get("svc")
+			if !ok {
+				return nil, fmt.Errorf("listener has no attached service")
+			}
+			svc := svcVal.(*values.Object)
+
+			rh, ok := ctx.LookupResourceMethod(svc, "get",
+				[]values.BalValue{"greeting", "world"})
+			if !ok {
+				return nil, fmt.Errorf("resource method 'get greeting/[name]' not found")
+			}
+			out, err := ctx.InvokeMethod(rh, nil)
+			if err != nil {
+				return nil, err
+			}
+			ioruntime.Println(rt, out)
+
+			mh, ok := ctx.LookupRemoteMethod(svc, "shutdown")
+			if !ok {
+				return nil, fmt.Errorf("remote method 'shutdown' not found")
+			}
+			out, err = ctx.InvokeMethod(mh, []values.BalValue{svc})
+			if err != nil {
+				return nil, err
+			}
+			ioruntime.Println(rt, out)
+
+			return nil, nil
+		})
+
+	for _, birPkg := range birPkgs {
+		if err := rt.Interpret(*birPkg); err != nil {
+			t.Fatalf("runtime error: %v", err)
+		}
+	}
+
+	expected := "hello, world\nbye\n"
+	if stdoutBuf.String() != expected {
+		t.Errorf("expected %q, got %q", expected, stdoutBuf.String())
+	}
+}
+
 func TestExternHandle(t *testing.T) {
 	balFile := filepath.Join(externTestDataDir, "4-v.bal")
 	absPath, err := filepath.Abs(balFile)
@@ -667,7 +808,7 @@ func compileSingleFileModule(
 	semantics.ResolveLocalNodes(cx, pkg, importedSymbols)
 	assertNoDiagnostics(t, cx, "ResolveLocalNodes")
 	analyzer := semantics.NewSemanticAnalyzer(cx)
-	analyzer.Analyze(pkg)
+	analyzer.Analyze(pkg, importedSymbols)
 	assertNoDiagnostics(t, cx, "SemanticAnalyzer")
 	cfg := semantics.CreateControlFlowGraph(cx, pkg)
 	assertNoDiagnostics(t, cx, "CreateControlFlowGraph")

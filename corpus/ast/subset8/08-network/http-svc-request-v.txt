@@ -1,0 +1,39 @@
+(compilation-unit  regular-source
+(package-id $anon . 0.0.0)
+  (import-package ballerina http (as http))
+  (import-package ballerina io (as io))
+  (service
+    (absolute-resource-path echo)
+    (on
+    (new
+      (user-defined-type http Listener) (
+      (literal 19092))))
+    (resource-function post name:body
+      (variable req (type
+        (user-defined-type http Request)))
+      (union-type
+        (user-defined-type http Response)
+        (error-type))
+      (block-function-body
+        (var-def
+          (variable payload (type
+            (builtin-ref-type json)) (expr
+            (checked-expr
+              (invocation getJsonPayload expr:
+                (simple-var-ref req) ())))))
+        (var-def
+          (variable resp (type
+            (user-defined-type http Response)) (expr
+            (new ()))))
+        (expression-stmt
+          (invocation setJsonPayload expr:
+            (simple-var-ref resp) (
+            (simple-var-ref payload))))
+        (return
+          (simple-var-ref resp)))))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (expression-stmt
+        (invocation io println (
+          (literal ok)))))))

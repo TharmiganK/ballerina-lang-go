@@ -63,14 +63,14 @@ class Words {
       %2 = ConstantLoad hello
       %3 = ConstantLoad world
       %4 = ConstantLoad 2
-      %5 = newArray [string, string, never...][%4]{%2, %3}
+      %5 = newArray [string...][%4]{%2, %3}
       %6 = ConstantLoad data
       self[%6] = %5;
       return;
     }
   }
 
-  iterator() -> object { [string...] data; int idx; function init([string...], int) returns nil; int len; function next() returns nil|{| value: string, never... |} }{
+  iterator() -> object { private [string...] data; private int idx; public function init([string...], int) returns nil; private int len; public function next() returns nil|{| value: string, never... |} }{
     bb0 {
       %2 = newObject $anon/.:WordIterator
       %4 = ConstantLoad data

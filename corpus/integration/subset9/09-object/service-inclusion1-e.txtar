@@ -1,0 +1,7 @@
+-- stdout --
+-- stderr --
+error[SYNTAX_ERROR]: type inclusion in object constructor
+  --> service-inclusion1-e.bal:46:1
+   |
+46 | } // @error service declarations must not allow object inclusions
+   | ^

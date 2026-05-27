@@ -96,16 +96,28 @@ func execNewError(ctx *extern.Context, newError *bir.NewError, frame *Frame) {
 func execNewObject(ctx *extern.Context, newObject *bir.NewObject, frame *Frame) {
 	classDef := ctx.Env.Registry.(*modules.Registry).GetClassDef(newObject.ClassDefRef)
 	fieldValues := make(map[string]values.BalValue, len(classDef.Fields))
-	for _, field := range classDef.Fields {
-		fv, _ := values.FillerValue(ctx.TypeCtx, field.Ty)
-		fieldValues[field.Name] = fv
-	}
 	methodKeys := make(map[string]string, len(classDef.VTable))
 	for methodName, method := range classDef.VTable {
 		methodKeys[methodName] = method.FunctionLookupKey
 	}
+	rtable := make(map[string][]values.ResourceEntry, len(classDef.RTable))
+	for methodName, entries := range classDef.RTable {
+		copied := make([]values.ResourceEntry, len(entries))
+		for i, entry := range entries {
+			segs := make([]values.ResourcePathSegmentDef, len(entry.PathSegments))
+			for j, seg := range entry.PathSegments {
+				segs[j] = values.ResourcePathSegmentDef{Ty: seg.Ty}
+			}
+			copied[i] = values.ResourceEntry{
+				PathSegments:      segs,
+				RestSegmentTy:     entry.RestSegmentTy,
+				FunctionLookupKey: entry.Fn.FunctionLookupKey,
+			}
+		}
+		rtable[methodName] = copied
+	}
 	objType := newObject.GetLhsOperand().VariableDcl.GetType()
-	obj := values.NewObject(objType, fieldValues, methodKeys)
+	obj := values.NewObject(objType, fieldValues, methodKeys, rtable)
 	setOperandValue(ctx, newObject.GetLhsOperand(), frame, obj)
 }
 

@@ -17,9 +17,9 @@
 package runtime
 
 import (
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/values"
-	"ballerina-lang-go/values/convert"
+	"ballerina/semtypes"
+	"ballerina/values"
+	"ballerina/values/convert"
 )
 
 // FromJsonWithType converts a json value to the given target type.

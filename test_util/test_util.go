@@ -18,6 +18,7 @@
 package test_util
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -181,7 +182,7 @@ func computeExpectedPath(inputPath, inputBaseDir, outputBaseDir, outputExt strin
 
 type stubHTTPClient struct{}
 
-func (c *stubHTTPClient) Execute(_, _ string, _ io.Reader, _ string, _ map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
+func (c *stubHTTPClient) Execute(_ context.Context, _, _ string, _ io.Reader, _ int64, _ string, _ map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
 	return 200, map[string][]string{}, io.NopCloser(strings.NewReader("test body")), nil
 }
 

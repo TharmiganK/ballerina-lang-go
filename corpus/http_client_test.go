@@ -18,6 +18,7 @@ package corpus
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -50,7 +51,7 @@ type rewritingHTTPClient struct {
 	client    *http.Client
 }
 
-func (c *rewritingHTTPClient) Execute(method, url string, body io.Reader, contentType string, reqHeaders map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
+func (c *rewritingHTTPClient) Execute(_ context.Context, method, url string, body io.Reader, contentLength int64, contentType string, reqHeaders map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
 	const prefix = "http://testserver"
 	if !strings.HasPrefix(url, prefix) {
 		return 0, nil, nil, fmt.Errorf("rewritingHTTPClient: expected URL with prefix %q, got %q", prefix, url)
@@ -59,6 +60,9 @@ func (c *rewritingHTTPClient) Execute(method, url string, body io.Reader, conten
 	req, err := http.NewRequest(method, realURL, body)
 	if err != nil {
 		return 0, nil, nil, err
+	}
+	if contentLength >= 0 {
+		req.ContentLength = contentLength
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)

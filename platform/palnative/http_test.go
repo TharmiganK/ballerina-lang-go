@@ -17,6 +17,7 @@
 package palnative
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
@@ -135,7 +136,7 @@ func TestNewHTTPClient_InsecureSkipVerify(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		TLS: pal.TLSConfig{InsecureSkipVerify: true},
 	})
-	status, _, body, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	status, _, body, err := client.Execute(context.Background(), "GET", server.URL+"/", nil, 0, "", nil)
 	if body != nil {
 		_ = body.Close()
 	}
@@ -158,7 +159,7 @@ func TestNewHTTPClient_TLSVerificationFails(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		TLS: pal.TLSConfig{InsecureSkipVerify: false},
 	})
-	_, _, _, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	_, _, _, err := client.Execute(context.Background(), "GET", server.URL+"/", nil, 0, "", nil)
 	if err == nil {
 		t.Fatal("expected TLS verification error for self-signed cert, got nil")
 	}
@@ -175,7 +176,7 @@ func TestNewHTTPClient_Timeout(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		Timeout: 100 * time.Millisecond,
 	})
-	_, _, _, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	_, _, _, err := client.Execute(context.Background(), "GET", server.URL+"/", nil, 0, "", nil)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
 	}
@@ -196,7 +197,7 @@ func TestNewHTTPClient_RedirectsDisabled(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		FollowRedirects: pal.FollowRedirects{Enabled: false},
 	})
-	status, _, body, err := client.Execute("GET", server.URL+"/redirect", nil, "", nil)
+	status, _, body, err := client.Execute(context.Background(), "GET", server.URL+"/redirect", nil, 0, "", nil)
 	if body != nil {
 		_ = body.Close()
 	}
@@ -223,7 +224,7 @@ func TestNewHTTPClient_RedirectsEnabled(t *testing.T) {
 	client := NewHTTPClient(pal.ClientConfig{
 		FollowRedirects: pal.FollowRedirects{Enabled: true, MaxCount: 3},
 	})
-	status, _, body, err := client.Execute("GET", server.URL+"/redirect", nil, "", nil)
+	status, _, body, err := client.Execute(context.Background(), "GET", server.URL+"/redirect", nil, 0, "", nil)
 	if body != nil {
 		_ = body.Close()
 	}
@@ -250,7 +251,7 @@ func TestNewHTTPClient_TLSVersionRange(t *testing.T) {
 			InsecureSkipVerify: true,
 		},
 	})
-	status, _, body, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	status, _, body, err := client.Execute(context.Background(), "GET", server.URL+"/", nil, 0, "", nil)
 	if body != nil {
 		_ = body.Close()
 	}
@@ -285,7 +286,7 @@ func TestNewHTTPClient_ValidCipherSuites(t *testing.T) {
 			InsecureSkipVerify: true,
 		},
 	})
-	status, _, body, err := client.Execute("GET", server.URL+"/", nil, "", nil)
+	status, _, body, err := client.Execute(context.Background(), "GET", server.URL+"/", nil, 0, "", nil)
 	if body != nil {
 		_ = body.Close()
 	}

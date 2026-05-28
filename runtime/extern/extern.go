@@ -18,6 +18,7 @@
 package extern
 
 import (
+	"context"
 	"sync/atomic"
 
 	"ballerina-lang-go/platform/pal"
@@ -36,6 +37,7 @@ type Context struct {
 	CallStack any // opaque pointer to the call stack
 	TypeCtx   semtypes.Context
 	StrandID  uint64
+	GoCtx     context.Context
 	heldLocks []*locks.ReentrantMutex
 }
 

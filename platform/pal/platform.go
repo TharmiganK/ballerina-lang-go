@@ -24,6 +24,7 @@
 package pal
 
 import (
+	"context"
 	"io"
 	"time"
 )
@@ -146,7 +147,7 @@ type (
 	// HTTPClient is an opaque handle to an HTTP client created by the platform.
 	// It is created once per Ballerina http:Client init and reused across requests.
 	HTTPClient interface {
-		Execute(method, url string, body io.Reader, contentType string, reqHeaders map[string][]string) (statusCode int, respHeaders map[string][]string, respBody io.ReadCloser, err error)
+		Execute(ctx context.Context, method, url string, body io.Reader, contentLength int64, contentType string, reqHeaders map[string][]string) (statusCode int, respHeaders map[string][]string, respBody io.ReadCloser, err error)
 	}
 )
 

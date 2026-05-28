@@ -22,6 +22,7 @@
 package palnative
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -39,10 +40,14 @@ type httpClient struct {
 	client *http.Client
 }
 
-func (c *httpClient) Execute(method, url string, body io.Reader, contentType string, reqHeaders map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
-	req, err := http.NewRequest(method, url, body)
+func (c *httpClient) Execute(ctx context.Context, method, url string, body io.Reader, contentLength int64, contentType string, reqHeaders map[string][]string) (int, map[string][]string, io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return 0, nil, nil, err
+	}
+	// -1 means unknown length (chunked); >=0 tells Go to use Content-Length framing.
+	if contentLength >= 0 {
+		req.ContentLength = contentLength
 	}
 	// Set default User-Agent before caller headers so caller can override it if needed
 	req.Header.Set("User-Agent", "ballerina")

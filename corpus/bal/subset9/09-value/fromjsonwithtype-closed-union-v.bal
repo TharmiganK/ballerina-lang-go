@@ -14,32 +14,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package value
+import ballerina/io;
 
-import (
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/values"
-)
+type PetByAge record {|
+    int age;
+    string nickname?;
+|};
 
-const (
-	orgName    = "ballerina"
-	moduleName = "lang.value"
-)
+type PetByType record {|
+    "Cat"|"Dog" pet_type;
+    boolean hunts?;
+|};
 
-func init() {
-	runtime.RegisterModuleInitializer(initValueModule)
-}
+type Pet PetByAge|PetByType;
 
-func initValueModule(rt *runtime.Runtime) {
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "fromJsonWithType", fromJsonWithType)
-}
-
-func fromJsonWithType(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
-	td := args[1].(*values.TypeDesc)
-	result, convErr := runtime.FromJsonWithType(ctx.TypeCtx, args[0], td.Type)
-	if convErr != nil {
-		return convErr, nil
-	}
-	return result, nil
+public function main() {
+    json petJson = {"nickname": "Fido", "pet_type": "Dog", "age": 4};
+    io:println(petJson.fromJsonWithType(Pet) is error); // @output true
 }

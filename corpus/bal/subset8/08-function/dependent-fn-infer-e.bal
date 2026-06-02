@@ -14,32 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package value
-
-import (
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/values"
-)
-
-const (
-	orgName    = "ballerina"
-	moduleName = "lang.value"
-)
-
-func init() {
-	runtime.RegisterModuleInitializer(initValueModule)
+public function main() {
+    error e = inferredPartially(0); // @error
 }
 
-func initValueModule(rt *runtime.Runtime) {
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "fromJsonWithType", fromJsonWithType)
-}
-
-func fromJsonWithType(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
-	td := args[1].(*values.TypeDesc)
-	result, convErr := runtime.FromJsonWithType(ctx.TypeCtx, args[0], td.Type)
-	if convErr != nil {
-		return convErr, nil
-	}
-	return result, nil
-}
+function inferredPartially(int val, typedesc<anydata> retTy = <>) returns retTy|error = external;

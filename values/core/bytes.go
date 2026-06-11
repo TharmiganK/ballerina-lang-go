@@ -14,11 +14,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Package values has value representations use in runtime.
-package values
+package core
 
-// Given we use nil for ballerina nil we'll have an explicit never value. If tried to use as operand in any operation
-// this should panic.
-type never struct{}
+import "ballerina/semtypes"
 
-var NeverValue = &never{}
+// ToByteSlice converts a Ballerina byte[] (List of int64 in 0-255) to a Go []byte.
+func (l *List) ToByteSlice() []byte {
+	b := make([]byte, l.Len())
+	for i := 0; i < l.Len(); i++ {
+		b[i] = byte(l.Get(i).(int64))
+	}
+	return b
+}
+
+// ByteSliceToList converts a Go []byte to a Ballerina byte[] (List).
+func ByteSliceToList(byteArrTy semtypes.SemType, tc semtypes.Context, data []byte) *List {
+	items := make([]BalValue, len(data))
+	for i, b := range data {
+		items[i] = int64(b)
+	}
+	return NewList(byteArrTy, semtypes.ToListAtomicType(tc, byteArrTy), false, nil, 0, items)
+}

@@ -125,7 +125,7 @@ func resourceExtraArgCount(ctx *extern.Context, entry *values.ResourceEntry) int
 	}
 	nonLiteral := 0
 	for i := range entry.PathSegments {
-		if _, isLit := values.LiteralPathSegment(entry.PathSegments[i]); !isLit {
+		if _, isLit := literalPathSegment(entry.PathSegments[i]); !isLit {
 			nonLiteral++
 		}
 	}

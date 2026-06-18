@@ -148,6 +148,10 @@ func FillerFactoryFor(cx semtypes.Context, t semtypes.SemType) (FillerFactory, b
 
 // Float utilities
 
+func FormatFloat(f float64) string {
+	return core.FormatFloat(f)
+}
+
 func FloatExactEqual(a, b float64) bool {
 	return core.FloatExactEqual(a, b)
 }

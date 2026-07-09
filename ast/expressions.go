@@ -370,6 +370,11 @@ type (
 		bLangExpressionBase
 	}
 
+	BLangDefaultArg struct {
+		bLangExpressionBase
+		DefaultClosure model.SymbolRef
+	}
+
 	BLangUnaryExpr struct {
 		bLangExpressionBase
 		Expr     BLangExpression
@@ -569,6 +574,8 @@ var (
 	_ BLangNode       = &BLangTypedescExpr{}
 	_ BLangNode       = &BLangInferredTypedescDefault{}
 	_ BLangExpression = &BLangInferredTypedescDefault{}
+	_ BLangNode       = &BLangDefaultArg{}
+	_ BLangExpression = &BLangDefaultArg{}
 	_ BLangNode       = &BLangIndexBasedAccess{}
 	_ BLangNode       = &BLangListConstructorExpr{}
 	_ BLangNode       = &BLangTypeConversionExpr{}

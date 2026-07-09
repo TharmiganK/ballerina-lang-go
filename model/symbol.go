@@ -204,7 +204,6 @@ const (
 	SymbolKindFunction
 	SymbolKindAnnotation
 	SymbolKindXMLNS
-	SymbolKindHandle
 )
 
 const sourceAnnotationAttachPointPrefix = "source:"
@@ -246,6 +245,9 @@ type (
 		Index      int
 		SpaceIndex int
 	}
+
+	// FunctionSignatureRef identifies an untyped function signature in the compiler environment. Zero is unset.
+	FunctionSignatureRef int
 
 	ModuleScope struct {
 		Main       *SymbolSpace
@@ -370,12 +372,6 @@ type (
 	XMLNSSymbol struct {
 		symbolBase
 		uri string
-	}
-
-	// HandleSymbol is a generic symbol used when we just need a symbol to be associated with some AST node
-	// so that we can associate infromation against the SymbolRef for that node
-	HandleSymbol struct {
-		symbolBase
 	}
 
 	functionSymbol struct {
@@ -669,7 +665,6 @@ var (
 	_ ValueSymbol                    = &VariableSymbol{}
 	_ ValueSymbol                    = &ConstantValueSymbol{}
 	_ Symbol                         = &XMLNSSymbol{}
-	_ Symbol                         = &HandleSymbol{}
 	_ Symbol                         = &functionSymbol{}
 	_ FunctionSymbol                 = &functionSymbol{}
 	_ DependentlyTypedFunctionSymbol = &dependentlyTypedFunctionSymbol{}
@@ -1242,14 +1237,6 @@ func (xs *XMLNSSymbol) Kind() SymbolKind {
 	return SymbolKindXMLNS
 }
 
-func (hs *HandleSymbol) Kind() SymbolKind {
-	return SymbolKindHandle
-}
-
-func (hs *HandleSymbol) Copy() Symbol {
-	panic("HandleSymbol can't be copied")
-}
-
 func (xs *XMLNSSymbol) URI() string {
 	return xs.uri
 }
@@ -1426,10 +1413,6 @@ func NewXMLNSSymbol(prefix, uri string, location diagnostics.Location) *XMLNSSym
 		symbolBase: symbolBase{name: prefix, isPublic: true, location: location},
 		uri:        uri,
 	}
-}
-
-func NewHandleSymbol(name string, isPublic bool, location diagnostics.Location) *HandleSymbol {
-	return &HandleSymbol{symbolBase: symbolBase{name: name, isPublic: isPublic, location: location}}
 }
 
 func NewClassSymbol(name string, isPublic bool, location diagnostics.Location) ClassSymbol {

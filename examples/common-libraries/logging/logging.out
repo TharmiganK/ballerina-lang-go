@@ -1,0 +1,4 @@
+$ bal run logging.bal
+time=2025-08-25T18:08:00.546+05:30 level=INFO module="" message="Application started successfully"
+time=2025-08-25T18:08:00.563+05:30 level=WARN module="" message="This is a warning message"
+time=2025-08-25T18:08:00.564+05:30 level=ERROR module="" message="This is an error message"

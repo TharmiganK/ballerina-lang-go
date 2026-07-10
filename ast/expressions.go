@@ -151,9 +151,16 @@ const (
 	valueExpressionFlagOptionalAccess
 )
 
+const (
+	bLangLambdaFunctionFlagInferredParams bLangLambdaFunctionFlags = 1 << iota
+	bLangLambdaFunctionFlagGenerateDefaultClosures
+)
+
 type TemplateExprKind uint8
 
 type XMLTemplateInsertionKind uint8
+
+type bLangLambdaFunctionFlags byte
 
 const (
 	TemplateExprKindString TemplateExprKind = iota
@@ -221,8 +228,8 @@ type (
 
 	BLangLambdaFunction struct {
 		bLangExpressionBase
-		Function       *BLangFunction
-		InferredParams bool
+		Function *BLangFunction
+		flags    bLangLambdaFunctionFlags
 	}
 
 	BLangBinaryExpr struct {
@@ -673,6 +680,22 @@ func (b *BLangLiteral) SetValueType(bt BType) {
 
 func (b *BLangLambdaFunction) GetFunctionNode() FunctionNode {
 	return b.Function
+}
+
+func (b *BLangLambdaFunction) HasInferredParams() bool {
+	return b.flags&bLangLambdaFunctionFlagInferredParams != 0
+}
+
+func (b *BLangLambdaFunction) SetInferredParams() {
+	b.flags |= bLangLambdaFunctionFlagInferredParams
+}
+
+func (b *BLangLambdaFunction) ShouldGenerateDefaultClosures() bool {
+	return b.flags&bLangLambdaFunctionFlagGenerateDefaultClosures != 0
+}
+
+func (b *BLangLambdaFunction) SetGenerateDefaultClosures() {
+	b.flags |= bLangLambdaFunctionFlagGenerateDefaultClosures
 }
 
 func (b *BLangLambdaFunction) SetFunctionNode(functionNode FunctionNode) {

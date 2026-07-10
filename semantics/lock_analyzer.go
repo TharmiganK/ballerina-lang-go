@@ -231,7 +231,7 @@ func isolatedParamLambdas(ctx *context.CompilerContext, n *ast.BLangInvocation) 
 		if paramIndex < 0 || !opaque.IsIsolatedParam(paramIndex) {
 			continue
 		}
-		if lambda, ok := argExpr.(*ast.BLangLambdaFunction); ok && lambda.InferredParams {
+		if lambda, ok := argExpr.(*ast.BLangLambdaFunction); ok && lambda.HasInferredParams() {
 			lambdas = append(lambdas, lambda)
 		}
 	}

@@ -4547,7 +4547,8 @@ func (n *NodeBuilder) TransformImplicitAnonymousFunctionExpression(node *tree.Im
 	}
 	fn.Body.(*BLangExprFunctionBody).pos = n.getPosition(node.Expression())
 
-	lambda := &BLangLambdaFunction{Function: fn, InferredParams: true}
+	lambda := &BLangLambdaFunction{Function: fn}
+	lambda.SetInferredParams()
 	lambda.pos = fn.pos
 	return lambda
 }

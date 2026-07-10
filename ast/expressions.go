@@ -151,10 +151,7 @@ const (
 	valueExpressionFlagOptionalAccess
 )
 
-const (
-	bLangLambdaFunctionFlagInferredParams bLangLambdaFunctionFlags = 1 << iota
-	bLangLambdaFunctionFlagGenerateDefaultClosures
-)
+const bLangLambdaFunctionFlagInferredParams bLangLambdaFunctionFlags = 1 << iota
 
 type TemplateExprKind uint8
 
@@ -688,14 +685,6 @@ func (b *BLangLambdaFunction) HasInferredParams() bool {
 
 func (b *BLangLambdaFunction) SetInferredParams() {
 	b.flags |= bLangLambdaFunctionFlagInferredParams
-}
-
-func (b *BLangLambdaFunction) ShouldGenerateDefaultClosures() bool {
-	return b.flags&bLangLambdaFunctionFlagGenerateDefaultClosures != 0
-}
-
-func (b *BLangLambdaFunction) SetGenerateDefaultClosures() {
-	b.flags |= bLangLambdaFunctionFlagGenerateDefaultClosures
 }
 
 func (b *BLangLambdaFunction) SetFunctionNode(functionNode FunctionNode) {

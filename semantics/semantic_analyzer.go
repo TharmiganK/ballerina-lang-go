@@ -1877,7 +1877,7 @@ func visitInner[A analyzer](a A, node ast.BLangNode) ast.Visitor {
 		for _, expr := range n.AttachedExprs {
 			ast.Walk(a, expr.(ast.BLangNode))
 		}
-		validateServiceDeclaredType(a, n)
+		validateServiceListenerTypes(a, n)
 		analyzeClassLikeDefn(a, n.Fields, n.InitFunction, n.Methods, n.ResourceMethods, n.Inclusions,
 			n.InclusionPositions, n.IsIsolated(), n.GetPosition(), enclosingFromService(n))
 		return nil
@@ -1886,20 +1886,54 @@ func visitInner[A analyzer](a A, node ast.BLangNode) ast.Visitor {
 	}
 }
 
-func validateServiceDeclaredType[A analyzer](a A, svc *ast.BLangService) {
-	typeData := svc.GetTypeData()
-	if typeData.TypeDescriptor == nil {
+func validateServiceListenerTypes[A analyzer](a A, svc *ast.BLangService) {
+	serviceTy := svc.GetTypeData().Type
+	attachPointTy := svc.AttachPointType
+	if semtypes.IsZero(serviceTy) || semtypes.IsZero(attachPointTy) {
+		a.internalErr("service types not resolved", svc.GetPosition())
 		return
 	}
-	bodyTy := typeData.Type
-	declaredTy := typeData.TypeDescriptor.(ast.BType).GetTypeData().Type
-	if semtypes.IsZero(bodyTy) || semtypes.IsZero(declaredTy) {
-		a.internalErr("service type not resolved", svc.GetPosition())
-		return
+	attachPointBound := listenerAttachPointBound(a.tyCtx())
+	for _, expr := range svc.AttachedExprs {
+		listenerTy := semtypes.Diff(expr.GetDeterminedType(), semtypes.ERROR)
+		if semtypes.IsNever(listenerTy) {
+			a.semanticErr("expression in 'on' clause is not a listener", expr.GetPosition())
+			continue
+		}
+		listenerServiceTy, listenerAttachPointTy, ok := listenerTypes(a.tyCtx(), listenerTy, attachPointBound)
+		if !ok {
+			a.semanticErr("listener expression type not resolved", expr.GetPosition())
+			continue
+		}
+		if !semtypes.IsSubtype(a.tyCtx(), serviceTy, listenerServiceTy) {
+			a.semanticErr("service type is not supported by listener", expr.GetPosition())
+		}
+		if !semtypes.IsSubtype(a.tyCtx(), attachPointTy, listenerAttachPointTy) {
+			a.semanticErr("attach point is not supported by listener", expr.GetPosition())
+			continue
+		}
+		if svc.AbsoluteResourcePath != nil && !hasSingleApplicableAttachPointListType(a.tyCtx(), svc, listenerAttachPointTy) {
+			a.semanticErr("attach point does not have a single applicable listener list type", expr.GetPosition())
+		}
 	}
-	if !semtypes.IsSubtype(a.tyCtx(), bodyTy, declaredTy) {
-		a.semanticErr("service body is not a subtype of the declared service type", svc.GetPosition())
+}
+
+func hasSingleApplicableAttachPointListType(cx semtypes.Context, svc *ast.BLangService, attachPointTy semtypes.SemType) bool {
+	members := make([]semtypes.ListMemberInfo, len(svc.AbsoluteResourcePath))
+	for i, segment := range svc.AbsoluteResourcePath {
+		members[i] = semtypes.ListMemberInfo{Index: i, ValType: semtypes.StringConst(segment.Value)}
 	}
+	found := false
+	for _, alt := range semtypes.ListAlternatives(cx, semtypes.Intersect(attachPointTy, semtypes.LIST)) {
+		if !semtypes.ListAlternativeAllowsMembers(cx, alt, members) {
+			continue
+		}
+		if found {
+			return false
+		}
+		found = true
+	}
+	return found
 }
 
 func analyzeClassLikeDefn[A analyzer](a A, fields []ast.SimpleVariableNode, initFn *ast.BLangFunction, methods map[string]*ast.BLangFunction, resourceMethods []*ast.BLangResourceMethod, inclusions []model.SymbolRef, inclusionPositions []diagnostics.Location, isolated bool, pos diagnostics.Location, enclosing *enclosingClassBody) {

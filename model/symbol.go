@@ -509,7 +509,8 @@ func (sig UntypedFunctionSignature) Index(name string) (int, ParamIndexResult) {
 			return i, ParamIndexFound
 		}
 	}
-	var candidates []int
+	var explicitMatches []int
+	var restMatches []int
 Outer:
 	for i, inclRecord := range sig.IncludedRecordMetadata[:fixedParamCount] {
 		if inclRecord == nil {
@@ -517,7 +518,7 @@ Outer:
 		}
 		for _, fieldName := range inclRecord.RequiredFields {
 			if fieldName == name {
-				candidates = append(candidates, i)
+				explicitMatches = append(explicitMatches, i)
 				continue Outer
 			}
 		}
@@ -529,7 +530,11 @@ Outer:
 				continue Outer
 			}
 		}
-		candidates = append(candidates, i)
+		restMatches = append(restMatches, i)
+	}
+	candidates := explicitMatches
+	if len(candidates) == 0 {
+		candidates = restMatches
 	}
 	switch len(candidates) {
 	case 0:

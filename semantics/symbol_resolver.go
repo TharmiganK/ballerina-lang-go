@@ -1323,7 +1323,7 @@ func visitInnerSymbolResolver[T symbolResolver](resolver T, node ast.BLangNode) 
 		resolveFunctionTypeSymbols(resolver, &n.BLangFunctionType)
 		if n.Symbol().IsEmpty() {
 			space := resolver.GetScope().MainSpace()
-			index := space.AppendSymbol(model.NewFunctionSymbol(n.Name(), model.TypedFunctionSignature{}, n.IsPublic(), n.GetPosition()))
+			index := space.AppendSymbol(model.NewFunctionSymbol(n.Name(), model.TypedFunctionSignature{}, false, n.GetPosition()))
 			n.SetSymbol(space.RefAt(index))
 		}
 		associateFunctionSignatureRef(resolver.GetCtx(), n.Symbol(), n.SignatureRef(), n.GetPosition())

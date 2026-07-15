@@ -1431,6 +1431,9 @@ func desugarFunctionParamDefaults(ctx desugarContext, fn *ast.BLangFunction) []*
 		param := &fn.RequiredParams[i]
 		result := desugarTypeDesc(ctx, param.TypeNode(), fn.Scope())
 		results = append(results, result.functions...)
+		for _, field := range result.recordFields {
+			results = append(results, field.fn)
+		}
 	}
 	return results
 }
@@ -1461,6 +1464,9 @@ func desugarGlobalVars(pkgCtx *packageContext, pkg *ast.BLangPackage) {
 			result := desugarTypeDesc(pkgCtx, typeNode, nil)
 			for _, fn := range result.functions {
 				pkg.Functions = append(pkg.Functions, *fn)
+			}
+			for _, field := range result.recordFields {
+				pkg.Functions = append(pkg.Functions, *field.fn)
 			}
 			continue
 		}

@@ -7296,6 +7296,15 @@ func resolveBTypeInner(t typeResolver, btype ast.BType, depth int) (semtypes.Sem
 					return semtypes.SemType{}, false
 				}
 				return semtypes.TypedescContaining(t.typeEnv(), constraint), true
+			case ast.TypeKindFuture:
+				d := semtypes.NewFutureDefinition()
+				ty.Definition = &d
+				constraint, ok := resolveTypeDataPair(t, &ty.Constraint, depth+1)
+				if !ok {
+					ty.Definition = nil
+					return semtypes.SemType{}, false
+				}
+				return d.Define(t.typeEnv(), constraint), true
 			case ast.TypeKindXML:
 				constraint, ok := resolveTypeDataPair(t, &ty.Constraint, depth+1)
 				if !ok {
@@ -7327,7 +7336,9 @@ func resolveBTypeInner(t typeResolver, btype ast.BType, depth int) (semtypes.Sem
 			return semtypes.XML, true
 		case ast.TypeKindStream:
 			return semtypes.Stream, true
-		case ast.TypeKindTable, ast.TypeKindFuture:
+		case ast.TypeKindFuture:
+			return semtypes.Future, true
+		case ast.TypeKindTable:
 			t.unimplemented("unsupported builtin type kind: "+ty.TypeKind.String(), ty.GetPosition())
 			return semtypes.SemType{}, false
 		default:

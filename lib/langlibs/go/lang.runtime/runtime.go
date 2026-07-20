@@ -14,21 +14,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# Returns the number of members of a map.
-#
-# + m - the map
-# + return - number of members in `m`
-public isolated function length(map<any|error> m) returns int = external;
+package langruntime
 
-# Returns a list of all the keys of a map.
-#
-# + m - the map
-# + return - a new list of all keys
-public isolated function keys(map<any|error> m) returns string[] = external;
+import (
+	"time"
 
-# Tests whether `m` has a member with key `k`.
-#
-# + m - the map
-# + k - the key
-# + return - true if `m` has a member with key `k`
-public isolated function hasKey(map<any|error> m, string k) returns boolean = external;
+	"ballerina/decimal"
+	"ballerina/runtime"
+	"ballerina/runtime/extern"
+	"ballerina/values"
+)
+
+const (
+	orgName    = "ballerina"
+	moduleName = "lang.runtime"
+)
+
+func initRuntimeModule(rt *runtime.Runtime) {
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "sleep",
+		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			seconds, _ := args[0].(*decimal.Decimal)
+			rt.Platform().Time.Sleep(time.Duration(seconds.Float64() * float64(time.Second)))
+			return nil, nil
+		})
+}
+
+func init() {
+	runtime.RegisterModuleInitializer(initRuntimeModule)
+}

@@ -2,7 +2,8 @@
 
 Subset 3 extends the released [subset 2](subset2.md) with the `file`, `ldap`,
 `mime`, `tcp`, `udp`, and `uuid` modules, plus two additions to `http` that
-depend on `mime` types now available in this subset.
+depend on `mime` types now available in this subset, and stream-based file
+read/write additions to `io` that build on the language's new `stream` type.
 
 ## [file](https://github.com/ballerina-platform/module-ballerina-file/blob/master/docs/spec/spec.md)
 
@@ -39,6 +40,21 @@ this subset.
 |---|---|
 | `getFormParams()` | `Request`-only. Decodes an `application/x-www-form-urlencoded` body into a `map<string>`, ported from jBallerina's logic (`mime:getMediaType` content-type check, then percent-decoding). Returns an `error` if the `Content-Type` header is missing, invalid, or not `application/x-www-form-urlencoded`. |
 | `setPayload(payload, contentType?)` | `Request` and `Response`. Dispatches by runtime type to `setTextPayload`/`setBinaryPayload`/`setJsonPayload`. Accepts `json\|byte[]` rather than jBallerina's full `anydata\|mime:Entity[]\|stream<byte[], io:Error?>\|stream<SseEvent, error?>` union — the `mime:Entity[]` (multipart) and `stream` branches aren't accepted since neither `http` nor `mime` support those payload kinds yet. |
+
+## [io](https://github.com/ballerina-platform/module-ballerina-io/blob/master/docs/spec/spec.md)
+
+Subset 2 covered console printing and whole-file I/O (string, lines, bytes,
+JSON, XML). Subset 3 adds stream-based file reading and writing, built on the
+language's new `stream` type.
+
+| Feature | Notes |
+|---|---|
+| `fileReadLinesAsStream(path)` | Returns `stream<string, io:Error?>` yielding one line per `next()`; terminal carriage characters stripped, trailing empty line excluded |
+| `fileReadBlocksAsStream(path, blockSize?)` | Returns `stream<io:Block, io:Error?>` yielding `byte[]` blocks of `blockSize` (default 4096); the final block may be shorter |
+| `fileWriteLinesFromStream(path, lineStream, option?)` | Consumes a `stream<string, error?>`, appending `\n` after each line; `OVERWRITE`/`APPEND` supported |
+| `fileWriteBlocksFromStream(path, byteStream, option?)` | Consumes a `stream<byte[], error?>`, concatenating blocks in order; `OVERWRITE`/`APPEND` supported |
+
+`io:Block` is declared as `byte[]` rather than jBallerina's `readonly & byte[]` (`readonly &` intersections are not yet supported). The read-as-stream and write-from-stream functions read/write lazily (incrementally) rather than buffering the whole file; open errors surface at the `fileReadLinesAsStream`/`fileReadBlocksAsStream`/`fileWriteLinesFromStream`/`fileWriteBlocksFromStream` call, while read errors surface during a later `next()`. The write-from-stream functions widen their stream parameter's completion type to the generic `error?` (jBallerina uses `io:Error?`), so a stream held as `stream<_, error?>` — such as one bound directly from `fileReadBlocksAsStream` — can be written back; jBallerina rejects that. The returned streams are consumed with explicit `next()`/`close()` calls; iterating a stream with `foreach` or a query expression is not yet supported at the language level.
 
 ## [ldap](https://github.com/ballerina-platform/module-ballerina-ldap/blob/master/docs/spec/spec.md)
 

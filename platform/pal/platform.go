@@ -85,6 +85,11 @@ type (
 		// a platform-owned goroutine. The returned handle's Close stops
 		// watching and releases OS resources (e.g. inotify/kqueue handles).
 		Watch func(path string, recursive bool, handler WatchHandler) (WatchHandle, error)
+		// OpenReadable opens path for streaming reads. Close releases the handle.
+		OpenReadable func(path string) (io.ReadCloser, error)
+		// OpenWritable opens path for streaming writes, truncating unless appendMode
+		// is set. Close flushes and releases the handle.
+		OpenWritable func(path string, appendMode bool) (io.WriteCloser, error)
 	}
 	OS struct {
 		GetEnv      func(name string) string

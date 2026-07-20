@@ -161,6 +161,21 @@ func NewPlatform() (pal.Platform, func()) {
 			CreateTempDir: CreateTempDir,
 			Readlink:      os.Readlink,
 			Watch:         Watch,
+			OpenReadable: func(path string) (io.ReadCloser, error) {
+				return os.Open(path)
+			},
+			OpenWritable: func(path string, appendMode bool) (io.WriteCloser, error) {
+				if err := createParentDirs(path); err != nil {
+					return nil, err
+				}
+				flag := os.O_CREATE | os.O_WRONLY
+				if appendMode {
+					flag |= os.O_APPEND
+				} else {
+					flag |= os.O_TRUNC
+				}
+				return os.OpenFile(path, flag, 0o644)
+			},
 		},
 		OS: pal.OS{
 			GetEnv: func(name string) string {

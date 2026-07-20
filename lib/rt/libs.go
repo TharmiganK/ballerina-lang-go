@@ -25,7 +25,9 @@ import (
 	_ "ballerina/lib/langlibs/go/lang.float"
 	_ "ballerina/lib/langlibs/go/lang.int"
 	_ "ballerina/lib/langlibs/go/lang.map"
+	_ "ballerina/lib/langlibs/go/lang.runtime"
 	_ "ballerina/lib/langlibs/go/lang.string"
+	_ "ballerina/lib/langlibs/go/lang.value"
 	_ "ballerina/lib/langlibs/go/lang.xml"
 
 	// standard libraries

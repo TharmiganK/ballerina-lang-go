@@ -1,0 +1,300 @@
+module $anon.. v 0.0.0;
+main() -> nil|error{
+  bb0 {
+    %1 = newObject ballerina/http:Request
+    %2 = init(%1) -> bb1;
+  }
+  bb1 {
+    %4 = %2 is nil
+    %4 ? bb2 : bb3;
+  }
+  bb2 {
+    %3 = %1;
+    GOTO bb4;
+  }
+  bb3 {
+    %3 = %2;
+    GOTO bb4;
+  }
+  bb4 {
+    reqText = %3;
+    %6 = ConstantLoad plain text
+    $desugar$0 = %6;
+    %8 = $default$15($desugar$0) -> bb5;
+  }
+  bb5 {
+    $desugar$1 = %8;
+    %10 = setPayload(reqText,$desugar$0,$desugar$1) -> bb6;
+  }
+  bb6 {
+    %11 = getTextPayload(reqText) -> bb7;
+  }
+  bb7 {
+    $desugar$2 = %11;
+    %13 = $desugar$2 is error
+    %13 ? bb8 : bb9;
+  }
+  bb8 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$2);
+    PopScopeFrame
+    return;
+  }
+  bb9 {
+    %14 = println($desugar$2) -> bb10;
+  }
+  bb10 {
+    %15 = newObject ballerina/http:Request
+    %16 = init(%15) -> bb11;
+  }
+  bb11 {
+    %18 = %16 is nil
+    %18 ? bb12 : bb13;
+  }
+  bb12 {
+    %17 = %15;
+    GOTO bb14;
+  }
+  bb13 {
+    %17 = %16;
+    GOTO bb14;
+  }
+  bb14 {
+    reqBytes = %17;
+    %20 = ConstantLoad bin
+    %21 = toBytes(%20) -> bb15;
+  }
+  bb15 {
+    $desugar$3 = %21;
+    %23 = $default$15($desugar$3) -> bb16;
+  }
+  bb16 {
+    $desugar$4 = %23;
+    %25 = setPayload(reqBytes,$desugar$3,$desugar$4) -> bb17;
+  }
+  bb17 {
+    %26 = getBinaryPayload(reqBytes) -> bb18;
+  }
+  bb18 {
+    $desugar$5 = %26;
+    %28 = $desugar$5 is error
+    %28 ? bb19 : bb20;
+  }
+  bb19 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$5);
+    PopScopeFrame
+    return;
+  }
+  bb20 {
+    reqBytesResult = $desugar$5;
+    %30 = length(reqBytesResult) -> bb21;
+  }
+  bb21 {
+    %31 = %30;
+    %32 = println(%31) -> bb22;
+  }
+  bb22 {
+    %33 = newObject ballerina/http:Request
+    %34 = init(%33) -> bb23;
+  }
+  bb23 {
+    %36 = %34 is nil
+    %36 ? bb24 : bb25;
+  }
+  bb24 {
+    %35 = %33;
+    GOTO bb26;
+  }
+  bb25 {
+    %35 = %34;
+    GOTO bb26;
+  }
+  bb26 {
+    reqJson = %35;
+    %38 = ConstantLoad name
+    %39 = ConstantLoad Alice
+    %40 = ConstantLoad age
+    %41 = ConstantLoad 30
+    %42 = newMap {| json... |}{%38=%39, %40=%41}
+    $desugar$6 = %42;
+    %44 = $default$15($desugar$6) -> bb27;
+  }
+  bb27 {
+    $desugar$7 = %44;
+    %46 = setPayload(reqJson,$desugar$6,$desugar$7) -> bb28;
+  }
+  bb28 {
+    %47 = getJsonPayload(reqJson) -> bb29;
+  }
+  bb29 {
+    $desugar$8 = %47;
+    %49 = $desugar$8 is error
+    %49 ? bb30 : bb31;
+  }
+  bb30 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$8);
+    PopScopeFrame
+    return;
+  }
+  bb31 {
+    reqJsonResult = $desugar$8;
+    %51 = <{| json... |}>(reqJsonResult)
+    reqJsonMap = %51;
+    %54 = ConstantLoad name
+    %53 = reqJsonMap[%54];
+    %55 = println(%53) -> bb32;
+  }
+  bb32 {
+    %57 = ConstantLoad age
+    %56 = reqJsonMap[%57];
+    %58 = println(%56) -> bb33;
+  }
+  bb33 {
+    %59 = newObject ballerina/http:Response
+    %60 = init(%59) -> bb34;
+  }
+  bb34 {
+    %62 = %60 is nil
+    %62 ? bb35 : bb36;
+  }
+  bb35 {
+    %61 = %59;
+    GOTO bb37;
+  }
+  bb36 {
+    %61 = %60;
+    GOTO bb37;
+  }
+  bb37 {
+    resText = %61;
+    %64 = ConstantLoad resp text
+    $desugar$9 = %64;
+    %66 = $default$10($desugar$9) -> bb38;
+  }
+  bb38 {
+    $desugar$10 = %66;
+    %68 = setPayload(resText,$desugar$9,$desugar$10) -> bb39;
+  }
+  bb39 {
+    %69 = getTextPayload(resText) -> bb40;
+  }
+  bb40 {
+    $desugar$11 = %69;
+    %71 = $desugar$11 is error
+    %71 ? bb41 : bb42;
+  }
+  bb41 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$11);
+    PopScopeFrame
+    return;
+  }
+  bb42 {
+    %72 = println($desugar$11) -> bb43;
+  }
+  bb43 {
+    %73 = newObject ballerina/http:Response
+    %74 = init(%73) -> bb44;
+  }
+  bb44 {
+    %76 = %74 is nil
+    %76 ? bb45 : bb46;
+  }
+  bb45 {
+    %75 = %73;
+    GOTO bb47;
+  }
+  bb46 {
+    %75 = %74;
+    GOTO bb47;
+  }
+  bb47 {
+    resBytes = %75;
+    %78 = ConstantLoad xyz
+    %79 = toBytes(%78) -> bb48;
+  }
+  bb48 {
+    $desugar$12 = %79;
+    %81 = $default$10($desugar$12) -> bb49;
+  }
+  bb49 {
+    $desugar$13 = %81;
+    %83 = setPayload(resBytes,$desugar$12,$desugar$13) -> bb50;
+  }
+  bb50 {
+    %84 = getBinaryPayload(resBytes) -> bb51;
+  }
+  bb51 {
+    $desugar$14 = %84;
+    %86 = $desugar$14 is error
+    %86 ? bb52 : bb53;
+  }
+  bb52 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$14);
+    PopScopeFrame
+    return;
+  }
+  bb53 {
+    resBytesResult = $desugar$14;
+    %88 = length(resBytesResult) -> bb54;
+  }
+  bb54 {
+    %89 = %88;
+    %90 = println(%89) -> bb55;
+  }
+  bb55 {
+    %91 = newObject ballerina/http:Response
+    %92 = init(%91) -> bb56;
+  }
+  bb56 {
+    %94 = %92 is nil
+    %94 ? bb57 : bb58;
+  }
+  bb57 {
+    %93 = %91;
+    GOTO bb59;
+  }
+  bb58 {
+    %93 = %92;
+    GOTO bb59;
+  }
+  bb59 {
+    resJson = %93;
+    %96 = ConstantLoad 1
+    %97 = ConstantLoad 2
+    %98 = ConstantLoad 3
+    %99 = ConstantLoad 3
+    %100 = newArray [json...][%99]{%96, %97, %98}
+    resPayload = %100;
+    $desugar$15 = resPayload;
+    %103 = $default$10($desugar$15) -> bb60;
+  }
+  bb60 {
+    $desugar$16 = %103;
+    %105 = setPayload(resJson,$desugar$15,$desugar$16) -> bb61;
+  }
+  bb61 {
+    %106 = getJsonPayload(resJson) -> bb62;
+  }
+  bb62 {
+    $desugar$17 = %106;
+    %108 = $desugar$17 is error
+    %108 ? bb63 : bb64;
+  }
+  bb63 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$17);
+    PopScopeFrame
+    return;
+  }
+  bb64 {
+    resJsonResult = $desugar$17;
+    %110 = println(resJsonResult) -> bb65;
+  }
+  bb65 {
+    return;
+  }
+}

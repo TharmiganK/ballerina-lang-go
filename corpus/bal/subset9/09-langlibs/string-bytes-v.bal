@@ -14,21 +14,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# Returns the number of members of a map.
-#
-# + m - the map
-# + return - number of members in `m`
-public isolated function length(map<any|error> m) returns int = external;
+import ballerina/io;
 
-# Returns a list of all the keys of a map.
-#
-# + m - the map
-# + return - a new list of all keys
-public isolated function keys(map<any|error> m) returns string[] = external;
+public function main() {
+    byte[] bytes = "hi".toBytes();
+    io:println(bytes.length()); // @output 2
 
-# Tests whether `m` has a member with key `k`.
-#
-# + m - the map
-# + k - the key
-# + return - true if `m` has a member with key `k`
-public isolated function hasKey(map<any|error> m, string k) returns boolean = external;
+    string|error back = string:fromBytes(bytes);
+    io:println(back); // @output hi
+
+    byte[] invalid = [255, 254];
+    string|error invalidStr = string:fromBytes(invalid);
+    io:println(invalidStr is error); // @output true
+}

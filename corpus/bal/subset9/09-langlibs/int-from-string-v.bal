@@ -14,21 +14,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# Returns the number of members of a map.
-#
-# + m - the map
-# + return - number of members in `m`
-public isolated function length(map<any|error> m) returns int = external;
+import ballerina/io;
 
-# Returns a list of all the keys of a map.
-#
-# + m - the map
-# + return - a new list of all keys
-public isolated function keys(map<any|error> m) returns string[] = external;
+public function main() {
+    int|error n = int:fromString("12345");
+    io:println(n); // @output 12345
 
-# Tests whether `m` has a member with key `k`.
-#
-# + m - the map
-# + k - the key
-# + return - true if `m` has a member with key `k`
-public isolated function hasKey(map<any|error> m, string k) returns boolean = external;
+    int|error neg = int:fromString("-42");
+    io:println(neg); // @output -42
+
+    int|error invalid = int:fromString("not-a-number");
+    io:println(invalid is error); // @output true
+
+    int|error h = int:fromHexString("ff");
+    io:println(h); // @output 255
+
+    int|error negH = int:fromHexString("-1a");
+    io:println(negH); // @output -26
+
+    int|error invalidHex = int:fromHexString("zz");
+    io:println(invalidHex is error); // @output true
+}

@@ -73,4 +73,4 @@ public isolated function fromJsonWithType(json v, typedesc<anydata> t = <>) retu
 #
 # + v - the value
 # + return - a string representing `v`
-public isolated function toString(anydata v) returns string = external;
+public isolated function toString(any v) returns string = external;

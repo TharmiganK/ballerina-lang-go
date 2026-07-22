@@ -78,3 +78,5 @@ coverage_report.html
 
 # Ephemeral report produced by the validate-stdlib-contract skill
 CONTRACT_VALIDATION.md
+
+*.pem

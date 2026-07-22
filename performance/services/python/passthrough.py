@@ -27,6 +27,9 @@ BACKEND_PORT = 8688
 _local = threading.local()
 
 
+# The stdlib has no shared connection pool; each worker thread keeps one
+# reused keep-alive connection (300s timeout). This is the closest the plain
+# stdlib gets to the shared networking baseline (see performance/README.md).
 def _backend_conn():
     conn = getattr(_local, "conn", None)
     if conn is None:

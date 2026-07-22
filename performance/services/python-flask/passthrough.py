@@ -24,6 +24,8 @@ app = Flask(__name__)
 
 BACKEND = "http://localhost:8688/"
 
+# Shared networking baseline (see performance/README.md): connection reuse,
+# up to 100 pooled connections per host.
 _session = requests.Session()
 _session.mount(
     "http://",

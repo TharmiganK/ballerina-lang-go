@@ -19,11 +19,13 @@
 const express = require('express');
 const http = require('http');
 
+// Shared networking baseline (see performance/README.md): unlimited active
+// connections, up to 100 idle per host, 300s idle timeout.
 const agent = new http.Agent({
   keepAlive: true,
-  maxSockets: 0,
-  maxFreeSockets: 256,
-  timeout: 300000,
+  maxSockets: 0,          // unlimited active connections
+  maxFreeSockets: 100,    // max idle connections per host
+  timeout: 300000,        // 300s idle socket timeout
 });
 
 const app = express();

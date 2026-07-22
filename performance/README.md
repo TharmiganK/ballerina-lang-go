@@ -24,6 +24,34 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 
 The two Ballerina runtimes share one source tree (`services/ballerina/{hello,passthrough}.bal`); only the runtime differs. Every service binds the same port (`9090`), speaks HTTP/1.1 with keep-alive, and forwards to the same backend, so the comparison is apples-to-apples.
 
+## Networking configuration
+
+For a fair comparison every runtime is configured to the same networking baseline — the jBallerina `http:Client` defaults, which the Go passthrough was hand-tuned to mirror:
+
+| Setting | Value |
+|---|---|
+| Connection reuse (HTTP keep-alive) | enabled |
+| Max active connections per host | unlimited |
+| Max idle connections per host | 100 |
+| Idle / socket timeout | 300s |
+| Connect timeout | 15s |
+| TCP `TCP_NODELAY` | on |
+| Client-side TCP `SO_KEEPALIVE` | off |
+| Response decompression | off |
+
+How each runtime maps onto it:
+
+| Runtime | Pool / connection config |
+|---|---|
+| `nutcracker`, `swanlake`, `swanlake-graalvm` | jBallerina `http:Client` **defaults** (`maxActiveConnections = -1`, `maxIdleConnections = 100`). Left implicit on purpose — Nutcracker does not yet accept an explicit `poolConfig`, and its default equals this baseline. |
+| `go` | `http.Transport`: `MaxIdleConnsPerHost = 100`, `MaxConnsPerHost = 0`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
+| `node`, `node-express` | `http.Agent`: `keepAlive`, `maxSockets = 0`, `maxFreeSockets = 100`, `timeout = 300000`. |
+| `python-flask` | `requests` session with `HTTPAdapter(pool_maxsize = 100)`. |
+| `python` | stdlib has no shared pool; one reused keep-alive connection per worker thread (300s timeout). |
+| `java-netty`, `graalvm-netty` | Netty `SimpleChannelPool` (unlimited active, connections reused), `TCP_NODELAY` on, `SO_KEEPALIVE` off, 15s connect timeout. |
+
+Two honest deviations, imposed by what each stack can express: the plain-`python` runtime has no central pool (per-thread connection), and Netty's built-in pool has no fixed *idle*-connection cap (it reuses all released connections rather than trimming to 100 idle). Everything else is aligned.
+
 ## Metrics
 
 Per runtime × scenario × configuration:

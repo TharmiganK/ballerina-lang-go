@@ -18,12 +18,14 @@
 
 const http = require('http');
 
-// Keep-alive agent pooled to the backend, mirroring the other runtimes.
+// Keep-alive agent pooled to the backend. Shared networking baseline (see
+// performance/README.md): unlimited active connections, up to 100 idle per
+// host, 300s idle timeout.
 const agent = new http.Agent({
   keepAlive: true,
-  maxSockets: 0,        // unlimited active
-  maxFreeSockets: 256,
-  timeout: 300000,
+  maxSockets: 0,          // unlimited active connections
+  maxFreeSockets: 100,    // max idle connections per host
+  timeout: 300000,        // 300s idle socket timeout
 });
 
 const BACKEND = { host: 'localhost', port: 8688, path: '/', agent };

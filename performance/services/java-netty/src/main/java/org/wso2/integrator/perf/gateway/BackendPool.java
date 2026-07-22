@@ -46,11 +46,16 @@ public class BackendPool {
     private final SimpleChannelPool pool;
 
     public BackendPool(EventLoopGroup group, String host, int port) {
+        // Shared networking baseline (see performance/README.md): connection
+        // reuse via the pool (unlimited active), TCP_NODELAY on, OS-level TCP
+        // keep-alive off (matches Go/jBallerina clients), 15s connect timeout.
+        // SimpleChannelPool keeps all released connections for reuse.
         Bootstrap bootstrap = new Bootstrap()
                 .group(group)
                 .channel(NioSocketChannel.class)
-                .option(ChannelOption.SO_KEEPALIVE, true)
+                .option(ChannelOption.SO_KEEPALIVE, false)
                 .option(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 15000)
                 .remoteAddress(host, port);
         this.pool = new SimpleChannelPool(bootstrap, new BackendChannelPoolHandler(this));
     }

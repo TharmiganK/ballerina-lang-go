@@ -107,6 +107,10 @@ To run the tests, use the following command:
 go test ./...
 ```
 
+### Performance benchmarks
+
+HTTP throughput/latency/memory benchmarks comparing Nutcracker against Go, Node, Python, Java (Netty), and Ballerina Swan Lake live in [`performance/`](performance/). See [`performance/README.md`](performance/README.md) to run them.
+
 ## Report issues
 
 > **Tip:** If you are unsure whether you have found a bug, search the [existing issues](https://github.com/ballerina-nutcracker/ballerina/issues) in the GitHub repo and open an issue if needed.

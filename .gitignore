@@ -34,6 +34,19 @@ go.work.sum
 # Build outputs written by `bal run`/`bal pack` (mirrors Ballerina's target/ convention)
 **/target/
 
+# Performance benchmark suite: raw run outputs + per-runtime build artifacts.
+# The curated summaries under performance/benchmarks/ ARE tracked.
+/performance/results/
+/performance/services/go/bin/
+/performance/services/node-express/node_modules/
+performance/**/__pycache__/
+performance/**/dependency-reduced-pom.xml
+# GraalVM native images + jars built from the Ballerina services (binaries are
+# named after the scenario stems; keep the .bal sources tracked).
+/performance/services/ballerina/hello
+/performance/services/ballerina/passthrough
+/performance/services/ballerina/*.jar
+
 # Generated test data files (run ./init.sh to regenerate).
 # package.json and dependency-graph.json are bala-format metadata fixtures
 # that must be tracked even though the broader corpus/**/*.json rule ignores

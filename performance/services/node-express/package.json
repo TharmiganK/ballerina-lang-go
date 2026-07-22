@@ -1,0 +1,13 @@
+{
+  "name": "perf-node-express",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express hello + passthrough services for the performance suite",
+  "scripts": {
+    "hello": "node hello.js",
+    "passthrough": "node passthrough.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

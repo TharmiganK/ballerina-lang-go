@@ -19,7 +19,7 @@ case "$ARCH" in
 esac
 
 # Pin the jBallerina (Swan Lake) version here.
-BAL_VERSION="${BAL_VERSION:-2201.12.3}"
+BAL_VERSION="${BAL_VERSION:-2201.13.4}"
 
 echo "==> Base tooling (gcc, make, git, perl, lsof, ...)"
 sudo dnf -y install gcc make git perl lsof procps-ng unzip tar gzip \

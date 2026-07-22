@@ -43,7 +43,7 @@ How each runtime maps onto it:
 
 | Runtime | Pool / connection config |
 |---|---|
-| `nutcracker`, `swanlake`, `swanlake-graalvm` | jBallerina `http:Client` **defaults** (`maxActiveConnections = -1`, `maxIdleConnections = 100`). Left implicit on purpose — Nutcracker does not yet accept an explicit `poolConfig`, and its default equals this baseline. |
+| `nutcracker`, `swanlake`, `swanlake-graalvm` | `http:Client` `poolConfig` set explicitly to `maxActiveConnections = -1`, `maxIdleConnections = 100` (also the jBallerina default). |
 | `go` | `http.Transport`: `MaxIdleConnsPerHost = 100`, `MaxConnsPerHost = 0`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
 | `node`, `node-express` | `http.Agent`: `keepAlive`, `maxSockets = 0`, `maxFreeSockets = 100`, `timeout = 300000`. |
 | `python-flask` | `requests` session with `HTTPAdapter(pool_maxsize = 100)`. |

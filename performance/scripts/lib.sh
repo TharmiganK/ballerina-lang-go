@@ -25,9 +25,17 @@
 # (mangled indirect variables) so the harness runs on the stock macOS bash 3.2
 # as well as modern Linux bash.
 
-# ── Port-open probe: bash /dev/tcp, no external tool (portable Linux/macOS) ────
-# Returns 0 if a TCP connection to the local port succeeds, non-zero otherwise.
-port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+# ── Port-open probe ───────────────────────────────────────────────────────────
+# Returns 0 if something is listening on the local port. Tries a fast IPv4
+# /dev/tcp connect first, then falls back to an lsof LISTEN check — the Ballerina
+# http:Listener binds IPv6-only (*:port), which a /dev/tcp/127.0.0.1 (IPv4)
+# connect cannot reach, so the lsof fallback is what makes those runtimes
+# detectable. lsof is a family-agnostic readiness signal (also how wrk, which
+# dials localhost, reaches the server).
+port_open() {
+    (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && return 0
+    lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+}
 
 # ── Wait until a port starts accepting connections ────────────────────────────
 wait_for_port() {

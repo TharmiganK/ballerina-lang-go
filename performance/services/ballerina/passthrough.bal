@@ -17,8 +17,15 @@
 import ballerina/http;
 import ballerina/log;
 
+// Shared networking baseline (see performance/README.md): unlimited active
+// connections, up to 100 idle per host. These are also jBallerina's defaults;
+// set explicitly so every runtime uses the same pool configuration.
 final http:Client nettyEP = checkpanic new ("http://localhost:8688", {
-    httpVersion: "1.1"
+    httpVersion: "1.1",
+    poolConfig: {
+        maxActiveConnections: -1,
+        maxIdleConnections: 100
+    }
 });
 
 listener http:Listener httpListener = new (9090, {

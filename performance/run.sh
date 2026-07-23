@@ -37,7 +37,10 @@ BACKEND_PORT=8688
 BACKEND_JAR="$SCRIPT_DIR/backend/target/perf-backend.jar"
 GATEWAY_JAR="$SCRIPT_DIR/services/java-netty/target/perf-gateway.jar"
 GATEWAY_NATIVE="$SCRIPT_DIR/services/java-netty/target/perf-gateway-native"
+SPRING_JAR="$SCRIPT_DIR/services/java-spring/target/perf-spring.jar"
+DOTNET_DLL="$SCRIPT_DIR/services/dotnet/bin/publish/perf-dotnet.dll"
 GO_BIN_DIR="$SCRIPT_DIR/services/go/bin"
+RUST_BIN_DIR="$SCRIPT_DIR/services/rust/target/release"
 # GraalVM native images built from the Ballerina services land beside their
 # source as $BAL_DIR/<stem> (e.g. services/ballerina/hello). git-ignored.
 BAL_NATIVE_DIR="$SCRIPT_DIR/services/ballerina"
@@ -60,7 +63,7 @@ DURATION="60s"
 THREADS=""
 OUTPUT=""
 
-ALL_RUNTIMES=(nutcracker swanlake swanlake-graalvm go node node-express python python-flask python-fastapi java-netty graalvm-netty)
+ALL_RUNTIMES=(nutcracker swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
 ALL_SCENARIOS=(hello-service passthrough)
 
 # Scenario → service file/module stem. The scenario id is user-facing (and can
@@ -205,6 +208,25 @@ ensure_builds() {
             done
         fi
     fi
+    if have_runtime rust; then
+        if command -v cargo >/dev/null; then
+            echo "  Building Rust services (cargo, release)..."
+            (cd "$SCRIPT_DIR/services/rust" && cargo build --release --quiet)
+        else
+            echo "  WARNING: rust needs 'cargo' on PATH (install via rustup); rust will fail to start." >&2
+        fi
+    fi
+    if have_runtime java-spring && [[ ! -f "$SPRING_JAR" ]]; then
+        echo "  Building Spring Boot gateway (mvn)..."
+        (cd "$SCRIPT_DIR/services/java-spring" && mvn -q -DskipTests package)
+    fi
+    if have_runtime dotnet && [[ ! -f "$DOTNET_DLL" ]]; then
+        echo "  Building ASP.NET Core gateway (dotnet publish)..."
+        (cd "$SCRIPT_DIR/services/dotnet" && dotnet publish -c Release -o bin/publish --nologo -v quiet)
+    fi
+    if have_runtime bun && ! command -v bun >/dev/null; then
+        echo "  WARNING: bun not found on PATH (install from https://bun.sh); bun will fail to start." >&2
+    fi
     if have_runtime node-express && [[ ! -d "$SCRIPT_DIR/services/node-express/node_modules" ]]; then
         echo "  Installing node-express deps (npm)..."
         (cd "$SCRIPT_DIR/services/node-express" && npm install --silent)
@@ -264,7 +286,9 @@ start_service() {
         swanlake)         session_spawn "." "$SWAN_BAL" run "$BAL_DIR/$stem.bal" ;;
         swanlake-graalvm) session_spawn "." "$BAL_NATIVE_DIR/$stem" ;;
         go)               session_spawn "." "$GO_BIN_DIR/$stem" ;;
+        rust)             session_spawn "." "$RUST_BIN_DIR/$stem" ;;
         node)         session_spawn "." node "$SCRIPT_DIR/services/node/$stem.js" ;;
+        bun)          session_spawn "." bun "$SCRIPT_DIR/services/bun/$stem.js" ;;
         node-express) session_spawn "$SCRIPT_DIR/services/node-express" node "$stem.js" ;;
         python)       session_spawn "." python3 "$SCRIPT_DIR/services/python/$stem.py" ;;
         python-flask)
@@ -289,6 +313,8 @@ start_service() {
                 --no-access-log --log-level warning "$stem:app" ;;
         java-netty)   session_spawn "." java -jar "$GATEWAY_JAR" --scenario "$scn" --port "$SERVICE_PORT" ;;
         graalvm-netty) session_spawn "." "$GATEWAY_NATIVE" --scenario "$scn" --port "$SERVICE_PORT" ;;
+        java-spring)  session_spawn "." java -jar "$SPRING_JAR" --scenario="$stem" --server.port="$SERVICE_PORT" ;;
+        dotnet)       session_spawn "." dotnet "$DOTNET_DLL" --scenario "$stem" --port "$SERVICE_PORT" ;;
         *) echo "Unknown runtime: $rt" >&2; return 1 ;;
     esac
 

@@ -78,12 +78,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pip3 install --user -r "$SCRIPT_DIR/services/python-flask/requirements.txt"
 pip3 install --user -r "$SCRIPT_DIR/services/python-fastapi/requirements.txt"
 
+echo "==> Rust toolchain (rustup, for the rust runtime)"
+if ! command -v cargo >/dev/null && [[ ! -x "$HOME/.cargo/bin/cargo" ]]; then
+    curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
+fi
+
+echo "==> Bun (for the bun runtime)"
+if ! command -v bun >/dev/null && [[ ! -x "$HOME/.bun/bin/bun" ]]; then
+    curl -fsSL https://bun.sh/install | bash
+fi
+
+echo "==> .NET SDK 9 (for the dotnet runtime)"
+sudo dnf -y install dotnet-sdk-9.0
+
 echo "==> Environment (/etc/profile.d/perf-bench.sh)"
 sudo tee /etc/profile.d/perf-bench.sh >/dev/null <<EOF
 export JAVA_HOME=$JAVA21_HOME
 export GRAALVM_HOME=/opt/graalvm
 # Corretto java first; GraalVM appended only for native-image.
-export PATH=\$JAVA_HOME/bin:/usr/local/go/bin:\$HOME/go/bin:\$PATH:/opt/graalvm/bin
+export PATH=\$JAVA_HOME/bin:/usr/local/go/bin:\$HOME/go/bin:\$HOME/.cargo/bin:\$HOME/.bun/bin:\$PATH:/opt/graalvm/bin
 EOF
 
 echo "==> Raising open-file limit for benchmark load (soft nofile 65535)"
@@ -97,5 +110,6 @@ echo "Done. Now:"
 echo "  1. Re-login (or: source /etc/profile.d/perf-bench.sh) so PATH/limits apply."
 echo "  2. Build Nutcracker's bal:   cd <repo-root> && go build -o bal ./cli/cmd"
 echo "  3. Verify:                   wrk -v; lsof -v; go version; bal version;"
-echo "                               java -version; mvn -v; node -v; native-image --version"
+echo "                               java -version; mvn -v; node -v; native-image --version;"
+echo "                               cargo --version; bun --version; dotnet --version"
 echo "  4. Run:                      ./performance/run.sh"

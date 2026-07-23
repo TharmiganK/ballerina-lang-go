@@ -39,6 +39,8 @@ go.work.sum
 /performance/results/
 /performance/services/go/bin/
 /performance/services/node-express/node_modules/
+/performance/services/dotnet/bin/
+/performance/services/dotnet/obj/
 performance/**/__pycache__/
 performance/**/dependency-reduced-pom.xml
 # GraalVM native images + jars built from the Ballerina services (binaries are

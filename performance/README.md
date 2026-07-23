@@ -10,13 +10,17 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | `swanlake` | Ballerina Swan Lake (jBallerina) | jBallerina `bal run` |
 | `swanlake-graalvm` | Ballerina Swan Lake, GraalVM native image | `bal build --graalvm` binary |
 | `go` | Go (`net/http`) | compiled binary |
+| `rust` | Rust (axum + tokio) | compiled binary |
 | `node` | Node.js (`http`) | `node` |
 | `node-express` | Node.js + Express | `node` |
+| `bun` | Bun (`Bun.serve`) | `bun` |
 | `python` | Python (`http.server`) | `python3` |
 | `python-flask` | Python + Flask | `waitress-serve` (WSGI) |
 | `python-fastapi` | Python + FastAPI | `uvicorn` (ASGI, uvloop + httptools, one worker per core) |
 | `java-netty` | Java + Netty | `java -jar` |
 | `graalvm-netty` | Java + Netty, GraalVM native image | `native-image` binary |
+| `java-spring` | Java + Spring Boot WebFlux (Reactor Netty) | `java -jar` |
+| `dotnet` | C# / ASP.NET Core (Kestrel minimal API) | `dotnet` |
 
 ## Scenarios
 
@@ -46,13 +50,17 @@ How each runtime maps onto it:
 |---|---|
 | `nutcracker`, `swanlake`, `swanlake-graalvm` | `http:Client` `poolConfig` set explicitly to `maxActiveConnections = -1`, `maxIdleConnections = 100` (also the jBallerina default). |
 | `go` | `http.Transport`: `MaxIdleConnsPerHost = 100`, `MaxConnsPerHost = 0`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
+| `rust` | `reqwest` client: `pool_max_idle_per_host = 100`, `pool_idle_timeout = 300s`, 15s connect timeout, `TCP_NODELAY` on, no compression features enabled. |
+| `bun` | Bun's built-in `fetch`: upstream keep-alive on by default; no user-facing pool configuration. |
 | `node`, `node-express` | `http.Agent`: `keepAlive`, `maxSockets = 0`, `maxFreeSockets = 100`, `timeout = 300000`. |
 | `python-flask` | `requests` session with `HTTPAdapter(pool_maxsize = 100)`. |
 | `python` | stdlib has no shared pool; one reused keep-alive connection per worker thread (300s timeout). |
 | `python-fastapi` | `aiohttp.ClientSession` with `TCPConnector(limit = 0, keepalive_timeout = 300)`, 15s connect timeout, decompression off. |
 | `java-netty`, `graalvm-netty` | Netty `SimpleChannelPool` (unlimited active, connections reused), `TCP_NODELAY` on, `SO_KEEPALIVE` off, 15s connect timeout. |
+| `java-spring` | Reactor Netty `ConnectionProvider`: `maxConnections = 10000` (effectively unlimited), `maxIdleTime = 300s`, 15s connect timeout, compression off. |
+| `dotnet` | `SocketsHttpHandler`: `MaxConnectionsPerServer` unlimited, `PooledConnectionIdleTimeout = 300s`, 15s connect timeout, no decompression. |
 
-Three honest deviations, imposed by what each stack can express: the plain-`python` runtime has no central pool (per-thread connection); Netty's built-in pool has no fixed *idle*-connection cap (it reuses all released connections rather than trimming to 100 idle); and aiohttp likewise has no idle cap, plus each uvicorn worker process holds its own pool (Python's multi-process scaling model). Everything else is aligned.
+The honest deviations, imposed by what each stack can express: the plain-`python` runtime has no central pool (per-thread connection); several pools have no fixed *idle*-connection cap and instead reuse all released connections (Netty's `SimpleChannelPool`, Reactor Netty, aiohttp, .NET's `SocketsHttpHandler`); each uvicorn worker process holds its own aiohttp pool (Python's multi-process scaling model); and Bun's built-in `fetch` keeps connections alive but exposes no pool knobs at all. Everything else is aligned.
 
 ## Metrics
 
@@ -76,9 +84,12 @@ Install what you need for the runtimes you plan to run:
 
 - **`wrk`** (load generator) and **`lsof`** — always required.
 - **Go** 1.26+ — for `go`, and to build this repo's `bal` (`go build -o bal ./cli/cmd` from the repo root).
+- **Rust** (rustup/`cargo`) — for `rust` (`cargo build --release` runs automatically on first run).
+- **Bun** — for `bun`.
+- **.NET SDK 9** — for `dotnet` (`dotnet publish` runs automatically on first run).
 - **jBallerina** (Swan Lake) on `PATH` as `bal` — for `swanlake` and `swanlake-graalvm`. Override with `SWAN_BAL=/path/to/bal`.
 - **GraalVM** JDK with `native-image` on `PATH` — for `swanlake-graalvm` and `graalvm-netty`. These native images are built on first run (each takes a minute or two); if `native-image` is absent the two GraalVM runtimes are skipped with a warning.
-- **Java 21** + **Maven** — for `java-netty`, `graalvm-netty`, and the Netty backend (built automatically on first run).
+- **Java 21** + **Maven** — for `java-netty`, `graalvm-netty`, `java-spring`, and the Netty backend (built automatically on first run).
 - **Node.js** + **npm** — for `node` and `node-express` (`npm install` runs automatically for Express).
 - **Python 3** — for `python`; plus `pip install -r services/python-flask/requirements.txt` for `python-flask`, and `pip install -r services/python-fastapi/requirements.txt` for `python-fastapi`.
 

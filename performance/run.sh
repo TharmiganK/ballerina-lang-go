@@ -387,7 +387,7 @@ for scn in "${SCENARIO_LIST[@]}"; do
                 _store ERR   "$key" "$err"
                 _store MAXMEM "$key" "$maxmem"
                 _store MAXCPU "$key" "$maxcpu"
-                echo "    Throughput: $thr req/s | avg: ${avg}ms | p99: ${p99}ms | stdev: ${stdev}ms | mem: ${maxmem}MB | cpu: ${maxcpu}%"
+                echo "    Throughput: $thr req/s | avg: ${avg}ms | p99: ${p99}ms | stdev: ${stdev}ms | mem: ${maxmem}MB | cpu: ${maxcpu}% | errors: ${err}%"
             done
         done
 

@@ -55,7 +55,7 @@ SWAN_BAL="${SWAN_BAL:-bal}"
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCENARIO_FILTER="all"
-RUNTIME_FILTER="all"
+RUNTIME_FILTER="default"
 USERS="100,200,500"
 PAYLOADS="1KB,10KB,50KB"
 WARMUP="30s"
@@ -64,6 +64,10 @@ THREADS=""
 OUTPUT=""
 
 ALL_RUNTIMES=(nutcracker swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
+# Default: the two primary Ballerina runtimes vs one industry-leading stack
+# per language. The stdlib/legacy/native-image variants stay behind
+# --runtimes all (or an explicit list).
+DEFAULT_RUNTIMES=(nutcracker swanlake go rust node python-fastapi java-spring dotnet)
 ALL_SCENARIOS=(hello-service passthrough)
 
 # Scenario → service file/module stem. The scenario id is user-facing (and can
@@ -78,7 +82,8 @@ usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
   --scenario  TYPE   hello-service | passthrough | all    (default: $SCENARIO_FILTER)
-  --runtimes  LIST   comma list from: ${ALL_RUNTIMES[*]} | all   (default: $RUNTIME_FILTER)
+  --runtimes  LIST   comma list from: ${ALL_RUNTIMES[*]}
+                     or: all | default (= ${DEFAULT_RUNTIMES[*]})   (default: $RUNTIME_FILTER)
   --users     LIST   concurrent connections, comma list  (default: $USERS)
   --payloads  LIST   passthrough payload sizes           (default: $PAYLOADS)
   --warmup    DUR     warmup duration per run (wrk -d)     (default: $WARMUP)
@@ -118,6 +123,8 @@ fi
 
 if [[ "$RUNTIME_FILTER" == "all" ]]; then
     RUNTIME_LIST=("${ALL_RUNTIMES[@]}")
+elif [[ "$RUNTIME_FILTER" == "default" ]]; then
+    RUNTIME_LIST=("${DEFAULT_RUNTIMES[@]}")
 else
     IFS=',' read -r -a RUNTIME_LIST <<< "$RUNTIME_FILTER"
 fi

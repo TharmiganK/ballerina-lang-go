@@ -22,6 +22,8 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | `java-spring` | Java + Spring Boot WebFlux (Reactor Netty) | `java -jar` |
 | `dotnet` | C# / ASP.NET Core (Kestrel minimal API) | `dotnet` |
 
+By default the suite runs the two primary Ballerina runtimes against one industry-leading stack per language: `nutcracker`, `swanlake`, `go`, `rust`, `node`, `python-fastapi`, `java-spring`, `dotnet`. The stdlib/legacy baselines (`python`, `python-flask`, `node-express`, `bun`, `java-netty`) and the GraalVM native images join in with `--runtimes all` or an explicit `--runtimes` list.
+
 ## Scenarios
 
 1. **hello-service** — `GET /hello` returns a fixed `Hello, World!` body. No backend. Measures raw framework throughput across concurrent-user counts.
@@ -98,8 +100,11 @@ Build artifacts (Go binaries, jars, `node_modules`) are produced on first run an
 ## Running
 
 ```bash
-# Everything: both scenarios, all runtimes, default grid.
+# Both scenarios, default runtime set (Ballerina vs industry leaders), default grid.
 ./performance/run.sh
+
+# Every runtime, including stdlib/legacy baselines and GraalVM native images.
+./performance/run.sh --runtimes all
 
 # A focused run.
 ./performance/run.sh --scenario passthrough --runtimes nutcracker,go,swanlake \
@@ -109,7 +114,7 @@ Build artifacts (Go binaries, jars, `node_modules`) are produced on first run an
 ./performance/run.sh --scenario hello-service --runtimes nutcracker,go --users 100,500
 ```
 
-Options: `--scenario hello-service|passthrough|all`, `--runtimes <list>|all`, `--users <list>`, `--payloads <list>`, `--warmup`, `--duration`, `--threads`, `--output`. See `./performance/run.sh --help`.
+Options: `--scenario hello-service|passthrough|all`, `--runtimes <list>|all|default`, `--users <list>`, `--payloads <list>`, `--warmup`, `--duration`, `--threads`, `--output`. See `./performance/run.sh --help`.
 
 Each run writes a full timestamped report to `results/` (git-ignored). Curated cross-runtime summaries live in [`benchmarks/`](benchmarks/).
 

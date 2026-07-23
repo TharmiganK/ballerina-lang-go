@@ -73,9 +73,10 @@ else
     echo "==> Skipping GraalVM (SKIP_GRAALVM set)"
 fi
 
-echo "==> Python deps for python-flask"
+echo "==> Python deps for python-flask and python-fastapi"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pip3 install --user -r "$SCRIPT_DIR/services/python-flask/requirements.txt"
+pip3 install --user -r "$SCRIPT_DIR/services/python-fastapi/requirements.txt"
 
 echo "==> Environment (/etc/profile.d/perf-bench.sh)"
 sudo tee /etc/profile.d/perf-bench.sh >/dev/null <<EOF

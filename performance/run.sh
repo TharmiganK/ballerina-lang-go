@@ -60,7 +60,7 @@ DURATION="60s"
 THREADS=""
 OUTPUT=""
 
-ALL_RUNTIMES=(nutcracker swanlake swanlake-graalvm go node node-express python python-flask java-netty graalvm-netty)
+ALL_RUNTIMES=(nutcracker swanlake swanlake-graalvm go node node-express python python-flask python-fastapi java-netty graalvm-netty)
 ALL_SCENARIOS=(hello-service passthrough)
 
 # Scenario → service file/module stem. The scenario id is user-facing (and can
@@ -215,6 +215,12 @@ ensure_builds() {
             echo "           pip install -r $SCRIPT_DIR/services/python-flask/requirements.txt" >&2
         }
     fi
+    if have_runtime python-fastapi; then
+        python3 -c 'import fastapi, uvicorn, aiohttp' 2>/dev/null || {
+            echo "  WARNING: python-fastapi deps missing. Install with:" >&2
+            echo "           pip install -r $SCRIPT_DIR/services/python-fastapi/requirements.txt" >&2
+        }
+    fi
 }
 
 # ── Start the shared backend (passthrough only) ───────────────────────────────
@@ -271,6 +277,16 @@ start_service() {
             else
                 session_spawn "$SCRIPT_DIR/services/python-flask" python3 "$stem.py"
             fi ;;
+        python-fastapi)
+            # uvicorn with uvloop + httptools ("Python done well"). One worker
+            # per core: a single worker is GIL-bound to ~1 core, and multi-worker
+            # is how uvicorn is deployed in production — matching the multi-core
+            # parity of the other runtimes. The forking master and its workers
+            # share a process group, so stop_service tears them down together.
+            session_spawn "$SCRIPT_DIR/services/python-fastapi" \
+                python3 -m uvicorn --host 0.0.0.0 --port "$SERVICE_PORT" \
+                --workers "$CORES" --loop uvloop --http httptools \
+                --no-access-log --log-level warning "$stem:app" ;;
         java-netty)   session_spawn "." java -jar "$GATEWAY_JAR" --scenario "$scn" --port "$SERVICE_PORT" ;;
         graalvm-netty) session_spawn "." "$GATEWAY_NATIVE" --scenario "$scn" --port "$SERVICE_PORT" ;;
         *) echo "Unknown runtime: $rt" >&2; return 1 ;;

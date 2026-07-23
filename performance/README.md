@@ -14,6 +14,7 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | `node-express` | Node.js + Express | `node` |
 | `python` | Python (`http.server`) | `python3` |
 | `python-flask` | Python + Flask | `waitress-serve` (WSGI) |
+| `python-fastapi` | Python + FastAPI | `uvicorn` (ASGI, uvloop + httptools, one worker per core) |
 | `java-netty` | Java + Netty | `java -jar` |
 | `graalvm-netty` | Java + Netty, GraalVM native image | `native-image` binary |
 
@@ -48,9 +49,10 @@ How each runtime maps onto it:
 | `node`, `node-express` | `http.Agent`: `keepAlive`, `maxSockets = 0`, `maxFreeSockets = 100`, `timeout = 300000`. |
 | `python-flask` | `requests` session with `HTTPAdapter(pool_maxsize = 100)`. |
 | `python` | stdlib has no shared pool; one reused keep-alive connection per worker thread (300s timeout). |
+| `python-fastapi` | `aiohttp.ClientSession` with `TCPConnector(limit = 0, keepalive_timeout = 300)`, 15s connect timeout, decompression off. |
 | `java-netty`, `graalvm-netty` | Netty `SimpleChannelPool` (unlimited active, connections reused), `TCP_NODELAY` on, `SO_KEEPALIVE` off, 15s connect timeout. |
 
-Two honest deviations, imposed by what each stack can express: the plain-`python` runtime has no central pool (per-thread connection), and Netty's built-in pool has no fixed *idle*-connection cap (it reuses all released connections rather than trimming to 100 idle). Everything else is aligned.
+Three honest deviations, imposed by what each stack can express: the plain-`python` runtime has no central pool (per-thread connection); Netty's built-in pool has no fixed *idle*-connection cap (it reuses all released connections rather than trimming to 100 idle); and aiohttp likewise has no idle cap, plus each uvicorn worker process holds its own pool (Python's multi-process scaling model). Everything else is aligned.
 
 ## Metrics
 
@@ -78,7 +80,7 @@ Install what you need for the runtimes you plan to run:
 - **GraalVM** JDK with `native-image` on `PATH` — for `swanlake-graalvm` and `graalvm-netty`. These native images are built on first run (each takes a minute or two); if `native-image` is absent the two GraalVM runtimes are skipped with a warning.
 - **Java 21** + **Maven** — for `java-netty`, `graalvm-netty`, and the Netty backend (built automatically on first run).
 - **Node.js** + **npm** — for `node` and `node-express` (`npm install` runs automatically for Express).
-- **Python 3** — for `python`; plus `pip install -r services/python-flask/requirements.txt` for `python-flask`.
+- **Python 3** — for `python`; plus `pip install -r services/python-flask/requirements.txt` for `python-flask`, and `pip install -r services/python-fastapi/requirements.txt` for `python-fastapi`.
 
 Build artifacts (Go binaries, jars, `node_modules`) are produced on first run and are git-ignored — nothing precompiled is committed.
 

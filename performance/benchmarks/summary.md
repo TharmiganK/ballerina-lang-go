@@ -1,7 +1,6 @@
 # Performance Summary — Nutcracker vs. the industry leaders
 
 **Version** · `v0.6.0-3bbfc89-20260723`
-_Format: `<nutcracker-version>-<build-commit, omitted when run against a stable release>-<test-date YYYYMMDD>`_
 
 > **Draft — preliminary.** How **Ballerina Nutcracker** compares to the industry's leading web runtimes as traffic climbs from **100 → 200 → 500 concurrent users**. Short version: **near-instant startup, a small footprint, and competitive performance — a native, no-JVM alternative to the JVM-based Swan Lake distribution.**
 

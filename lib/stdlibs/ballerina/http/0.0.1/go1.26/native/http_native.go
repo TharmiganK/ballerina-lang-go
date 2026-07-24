@@ -232,16 +232,25 @@ func goCtxOrBackground(_ *extern.Context) context.Context {
 // requests built by the server) so both dispatch identically — a Request built natively
 // from an incoming HTTP request must support the exact same method set as one built via
 // `new http:Request()`, since Ballerina code can't tell them apart.
-func requestMethodKeys() map[string]string {
-	names := []string{
-		"setTextPayload", "setJsonPayload", "setBinaryPayload",
-		"setHeader", "addHeader", "removeHeader", "removeAllHeaders", "getHeaderNames",
-		"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getBinaryPayload",
-		"getHeader", "getHeaders", "hasHeader", "getQueryParams", "getQueryParamValue", "getQueryParamValues",
-	}
+// requestMethodKeyCache is the constant Request method→BIR-lookup-key map,
+// built once and shared read-only by every inbound Request object. values.Object
+// only reads methodKeys (never mutates it), so sharing one map is safe and
+// avoids re-allocating it on every request.
+var requestMethodKeyCache = makeMethodKeys("ballerina/http:Request.", []string{
+	"setTextPayload", "setJsonPayload", "setBinaryPayload",
+	"setHeader", "addHeader", "removeHeader", "removeAllHeaders", "getHeaderNames",
+	"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getBinaryPayload",
+	"getHeader", "getHeaders", "hasHeader", "getQueryParams", "getQueryParamValue", "getQueryParamValues",
+})
+
+func requestMethodKeys() map[string]string { return requestMethodKeyCache }
+
+// makeMethodKeys builds a {method: "<prefix><method>"} lookup map. Used to
+// precompute the constant Request/Response method-key caches at package load.
+func makeMethodKeys(prefix string, names []string) map[string]string {
 	keys := make(map[string]string, len(names))
 	for _, n := range names {
-		keys[n] = "ballerina/http:Request." + n
+		keys[n] = prefix + n
 	}
 	return keys
 }
@@ -1681,19 +1690,16 @@ func extractHeaders(arg values.BalValue) map[string][]string {
 // received from a client call) so both dispatch identically — a Response built natively
 // from a client's HTTP transport must support the exact same method set as one built via
 // `new http:Response()`, since Ballerina code can't tell them apart.
-func responseMethodKeys() map[string]string {
-	names := []string{
-		"setTextPayload", "setJsonPayload", "setBinaryPayload",
-		"setHeader", "addHeader", "removeHeader", "removeAllHeaders",
-		"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getBinaryPayload",
-		"hasHeader", "getHeader", "getHeaders", "getHeaderNames",
-	}
-	keys := make(map[string]string, len(names))
-	for _, n := range names {
-		keys[n] = "ballerina/http:Response." + n
-	}
-	return keys
-}
+// responseMethodKeyCache mirrors requestMethodKeyCache for Response objects:
+// a constant map built once and shared read-only across all Response objects.
+var responseMethodKeyCache = makeMethodKeys("ballerina/http:Response.", []string{
+	"setTextPayload", "setJsonPayload", "setBinaryPayload",
+	"setHeader", "addHeader", "removeHeader", "removeAllHeaders",
+	"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getBinaryPayload",
+	"hasHeader", "getHeader", "getHeaders", "getHeaderNames",
+})
+
+func responseMethodKeys() map[string]string { return responseMethodKeyCache }
 
 // buildResponse constructs a Ballerina Response object from HTTP response data.
 // All header values are stored as *values.List under the internal "$headers" key.

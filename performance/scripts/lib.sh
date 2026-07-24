@@ -26,14 +26,15 @@
 # as well as modern Linux bash.
 
 # ── Port-open probe ───────────────────────────────────────────────────────────
-# Returns 0 if something is listening on the local port. Tries a fast IPv4
-# /dev/tcp connect first, then falls back to an lsof LISTEN check — the Ballerina
-# http:Listener binds IPv6-only (*:port), which a /dev/tcp/127.0.0.1 (IPv4)
-# connect cannot reach, so the lsof fallback is what makes those runtimes
-# detectable. lsof is a family-agnostic readiness signal (also how wrk, which
-# dials localhost, reaches the server).
+# Returns 0 if something is listening on the local port. Tries a fast /dev/tcp
+# connect on both address families — IPv4 (127.0.0.1) for most runtimes and IPv6
+# (::1) for the Ballerina http:Listener, which binds IPv6-only (*:port) and so is
+# unreachable over 127.0.0.1. Both attempts fail-fast on a closed port (a refused
+# connect returns in <1ms), so this is cheap enough to poll on a tight interval.
+# lsof stays as a last-resort, family-agnostic fallback but is rarely reached.
 port_open() {
     (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && return 0
+    (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null && return 0
     lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
 }
 
@@ -76,13 +77,16 @@ wait_port_close() {
 wait_for_service() {
     local pid="$1" port="$2" timeout_sec="${3:-120}"
     local ticks=0 dead_grace=0
-    local max_ticks=$(( timeout_sec * 10 ))
+    # Poll at 5ms: a refused /dev/tcp connect costs <1ms, so this tightens
+    # startup-timing resolution from ~100ms to single-digit ms without
+    # meaningful CPU cost (a ready service is detected in ~20 probes).
+    local max_ticks=$(( timeout_sec * 200 ))
     while ! port_open "$port"; do
         if ! kill -0 "$pid" 2>/dev/null; then
             dead_grace=$(( dead_grace + 1 ))
-            (( dead_grace > 20 )) && return 1   # ~2s grace for fork handoff
+            (( dead_grace > 400 )) && return 1   # ~2s grace for fork handoff
         fi
-        sleep 0.1
+        sleep 0.005
         ticks=$(( ticks + 1 ))
         (( ticks > max_ticks )) && return 1
     done

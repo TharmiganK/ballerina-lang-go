@@ -73,7 +73,7 @@ Per runtime × scenario × configuration:
 
 | Metric | Source |
 |---|---|
-| Startup time (s) | wall-clock from launch until the port accepts connections |
+| Startup time (s) | min over 3 cold starts (`--startup-runs`) of the wall-clock from launch until the port accepts connections, polled every 5ms |
 | Throughput (req/s) | wrk `Requests/sec` |
 | Average latency (ms) | wrk `Latency` avg |
 | p99 latency (ms) | wrk `Latency Distribution` 99% |

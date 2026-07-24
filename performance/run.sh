@@ -65,6 +65,7 @@ WARMUP="30s"
 DURATION="60s"
 THREADS=""
 OUTPUT=""
+STARTUP_RUNS="3"   # cold-start the service this many times; report the min
 
 ALL_RUNTIMES=(nutcracker nutcracker-native swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
 # Default: the primary Ballerina runtimes (interpreted + native build) vs one
@@ -93,6 +94,7 @@ Usage: $0 [OPTIONS]
   --duration  DUR     measured duration per run (wrk -d)   (default: $DURATION)
   --threads   N      wrk threads (default: min(cores,users))
   --output    FILE   Markdown report path (default: results/perf-report-<ts>.md)
+  --startup-runs N   cold starts per runtime; report the min (default: $STARTUP_RUNS)
 
 Env: NUT_BAL (Nutcracker bal, default <repo>/bal), SWAN_BAL (jBallerina bal, default 'bal').
 EOF
@@ -109,6 +111,7 @@ while [[ $# -gt 0 ]]; do
         --duration) DURATION="$2";       shift 2 ;;
         --threads)  THREADS="$2";        shift 2 ;;
         --output)   OUTPUT="$2";         shift 2 ;;
+        --startup-runs) STARTUP_RUNS="$2"; shift 2 ;;
         -h|--help)  usage 0 ;;
         *) echo "Unknown option: $1" >&2; usage ;;
     esac
@@ -301,18 +304,9 @@ session_spawn() {
     SERVICE_PID=$!
 }
 
-# ── Launch a runtime service; prints startup seconds to stdout ────────────────
-start_service() {
-    local rt="$1" scn="$2"
-    local start end
-    local stem; stem="$(scenario_stem "$scn")"
-
-    if port_open "$SERVICE_PORT"; then
-        echo "ERROR: port $SERVICE_PORT already in use" >&2
-        return 1
-    fi
-
-    start=$(now_s)
+# ── Spawn one runtime service in the background; sets SERVICE_PID ─────────────
+launch_service() {
+    local rt="$1" scn="$2" stem="$3"
     case "$rt" in
         nutcracker)       session_spawn "." "$NUT_BAL" run "$BAL_DIR/$stem.bal" ;;
         nutcracker-native) session_spawn "." "$NUT_NATIVE_DIR/$stem" ;;
@@ -350,15 +344,44 @@ start_service() {
         dotnet)       session_spawn "." dotnet "$DOTNET_DLL" --scenario "$stem" --port "$SERVICE_PORT" ;;
         *) echo "Unknown runtime: $rt" >&2; return 1 ;;
     esac
+}
 
-    if ! wait_for_service "$SERVICE_PID" "$SERVICE_PORT" 120; then
-        echo "    ── service log ─────────────────────────────" >&2
-        tail -20 "$SERVICE_LOG" 2>/dev/null | sed 's/^/    /' >&2
-        echo "0"
+# ── Launch a runtime service; prints startup seconds (min of STARTUP_RUNS) ────
+# Cold-starts the service STARTUP_RUNS times, timing each launch→port-open span,
+# and reports the minimum — startup is a "how fast can it cold-start" metric, so
+# the min rejects run-to-run OS scheduling / cold-cache noise. The intermediate
+# starts are torn down; the final launch is left listening for the load run.
+start_service() {
+    local rt="$1" scn="$2"
+    local start end elapsed
+    local stem; stem="$(scenario_stem "$scn")"
+    local runs="${STARTUP_RUNS:-3}"
+    [[ "$runs" =~ ^[0-9]+$ ]] || runs=3
+    (( runs < 1 )) && runs=1
+
+    if port_open "$SERVICE_PORT"; then
+        echo "ERROR: port $SERVICE_PORT already in use" >&2
         return 1
     fi
-    end=$(now_s)
-    elapsed_s "$start" "$end"
+
+    local best="" i
+    for (( i = 1; i <= runs; i++ )); do
+        start=$(now_s)
+        launch_service "$rt" "$scn" "$stem" || return 1
+        if ! wait_for_service "$SERVICE_PID" "$SERVICE_PORT" 120; then
+            echo "    ── service log ─────────────────────────────" >&2
+            tail -20 "$SERVICE_LOG" 2>/dev/null | sed 's/^/    /' >&2
+            echo "0"
+            return 1
+        fi
+        end=$(now_s)
+        elapsed=$(elapsed_s "$start" "$end")
+        best=$(awk -v a="$best" -v b="$elapsed" 'BEGIN { if (a == "" || b + 0 < a + 0) print b; else print a }')
+        # Tear down every start but the last so the next cold start is clean; the
+        # final launch stays up for the caller's monitor + load runs.
+        (( i < runs )) && stop_service
+    done
+    echo "$best"
 }
 
 stop_service() {

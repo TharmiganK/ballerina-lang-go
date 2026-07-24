@@ -66,6 +66,7 @@ DURATION="60s"
 THREADS=""
 OUTPUT=""
 STARTUP_RUNS="3"   # cold-start the service this many times; report the min
+FORCE=false        # --force: rebuild every artifact even if it already exists
 
 ALL_RUNTIMES=(nutcracker nutcracker-native swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
 # Default: the primary Ballerina runtimes (interpreted + native build) vs one
@@ -95,6 +96,7 @@ Usage: $0 [OPTIONS]
   --threads   N      wrk threads (default: min(cores,users))
   --output    FILE   Markdown report path (default: results/perf-report-<ts>.md)
   --startup-runs N   cold starts per runtime; report the min (default: $STARTUP_RUNS)
+  --force            rebuild every artifact (incl. Nutcracker bal) from scratch
 
 Env: NUT_BAL (Nutcracker bal, default <repo>/bal), SWAN_BAL (jBallerina bal, default 'bal').
 EOF
@@ -112,6 +114,7 @@ while [[ $# -gt 0 ]]; do
         --threads)  THREADS="$2";        shift 2 ;;
         --output)   OUTPUT="$2";         shift 2 ;;
         --startup-runs) STARTUP_RUNS="$2"; shift 2 ;;
+        --force)    FORCE=true;          shift ;;
         -h|--help)  usage 0 ;;
         *) echo "Unknown option: $1" >&2; usage ;;
     esac
@@ -176,27 +179,52 @@ have_runtime() {
     return 1
 }
 
+# Rebuild an artifact if it is missing, or unconditionally when --force is set.
+should_build() {
+    [[ "$FORCE" == true || ! -e "$1" ]]
+}
+
 ensure_backend() {
-    if [[ ! -f "$BACKEND_JAR" ]]; then
+    if should_build "$BACKEND_JAR"; then
         echo "  Building Netty backend (mvn)..."
         (cd "$SCRIPT_DIR/backend" && mvn -q -DskipTests package)
     fi
 }
 
+# Verify (and, when needed, build) the Nutcracker `bal` used by the nutcracker
+# and nutcracker-native runtimes. The default is this repo's ./bal, which is
+# built on demand (or rebuilt under --force); an externally-provided NUT_BAL is
+# not ours to build, so it is only verified to exist.
+ensure_nutcracker_bal() {
+    have_runtime nutcracker || have_runtime nutcracker-native || return 0
+    if [[ "$NUT_BAL" != "$REPO_ROOT/bal" ]]; then
+        [[ -x "$NUT_BAL" ]] || { echo "ERROR: NUT_BAL '$NUT_BAL' is not an executable." >&2; return 1; }
+        return 0
+    fi
+    if should_build "$NUT_BAL"; then
+        command -v go >/dev/null || { echo "ERROR: building the Nutcracker bal needs 'go' on PATH." >&2; return 1; }
+        echo "  Building Nutcracker bal ($NUT_BAL)..."
+        (cd "$REPO_ROOT" && go build -o "$NUT_BAL" ./cli/cmd) \
+            || { echo "ERROR: failed to build the Nutcracker bal." >&2; return 1; }
+    fi
+    [[ -x "$NUT_BAL" ]] || { echo "ERROR: Nutcracker bal not found at '$NUT_BAL' (build it with: go build -o bal ./cli/cmd)." >&2; return 1; }
+}
+
 ensure_builds() {
+    ensure_nutcracker_bal || return 1
     if have_runtime go; then
         echo "  Building Go services..."
         mkdir -p "$GO_BIN_DIR"
         (cd "$SCRIPT_DIR/services/go" && go build -o "$GO_BIN_DIR/hello" ./hello && go build -o "$GO_BIN_DIR/passthrough" ./passthrough)
     fi
-    if { have_runtime java-netty || have_runtime graalvm-netty; } && [[ ! -f "$GATEWAY_JAR" ]]; then
+    if { have_runtime java-netty || have_runtime graalvm-netty; } && should_build "$GATEWAY_JAR"; then
         echo "  Building Netty gateway (mvn)..."
         (cd "$SCRIPT_DIR/services/java-netty" && mvn -q -DskipTests package)
     fi
     if have_runtime graalvm-netty; then
         if ! command -v native-image >/dev/null; then
             echo "  WARNING: graalvm-netty needs GraalVM 'native-image' on PATH (install a GraalVM JDK); skipping build." >&2
-        elif [[ ! -f "$GATEWAY_NATIVE" ]]; then
+        elif should_build "$GATEWAY_NATIVE"; then
             echo "  Building Netty gateway native image (native-image; slow)..."
             # Netty 4.1.x ships native-image reachability metadata inside its
             # jars, so a plain --no-fallback build works from the shaded jar.
@@ -210,7 +238,7 @@ ensure_builds() {
         # resolve a flat balrt sibling next to the bal binary; build it if
         # missing. An external NUT_BAL is assumed to ship its own stub.
         local nut_balrt; nut_balrt="$(dirname "$NUT_BAL")/balrt"
-        if [[ ! -x "$nut_balrt" && -d "$REPO_ROOT/cli/cmd/balrt" ]] && command -v go >/dev/null; then
+        if should_build "$nut_balrt" && [[ -d "$REPO_ROOT/cli/cmd/balrt" ]] && command -v go >/dev/null; then
             echo "  Building Nutcracker runner stub (balrt)..."
             (cd "$REPO_ROOT" && go build -o "$nut_balrt" ./cli/cmd/balrt) \
                 || echo "  WARNING: failed to build balrt stub; nutcracker-native builds may fail." >&2
@@ -219,7 +247,7 @@ ensure_builds() {
         local scn stem
         for scn in "${SCENARIO_LIST[@]}"; do
             stem="$(scenario_stem "$scn")"
-            if [[ ! -x "$NUT_NATIVE_DIR/$stem" ]]; then
+            if should_build "$NUT_NATIVE_DIR/$stem"; then
                 echo "  Building Ballerina executable ($stem via Nutcracker bal build)..."
                 "$NUT_BAL" build -o "$NUT_NATIVE_DIR/$stem" "$BAL_DIR/$stem.bal" \
                     > "/tmp/perf-nut-native-$stem.log" 2>&1 \
@@ -234,7 +262,7 @@ ensure_builds() {
             local scn stem
             for scn in "${SCENARIO_LIST[@]}"; do
                 stem="$(scenario_stem "$scn")"
-                if [[ ! -x "$BAL_NATIVE_DIR/$stem" ]]; then
+                if should_build "$BAL_NATIVE_DIR/$stem"; then
                     echo "  Building Ballerina native image ($stem via bal --graalvm; slow)..."
                     ( cd "$BAL_NATIVE_DIR" && "$SWAN_BAL" build --graalvm "$stem.bal" ) \
                         > "/tmp/perf-native-bal-$stem.log" 2>&1 \
@@ -251,18 +279,18 @@ ensure_builds() {
             echo "  WARNING: rust needs 'cargo' on PATH (install via rustup); rust will fail to start." >&2
         fi
     fi
-    if have_runtime java-spring && [[ ! -f "$SPRING_JAR" ]]; then
+    if have_runtime java-spring && should_build "$SPRING_JAR"; then
         echo "  Building Spring Boot gateway (mvn)..."
         (cd "$SCRIPT_DIR/services/java-spring" && mvn -q -DskipTests package)
     fi
-    if have_runtime dotnet && [[ ! -f "$DOTNET_DLL" ]]; then
+    if have_runtime dotnet && should_build "$DOTNET_DLL"; then
         echo "  Building ASP.NET Core gateway (dotnet publish)..."
         (cd "$SCRIPT_DIR/services/dotnet" && dotnet publish -c Release -o bin/publish --nologo -v quiet)
     fi
     if have_runtime bun && ! command -v bun >/dev/null; then
         echo "  WARNING: bun not found on PATH (install from https://bun.sh); bun will fail to start." >&2
     fi
-    if have_runtime node-express && [[ ! -d "$SCRIPT_DIR/services/node-express/node_modules" ]]; then
+    if have_runtime node-express && should_build "$SCRIPT_DIR/services/node-express/node_modules"; then
         echo "  Installing node-express deps (npm)..."
         (cd "$SCRIPT_DIR/services/node-express" && npm install --silent)
     fi
@@ -425,7 +453,7 @@ echo " Payloads (passthrough): $PAYLOADS"
 echo " Output: $OUTPUT"
 echo "============================================================"
 
-ensure_builds
+ensure_builds || exit 1
 
 # Start the backend if any passthrough scenario is selected.
 for scn in "${SCENARIO_LIST[@]}"; do

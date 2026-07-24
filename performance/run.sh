@@ -67,10 +67,10 @@ THREADS=""
 OUTPUT=""
 
 ALL_RUNTIMES=(nutcracker nutcracker-native swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
-# Default: the two primary Ballerina runtimes vs one industry-leading stack
-# per language. The stdlib/legacy/native-image variants stay behind
-# --runtimes all (or an explicit list).
-DEFAULT_RUNTIMES=(nutcracker swanlake go rust node python-fastapi java-spring dotnet)
+# Default: the primary Ballerina runtimes (interpreted + native build) vs one
+# industry-leading stack per language. The stdlib/legacy baselines and the
+# remaining native-image variants stay behind --runtimes all (or an explicit list).
+DEFAULT_RUNTIMES=(nutcracker nutcracker-native swanlake go rust node python-fastapi java-spring dotnet)
 ALL_SCENARIOS=(hello-service passthrough)
 
 # Scenario → service file/module stem. The scenario id is user-facing (and can

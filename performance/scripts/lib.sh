@@ -33,9 +33,19 @@
 # connect returns in <1ms), so this is cheap enough to poll on a tight interval.
 # lsof stays as a last-resort, family-agnostic fallback but is rarely reached.
 port_open() {
-    (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && return 0
-    (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null && return 0
+    port_open_fast "$1" && return 0
     lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+# Fast, lsof-free readiness probe: dual-family /dev/tcp only (each <1ms on a
+# refused connect). The two families cover every runtime we launch — IPv4
+# services via 127.0.0.1 and the IPv6-only Ballerina listener via ::1 — so the
+# tight startup-wait loop uses this rather than port_open. Falling through to
+# lsof (~25ms) on every poll while the port is still closed would otherwise
+# dominate the loop and defeat the 1ms interval.
+port_open_fast() {
+    (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && return 0
+    (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null
 }
 
 # ── Wait until a port starts accepting connections ────────────────────────────
@@ -77,16 +87,18 @@ wait_port_close() {
 wait_for_service() {
     local pid="$1" port="$2" timeout_sec="${3:-120}"
     local ticks=0 dead_grace=0
-    # Poll at 5ms: a refused /dev/tcp connect costs <1ms, so this tightens
-    # startup-timing resolution from ~100ms to single-digit ms without
-    # meaningful CPU cost (a ready service is detected in ~20 probes).
-    local max_ticks=$(( timeout_sec * 200 ))
-    while ! port_open "$port"; do
+    # Poll at 1ms with the lsof-free probe: a refused /dev/tcp connect costs
+    # <1ms, so this tightens startup-timing resolution from ~100ms to ~1-2ms at
+    # negligible CPU cost (a ready service is detected within a few ms of the
+    # port opening). Tick counts assume the 1ms interval: max_ticks =
+    # timeout_sec * 1000.
+    local max_ticks=$(( timeout_sec * 1000 ))
+    while ! port_open_fast "$port"; do
         if ! kill -0 "$pid" 2>/dev/null; then
             dead_grace=$(( dead_grace + 1 ))
-            (( dead_grace > 400 )) && return 1   # ~2s grace for fork handoff
+            (( dead_grace > 2000 )) && return 1   # ~2s grace for fork handoff
         fi
-        sleep 0.005
+        sleep 0.001
         ticks=$(( ticks + 1 ))
         (( ticks > max_ticks )) && return 1
     done

@@ -7,6 +7,7 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | Key | Runtime | Launched as |
 |---|---|---|
 | `nutcracker` | Ballerina Nutcracker (this repo) | `<repo>/bal run` |
+| `nutcracker-native` | Ballerina Nutcracker, `bal build` executable | `<repo>/bal build` binary |
 | `swanlake` | Ballerina Swan Lake (jBallerina) | jBallerina `bal run` |
 | `swanlake-graalvm` | Ballerina Swan Lake, GraalVM native image | `bal build --graalvm` binary |
 | `go` | Go (`net/http`) | compiled binary |
@@ -22,7 +23,9 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | `java-spring` | Java + Spring Boot WebFlux (Reactor Netty) | `java -jar` |
 | `dotnet` | C# / ASP.NET Core (Kestrel minimal API) | `dotnet` |
 
-By default the suite runs the two primary Ballerina runtimes against one industry-leading stack per language: `nutcracker`, `swanlake`, `go`, `rust`, `node`, `python-fastapi`, `java-spring`, `dotnet`. The stdlib/legacy baselines (`python`, `python-flask`, `node-express`, `bun`, `java-netty`) and the GraalVM native images join in with `--runtimes all` or an explicit `--runtimes` list.
+By default the suite runs the two primary Ballerina runtimes against one industry-leading stack per language: `nutcracker`, `swanlake`, `go`, `rust`, `node`, `python-fastapi`, `java-spring`, `dotnet`. The stdlib/legacy baselines (`python`, `python-flask`, `node-express`, `bun`, `java-netty`), the native-image variants (`nutcracker-native`, `swanlake-graalvm`, `graalvm-netty`), join in with `--runtimes all` or an explicit `--runtimes` list.
+
+`nutcracker-native` runs the same `services/ballerina/{hello,passthrough}.bal` sources compiled ahead-of-time via this repo's `bal build` into a standalone executable, rather than interpreted through `bal run`. Its executables are written to `services/ballerina/nutcracker-native/<stem>` — a dedicated directory kept separate from `swanlake-graalvm`'s images (which share `services/ballerina/<stem>`), so the two never clobber each other. `bal build` packs onto a `balrt` runner stub; for a local repo build the suite builds that stub next to `<repo>/bal` automatically (requires the Go toolchain).
 
 ## Scenarios
 
@@ -85,7 +88,7 @@ Per runtime × scenario × configuration:
 Install what you need for the runtimes you plan to run:
 
 - **`wrk`** (load generator) and **`lsof`** — always required.
-- **Go** 1.26+ — for `go`, and to build this repo's `bal` (`go build -o bal ./cli/cmd` from the repo root).
+- **Go** 1.26+ — for `go`, and to build this repo's `bal` (`go build -o bal ./cli/cmd` from the repo root). Also used by `nutcracker-native` to build the `balrt` runner stub `bal build` packs onto (done automatically on first run).
 - **Rust** (rustup/`cargo`) — for `rust` (`cargo build --release` runs automatically on first run).
 - **Bun** — for `bun`.
 - **.NET SDK 9** — for `dotnet` (`dotnet publish` runs automatically on first run).

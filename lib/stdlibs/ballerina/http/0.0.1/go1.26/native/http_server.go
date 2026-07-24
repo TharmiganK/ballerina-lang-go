@@ -482,6 +482,12 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 
 	segments := splitURLPath(subPath)
 	ctx := rt.NewExternContext()
+	// Recycle the context once the request is fully served. The resource runs
+	// synchronously on this strand within dispatchRequest and the response is
+	// written before we return; any async work it starts gets its own context
+	// (see runStrand), so releasing here cannot race with a started strand.
+	// Registered before the servingStrands defer so it runs last (LIFO).
+	defer rt.ReleaseExternContext(ctx)
 	state.mu.Lock()
 	state.servingStrands[ctx.StrandID] = struct{}{}
 	state.mu.Unlock()

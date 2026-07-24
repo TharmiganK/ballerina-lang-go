@@ -18,6 +18,7 @@ package runtime
 
 import (
 	"errors"
+	"sync"
 
 	"ballerina/bir"
 	"ballerina/model"
@@ -76,6 +77,10 @@ type Runtime struct {
 	lifeCycle
 	env        *extern.Env
 	ExitStatus <-chan uint8
+	// ctxPool recycles extern.Contexts across invocations so the (program-
+	// constant) semtype context caches stay warm instead of being reallocated
+	// per call — a hot path for request-per-invocation workloads like http.
+	ctxPool sync.Pool
 }
 
 // ModuleInitializer is a function that can install modules (e.g. stdlibs) into
@@ -197,7 +202,27 @@ func (rt *Runtime) GetTypeEnv() semtypes.Env {
 // interpreter loop, such as from HTTP handler goroutines. Each concurrent
 // execution path must have its own context.
 func (rt *Runtime) NewExternContext() *extern.Context {
+	if v := rt.ctxPool.Get(); v != nil {
+		ctx := v.(*extern.Context)
+		exec.ResetContextForReuse(ctx)
+		return ctx
+	}
 	return exec.CreateContext(rt.env)
+}
+
+// ReleaseExternContext returns a context obtained from NewExternContext to the
+// pool for reuse. Call it once the owning strand is done with the context and
+// nothing else still references it or its TypeCtx (e.g. after the response is
+// fully written).
+//
+// Async work spawned during the invocation is safe: StartMethod snapshots the
+// caller's frames by value and runStrand builds each started strand its own
+// context via CreateContext (own TypeCtx), so a started strand never aliases
+// this context — releasing it does not race with in-flight children. The only
+// shared state is the program-wide Env, which every context already shares and
+// which is not recycled here.
+func (rt *Runtime) ReleaseExternContext(ctx *extern.Context) {
+	rt.ctxPool.Put(ctx)
 }
 
 // RegisterExternFunction registers a native (extern) function implementation in

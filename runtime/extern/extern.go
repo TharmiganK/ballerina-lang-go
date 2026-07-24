@@ -77,6 +77,16 @@ func CreateContext(env *Env) *Context {
 	return &ctx
 }
 
+// ResetForReuse clears a context's per-request mutable state — a fresh strand
+// ID and an empty held-lock stack — while retaining the constant Env and the
+// warm TypeCtx memo caches (keyed on the program-constant TypeEnv). It lets a
+// pooled context serve a fresh request without reallocating the semtype
+// context. Safe only under exclusive ownership (e.g. via sync.Pool).
+func (ctx *Context) ResetForReuse() {
+	ctx.StrandID = ctx.Env.AllocateStrandID()
+	ctx.heldLocks = ctx.heldLocks[:0]
+}
+
 // AcquireLock acquires the global re-entrant mutex for the given lock key on
 // behalf of the current strand and pushes it onto the held-lock stack.
 //

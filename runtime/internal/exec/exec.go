@@ -28,3 +28,13 @@ func CreateContext(env *extern.Env) *extern.Context {
 	ctx.CallStack = &callStack{elements: make([]callStackEntry, 0, 32)}
 	return ctx
 }
+
+// ResetContextForReuse prepares a pooled context to serve a fresh request:
+// it truncates the call stack and resets per-request state (extern.ResetForReuse)
+// while keeping the warm TypeCtx caches. Pairs with a pooled NewExternContext.
+func ResetContextForReuse(ctx *extern.Context) {
+	ctx.ResetForReuse()
+	if cs, ok := ctx.CallStack.(*callStack); ok {
+		cs.elements = cs.elements[:0]
+	}
+}

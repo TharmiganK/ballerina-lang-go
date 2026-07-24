@@ -35,6 +35,11 @@ func CreateContext(env *extern.Env) *extern.Context {
 func ResetContextForReuse(ctx *extern.Context) {
 	ctx.ResetForReuse()
 	if cs, ok := ctx.CallStack.(*callStack); ok {
+		// Zero the whole backing array before truncating: a pooled context
+		// outlives the request, so leftover entries would keep request-local
+		// *Frame graphs reachable and unreclaimable until a deeper later
+		// request overwrote each slot.
+		clear(cs.elements[:cap(cs.elements)])
 		cs.elements = cs.elements[:0]
 	}
 }

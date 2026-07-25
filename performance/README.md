@@ -69,6 +69,8 @@ The honest deviations, imposed by what each stack can express: the plain-`python
 
 ## Metrics
 
+Each `(scenario, runtime, user-count, payload)` combination is measured on its **own freshly cold-started service process** — startup is timed once per `(scenario, runtime)`, then a new instance is launched (and warmed up) before every measured run. This keeps runs independent: heaps are high-water-mark, so a process shared across ascending user counts would carry earlier growth into the later memory readings. Because a discarded warmup precedes every measured run, JIT runtimes still reach steady state — but the warmup (`--warmup`) must be long enough to fully re-warm a cold JVM/GraalVM, or their throughput/latency will read low.
+
 Per runtime × scenario × configuration:
 
 | Metric | Source |

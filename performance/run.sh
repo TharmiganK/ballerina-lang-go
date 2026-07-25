@@ -330,6 +330,10 @@ session_spawn() {
     perl -MPOSIX -e 'chdir(shift) or die "chdir: $!"; POSIX::setsid(); exec @ARGV or die "exec: $!"' \
         -- "$workdir" "$@" > "$SERVICE_LOG" 2>&1 &
     SERVICE_PID=$!
+    # Drop the job from the shell's table so its later SIGTERM/SIGKILL (once per
+    # measured run now that services restart) doesn't print "Terminated" noise.
+    # Teardown is by PID/PGID, so disowning does not affect it.
+    disown "$SERVICE_PID" 2>/dev/null || true
 }
 
 # ── Spawn one runtime service in the background; sets SERVICE_PID ─────────────
@@ -425,6 +429,19 @@ stop_service() {
     wait_port_close "$SERVICE_PORT"
 }
 
+# ── Cold-start a fresh instance for an independent measured run ───────────────
+# Tears down the current instance and launches a new one, waiting until it is
+# listening. Unlike start_service it does no startup timing / best-of-N — that
+# is measured once per (scenario, runtime); this just gives each user-count /
+# payload its own process so measurements (especially memory, whose heaps are
+# high-water-mark) don't inherit state from earlier runs.
+restart_service() {
+    local rt="$1" scn="$2" stem="$3"
+    stop_service
+    launch_service "$rt" "$scn" "$stem" || return 1
+    wait_for_service "$SERVICE_PID" "$SERVICE_PORT" 120 || return 1
+}
+
 # ── Run wrk once; prints the parsed metrics line ──────────────────────────────
 # Args: scenario, users, threads, payload_file (empty for hello), duration
 run_wrk() {
@@ -483,6 +500,13 @@ for scn in "${SCENARIO_LIST[@]}"; do
 
         [[ "$startup" == "N/A" ]] && { stop_service; continue; }
 
+        stem="$(scenario_stem "$scn")"
+        # start_service left one fresh instance listening; reuse it for the first
+        # measured run, then cold-restart before every subsequent one so each
+        # user-count / payload is measured on an independent process (heaps are
+        # high-water-mark, so a shared process inflates later memory readings).
+        reuse_instance=1
+
         for users in "${USER_LIST[@]}"; do
             local_threads="${THREADS:-$(( users < CORES ? users : CORES ))}"
             for payload in "${SCN_PAYLOADS[@]}"; do
@@ -491,6 +515,17 @@ for scn in "${SCENARIO_LIST[@]}"; do
                     pfile="$PAYLOAD_DIR/${payload}.txt"
                     [[ -f "$pfile" ]] || { echo "  WARNING: payload $pfile not found, skipping"; continue; }
                 fi
+
+                if [[ "$reuse_instance" != 1 ]]; then
+                    if ! restart_service "$rt" "$scn" "$stem"; then
+                        echo "    WARNING: service failed to restart; recording N/A for this run" >&2
+                        key="$scn,$rt,$users,$payload"
+                        for m in THROUGHPUT AVG STDEV P99 MAXLAT ERR MAXMEM MAXCPU; do _store "$m" "$key" "N/A"; done
+                        stop_service
+                        continue
+                    fi
+                fi
+                reuse_instance=0
 
                 echo "  Users: $users | Payload: $payload | Threads: $local_threads"
                 start_monitor "$SERVICE_PORT"

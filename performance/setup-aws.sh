@@ -89,14 +89,26 @@ if ! command -v bun >/dev/null && [[ ! -x "$HOME/.bun/bin/bun" ]]; then
 fi
 
 echo "==> .NET SDK 9 (for the dotnet runtime)"
-sudo dnf -y install dotnet-sdk-9.0
+# AL2023 repos may only carry dotnet-sdk-8.0; fall back to Microsoft's installer
+# script, which drops a self-contained SDK in $HOME/.dotnet.
+DOTNET_ROOT_DIR="$HOME/.dotnet"
+if ! sudo dnf -y install dotnet-sdk-9.0; then
+    echo "  No dotnet-sdk-9.0 package; installing via dot.net/v1/dotnet-install.sh"
+    sudo dnf -y install libicu
+    if ! "$DOTNET_ROOT_DIR/dotnet" --list-sdks 2>/dev/null | grep -q '^9\.'; then
+        curl -fsSL -o /tmp/dotnet-install.sh https://dot.net/v1/dotnet-install.sh
+        bash /tmp/dotnet-install.sh --channel 9.0 --install-dir "$DOTNET_ROOT_DIR"
+        rm -f /tmp/dotnet-install.sh
+    fi
+fi
 
 echo "==> Environment (/etc/profile.d/perf-bench.sh)"
 sudo tee /etc/profile.d/perf-bench.sh >/dev/null <<EOF
 export JAVA_HOME=$JAVA21_HOME
 export GRAALVM_HOME=/opt/graalvm
+export DOTNET_ROOT=\$HOME/.dotnet
 # Corretto java first; GraalVM appended only for native-image.
-export PATH=\$JAVA_HOME/bin:/usr/local/go/bin:\$HOME/go/bin:\$HOME/.cargo/bin:\$HOME/.bun/bin:\$PATH:/opt/graalvm/bin
+export PATH=\$JAVA_HOME/bin:/usr/local/go/bin:\$HOME/go/bin:\$HOME/.cargo/bin:\$HOME/.bun/bin:\$DOTNET_ROOT:\$PATH:/opt/graalvm/bin
 EOF
 
 echo "==> Raising open-file limit for benchmark load (soft nofile 65535)"

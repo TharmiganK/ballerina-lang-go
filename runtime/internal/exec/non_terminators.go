@@ -94,30 +94,14 @@ func execNewError(ctx *extern.Context, newError *bir.NewError, frame *Frame) {
 }
 
 func execNewObject(ctx *extern.Context, newObject *bir.NewObject, frame *Frame) {
-	classDef := ctx.Env.Registry.(*modules.Registry).GetClassDef(newObject.ClassDefRef)
-	fieldValues := make(map[string]values.BalValue, len(classDef.Fields))
-	methodKeys := make(map[string]string, len(classDef.VTable))
-	for methodName, method := range classDef.VTable {
-		methodKeys[methodName] = method.FunctionLookupKey
-	}
-	rtable := make(map[string][]values.ResourceEntry, len(classDef.RTable))
-	for methodName, entries := range classDef.RTable {
-		copied := make([]values.ResourceEntry, len(entries))
-		for i, entry := range entries {
-			segs := make([]values.ResourcePathSegmentDef, len(entry.PathSegments))
-			for j, seg := range entry.PathSegments {
-				segs[j] = values.ResourcePathSegmentDef{Ty: seg.Ty}
-			}
-			copied[i] = values.ResourceEntry{
-				PathSegments:      segs,
-				RestSegmentTy:     entry.RestSegmentTy,
-				FunctionLookupKey: entry.Fn.FunctionLookupKey,
-			}
-		}
-		rtable[methodName] = copied
-	}
+	// The method-key and resource tables are identical for every instance of a
+	// class and never mutated after construction, so they are precomputed once
+	// per class and shared by reference (see modules.ClassTemplate). Only the
+	// per-instance field map is allocated here.
+	tmpl := ctx.Env.Registry.(*modules.Registry).GetClassTemplate(newObject.ClassDefRef)
+	fieldValues := make(map[string]values.BalValue, tmpl.FieldCount)
 	objType := newObject.GetLhsOperand().VariableDcl.GetType()
-	obj := values.NewObject(objType, fieldValues, methodKeys, rtable)
+	obj := values.NewObject(objType, fieldValues, tmpl.MethodKeys, tmpl.RTable)
 	setOperandValue(ctx, newObject.GetLhsOperand(), frame, obj)
 }
 

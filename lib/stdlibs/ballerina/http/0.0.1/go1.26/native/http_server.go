@@ -511,7 +511,7 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 		switch {
 		case extraArgs == 1:
 			// The resource declares a single parameter beyond its path params; inject the request.
-			req, err := buildRequestFromHTTP(r)
+			req, err := buildRequestFromHTTP(ctx.TypeCtx, r)
 			if err != nil {
 				writeErrorJSON(rt, w, r, http.StatusBadRequest, "failed to read request body: "+err.Error())
 				return
@@ -576,7 +576,7 @@ func splitURLPath(p string) []string {
 
 // buildRequestFromHTTP builds an http:Request value from r, buffering small
 // bodies eagerly and streaming large ones lazily for passthrough.
-func buildRequestFromHTTP(r *http.Request) (*values.Object, error) {
+func buildRequestFromHTTP(tc semtypes.Context, r *http.Request) (*values.Object, error) {
 	var bodyBuf []byte
 	var bodyStream io.ReadCloser
 	cl := r.ContentLength
@@ -594,17 +594,22 @@ func buildRequestFromHTTP(r *http.Request) (*values.Object, error) {
 	default:
 		bodyStream = r.Body
 	}
-	return buildRequest(r.Method, r.RequestURI, r.Proto, r.Header, bodyStream, cl, r.URL.RawQuery, bodyBuf), nil
+	return buildRequest(tc, r.Method, r.RequestURI, r.Proto, r.Header, bodyStream, cl, r.URL.RawQuery, bodyBuf), nil
 }
 
 // buildRequest constructs a Ballerina Request object from HTTP request data.
 // bodyStream is the raw request body; it is stored lazily in a requestBodyHolder
 // so the body is only read from the network when a getPayload method is called.
 // bodyBuf, when non-nil, is an already-read body; bodyStream must be nil in that case.
-func buildRequest(method, rawPath, httpVersion string, headers map[string][]string, bodyStream io.ReadCloser, contentLength int64, rawQuery string, bodyBuf []byte) *values.Object {
-	// Headers are stored lazily: the raw map is only converted to the Ballerina
-	// header Map on first access (see requestHeadersMap). A request that never
-	// reads a header skips building that value graph entirely.
+func buildRequest(tc semtypes.Context, method, rawPath, httpVersion string, headers map[string][]string, bodyStream io.ReadCloser, contentLength int64, rawQuery string, bodyBuf []byte) *values.Object {
+	headersMap := newMappingValue(tc)
+	for k, vals := range headers {
+		items := make([]values.BalValue, len(vals))
+		for i, v := range vals {
+			items[i] = v
+		}
+		headersMap.Put(tc, strings.ToLower(k), newListValue(tc, items))
+	}
 	var holder *requestBodyHolder
 	switch {
 	case bodyBuf != nil:
@@ -620,7 +625,7 @@ func buildRequest(method, rawPath, httpVersion string, headers map[string][]stri
 			"rawPath":     rawPath,
 			"method":      method,
 			"httpVersion": httpVersion,
-			"$headers":    &lazyRequestHeaders{raw: headers},
+			"$headers":    headersMap,
 			"$body":       holder,
 			"$queryStr":   rawQuery,
 		},

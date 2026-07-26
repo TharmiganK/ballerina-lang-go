@@ -206,88 +206,14 @@ func newTypedListValue(tc semtypes.Context, ty semtypes.SemType, items []values.
 	return values.NewList(ty, semtypes.ToListAtomicType(tc, ty), false, nil, 0, items)
 }
 
-// lazyRequestHeaders holds an inbound request's raw header map until a header is
-// first accessed. Requests that never read a header (the common lightweight
-// case) skip building the Ballerina header Map/List value graph entirely; the
-// map is materialized on demand and cached back under "$headers".
-type lazyRequestHeaders struct {
-	raw map[string][]string
-}
-
-// materializeHeaders converts a raw HTTP header map into a Ballerina header Map
-// (map<string[]> keyed by lower-cased name).
-func materializeHeaders(tc semtypes.Context, raw map[string][]string) *values.Map {
-	headersMap := newMappingValue(tc)
-	for k, vals := range raw {
-		items := make([]values.BalValue, len(vals))
-		for i, v := range vals {
-			items[i] = v
-		}
-		headersMap.Put(tc, strings.ToLower(k), newListValue(tc, items))
-	}
-	return headersMap
-}
-
-// requestHeadersMap returns the request's header Map and whether headers are
-// present, materializing a lazy inbound-header holder on first access and
-// caching the result back under "$headers". Objects that already hold a
-// *values.Map (outbound requests built via `new`) are returned unchanged.
-func requestHeadersMap(tc semtypes.Context, self *values.Object) (*values.Map, bool) {
-	hv, ok := self.Get("$headers")
-	if !ok {
-		return nil, false
-	}
-	switch h := hv.(type) {
-	case *values.Map:
-		return h, true
-	case *lazyRequestHeaders:
-		m := materializeHeaders(tc, h.raw)
-		self.Put("$headers", m)
-		return m, true
-	default:
-		return nil, false
-	}
-}
-
-// rawRequestHeaders returns a fresh copy of the request's headers as a raw
-// map[string][]string (lower-cased keys) without materializing a Ballerina Map
-// when they are still lazy — used by Go-side consumers (client forwarding,
-// message-to-body) that only need the wire form. The copy is safe for the
-// caller to mutate (e.g. strip hop-by-hop headers).
-func rawRequestHeaders(self *values.Object) map[string][]string {
-	hv, _ := self.Get("$headers")
-	switch h := hv.(type) {
-	case *lazyRequestHeaders:
-		out := make(map[string][]string, len(h.raw))
-		for k, vals := range h.raw {
-			out[strings.ToLower(k)] = vals
-		}
-		return out
-	case *values.Map:
-		out := make(map[string][]string, h.Len())
-		for _, k := range h.Keys() {
-			v, _ := h.Get(k)
-			list, ok := v.(*values.List)
-			if !ok {
-				continue
-			}
-			strs := make([]string, list.Len())
-			for i := range list.Len() {
-				if s, ok := list.Get(i).(string); ok {
-					strs[i] = s
-				}
-			}
-			out[k] = strs
-		}
-		return out
-	}
-	return nil
-}
-
 // setRequestHeader sets a single-value header on an http:Request object's $headers map.
 func setRequestHeader(self *values.Object, name, val string, tc semtypes.Context) {
-	hdrs, ok := requestHeadersMap(tc, self)
-	if !ok {
+	hdrsVal, ok := self.Get("$headers")
+	var hdrs *values.Map
+	if ok {
+		hdrs, _ = hdrsVal.(*values.Map)
+	}
+	if hdrs == nil {
 		hdrs = newMappingValue(tc)
 		self.Put("$headers", hdrs)
 	}
@@ -363,8 +289,16 @@ func initHttpModule(rt *runtime.Runtime) {
 		case *values.Object:
 			// http:Request object — extract body and content-type
 			ct := "application/octet-stream"
-			if cts := rawRequestHeaders(v)["content-type"]; len(cts) > 0 {
-				ct = cts[0]
+			if hdrsVal, ok := v.Get("$headers"); ok {
+				if hdrs, ok := hdrsVal.(*values.Map); ok {
+					if cv, ok := hdrs.Get("content-type"); ok {
+						if list, ok := cv.(*values.List); ok && list.Len() > 0 {
+							if s, ok := list.Get(0).(string); ok {
+								ct = s
+							}
+						}
+					}
+				}
 			}
 			bodyVal, _ := v.Get("$body")
 			if holder, ok := bodyVal.(*requestBodyHolder); ok {
@@ -866,9 +800,24 @@ func initHttpModule(rt *runtime.Runtime) {
 				method = "GET"
 			}
 
-			// Extract headers from the request object (reads the raw inbound
-			// header map directly when still lazy, avoiding a Map round-trip).
-			reqHeaders := rawRequestHeaders(reqObj)
+			// Extract headers from the request object.
+			hdrsVal, _ := reqObj.Get("$headers")
+			var reqHeaders map[string][]string
+			if hdrs, ok := hdrsVal.(*values.Map); ok {
+				reqHeaders = make(map[string][]string, hdrs.Len())
+				for _, k := range hdrs.Keys() {
+					v, _ := hdrs.Get(k)
+					if list, ok := v.(*values.List); ok {
+						strs := make([]string, list.Len())
+						for i := range list.Len() {
+							if s, ok := list.Get(i).(string); ok {
+								strs[i] = s
+							}
+						}
+						reqHeaders[k] = strs
+					}
+				}
+			}
 			// Strip hop-by-hop headers per RFC 7230 §6.1 before forwarding.
 			removeHopByHopHeaders(reqHeaders)
 			// Apply compression mode to Accept-Encoding after hop-by-hop removal.
@@ -1284,8 +1233,12 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
 			val, _ := args[2].(string)
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
-			if !ok {
+			hdrsVal, ok := self.Get("$headers")
+			var hdrs *values.Map
+			if ok {
+				hdrs, _ = hdrsVal.(*values.Map)
+			}
+			if hdrs == nil {
 				hdrs = newMappingValue(ctx.TypeCtx)
 				self.Put("$headers", hdrs)
 			}
@@ -1302,7 +1255,11 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			if hdrs, ok := requestHeadersMap(ctx.TypeCtx, self); ok {
+			hdrsVal, ok := self.Get("$headers")
+			if !ok {
+				return nil, nil
+			}
+			if hdrs, ok := hdrsVal.(*values.Map); ok {
 				hdrs.Delete(ctx.TypeCtx, name)
 			}
 			return nil, nil
@@ -1311,7 +1268,11 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.removeAllHeaders",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			if hdrs, ok := requestHeadersMap(ctx.TypeCtx, self); ok {
+			hdrsVal, ok := self.Get("$headers")
+			if !ok {
+				return nil, nil
+			}
+			if hdrs, ok := hdrsVal.(*values.Map); ok {
 				for _, k := range hdrs.Keys() {
 					hdrs.Delete(ctx.TypeCtx, k)
 				}
@@ -1323,7 +1284,11 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 
 			self := args[0].(*values.Object)
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrsVal, ok := self.Get("$headers")
+			if !ok {
+				return newTypedListValue(ctx.TypeCtx, types.strArrTy, nil), nil
+			}
+			hdrs, ok := hdrsVal.(*values.Map)
 			if !ok {
 				return newTypedListValue(ctx.TypeCtx, types.strArrTy, nil), nil
 			}
@@ -1346,7 +1311,11 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getContentType",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrsVal, ok := self.Get("$headers")
+			if !ok {
+				return "", nil
+			}
+			hdrs, ok := hdrsVal.(*values.Map)
 			if !ok {
 				return "", nil
 			}
@@ -1425,7 +1394,8 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrsVal, _ := self.Get("$headers")
+			hdrs, ok := hdrsVal.(*values.Map)
 			if !ok {
 				return values.NewErrorWithMessage("header not found: " + name), nil
 			}
@@ -1444,7 +1414,8 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrsVal, _ := self.Get("$headers")
+			hdrs, ok := hdrsVal.(*values.Map)
 			if !ok {
 				return values.NewErrorWithMessage("header not found: " + name), nil
 			}
@@ -1459,7 +1430,8 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrsVal, _ := self.Get("$headers")
+			hdrs, ok := hdrsVal.(*values.Map)
 			if !ok {
 				return false, nil
 			}

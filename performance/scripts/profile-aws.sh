@@ -16,14 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# profile-aws.sh — one-shot profiler for the Nutcracker hello service.
+# profile-aws.sh — one-shot profiler for a Nutcracker HTTP service.
 # Run from the repository root:   bash performance/scripts/profile-aws.sh
 # It builds a debug binary, loads the service with wrk, captures CPU/heap/
 # block/mutex/goroutine profiles, and writes a single digest to paste back.
 #
 # Optional env overrides:
-#   CONNS=200 DURATION=50 CPUSECS=30 PORT=9090 PPROF=6060 \
-#     bash performance/scripts/profile-aws.sh
+#   MODE=cpu|all  SCENARIO=hello|passthrough  PAYLOAD=1KB|10KB|50KB
+#   CONNS=200 DURATION=50 CPUSECS=30 PORT=9090 PPROF=6060
+# e.g.  MODE=cpu SCENARIO=passthrough PAYLOAD=1KB bash performance/scripts/profile-aws.sh
+# passthrough also starts the Netty echo backend on :8688 (builds it if needed).
 
 set -uo pipefail
 
@@ -32,14 +34,29 @@ set -uo pipefail
 #             overhead nor distorts the CPU profile; the digest reports flat
 #             (self) CPU time — the trustworthy view of where cycles actually go.
 MODE="${MODE:-all}"
+# SCENARIO=hello       → GET /hello (default).
+# SCENARIO=passthrough → POST a PAYLOAD to /passthrough, which the service
+#                        forwards to a Netty echo backend on :8688 — exercises
+#                        the http:Client path. PAYLOAD names a performance/payloads/ file.
+SCENARIO="${SCENARIO:-hello}"
+PAYLOAD="${PAYLOAD:-1KB}"
 CONNS="${CONNS:-200}"
 DURATION="${DURATION:-50}"
 CPUSECS="${CPUSECS:-30}"
 PORT="${PORT:-9090}"
 PPROF="${PPROF:-6060}"
-BAL="performance/services/ballerina/hello.bal"
 OUT="perf-profile-$(date +%Y%m%d-%H%M%S)"
 PROF_SRC="cli/cmd/prof_debug.go"
+BACKEND_JAR="performance/backend/target/perf-backend.jar"
+BACKEND_PORT=8688
+PAYLOAD_FILE="performance/payloads/${PAYLOAD}.txt"
+LUA="performance/scripts/post_payload.lua"
+
+case "$SCENARIO" in
+  hello)       BAL="performance/services/ballerina/hello.bal";       SVCPATH="/hello" ;;
+  passthrough) BAL="performance/services/ballerina/passthrough.bal"; SVCPATH="/passthrough" ;;
+  *) echo "ERROR: SCENARIO must be 'hello' or 'passthrough'"; exit 1 ;;
+esac
 
 say(){ printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
@@ -47,6 +64,15 @@ say(){ printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 [[ -f go.mod && -f "$PROF_SRC" && -f "$BAL" ]] || {
   echo "ERROR: run this from the repository root (go.mod, $PROF_SRC, $BAL must exist)"; exit 1; }
 for t in go wrk curl awk; do command -v "$t" >/dev/null || { echo "ERROR: '$t' not found"; exit 1; }; done
+if [[ "$SCENARIO" == passthrough ]]; then
+  command -v java >/dev/null || { echo "ERROR: 'java' needed for the passthrough backend"; exit 1; }
+  [[ -f "$LUA" ]]          || { echo "ERROR: missing $LUA"; exit 1; }
+  [[ -f "$PAYLOAD_FILE" ]] || { echo "ERROR: missing payload $PAYLOAD_FILE (set PAYLOAD=1KB|10KB|50KB|…)"; exit 1; }
+  if [[ ! -f "$BACKEND_JAR" ]]; then
+    echo "Building Netty echo backend (mvn)…"
+    (cd performance/backend && mvn -q -DskipTests package) || { echo "ERROR: backend build failed"; exit 1; }
+  fi
+fi
 
 mkdir -p "$OUT"
 echo "commit: $(git rev-parse --short HEAD 2>/dev/null || echo '?')  |  output dir: $OUT"
@@ -75,33 +101,54 @@ restore(){ [[ "$PATCHED" == 1 ]] && cp "$OUT/prof_debug.go.bak" "$PROF_SRC" && e
 say "Building debug binary"
 go build -tags debug -o "$OUT/bal-debug" ./cli/cmd || { restore; exit 1; }
 
-# ── free ports, launch service ───────────────────────────────────────────────
-for p in "$PORT" "$PPROF"; do
+# ── free ports ────────────────────────────────────────────────────────────────
+FREE_PORTS=("$PORT" "$PPROF")
+[[ "$SCENARIO" == passthrough ]] && FREE_PORTS+=("$BACKEND_PORT")
+for p in "${FREE_PORTS[@]}"; do
   pids=$(lsof -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null); [[ -n "$pids" ]] && kill -9 $pids 2>/dev/null; done
 sleep 0.5
+
+# ── start the Netty echo backend (passthrough only) ──────────────────────────
+BACKEND_PID=""
+if [[ "$SCENARIO" == passthrough ]]; then
+  say "Starting Netty echo backend on :$BACKEND_PORT"
+  java -jar "$BACKEND_JAR" --ssl false --http2 false >"$OUT/backend.log" 2>&1 &
+  BACKEND_PID=$!
+  for i in $(seq 1 300); do (exec 3<>"/dev/tcp/127.0.0.1/$BACKEND_PORT") 2>/dev/null && break; sleep 0.1; done
+fi
 
 say "Starting service (GODEBUG=gctrace=1)"
 GODEBUG=gctrace=1 "$OUT/bal-debug" run --prof --prof-addr ":$PPROF" "$BAL" \
   >"$OUT/service.out" 2>"$OUT/gctrace.log" &
 SVC=$!
-trap 'kill -9 $SVC 2>/dev/null; restore' EXIT
+trap 'kill -9 $SVC 2>/dev/null; [[ -n "$BACKEND_PID" ]] && kill -9 $BACKEND_PID 2>/dev/null; restore' EXIT
 
-# wait for the app port
-URLPATH=""
-for i in $(seq 1 200); do
-  for cand in "/hello" "/hello/"; do
-    if curl -s "http://127.0.0.1:$PORT$cand" 2>/dev/null | grep -q Hello; then URLPATH="$cand"; break 2; fi
-  done
+# wait until the service answers (GET for hello, POST the payload for passthrough)
+URL="http://127.0.0.1:$PORT$SVCPATH"
+ready=0
+for i in $(seq 1 300); do
+  if [[ "$SCENARIO" == hello ]]; then
+    curl -s "$URL" 2>/dev/null | grep -q Hello && { ready=1; break; }
+  else
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST --data-binary @"$PAYLOAD_FILE" \
+             -H 'Content-Type: text/plain' "$URL" 2>/dev/null)
+    [[ "$code" == 200 ]] && { ready=1; break; }
+  fi
   sleep 0.1
 done
-[[ -z "$URLPATH" ]] && { echo "ERROR: service never served Hello on :$PORT"; tail -20 "$OUT/gctrace.log"; exit 1; }
-URL="http://127.0.0.1:$PORT$URLPATH"
-echo "service up; endpoint = $URL"
+[[ "$ready" == 1 ]] || {
+  echo "ERROR: service not ready on :$PORT (scenario=$SCENARIO)"
+  tail -20 "$OUT/gctrace.log"; [[ -f "$OUT/backend.log" ]] && tail -5 "$OUT/backend.log"; exit 1; }
+echo "service up; scenario=$SCENARIO endpoint=$URL"
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/" -o /dev/null -w "pprof endpoint http=%{http_code}\n"
 
 # ── load + capture ───────────────────────────────────────────────────────────
-say "Load: wrk -t4 -c$CONNS -d${DURATION}s (capturing during it)"
-wrk -t4 -c"$CONNS" -d"${DURATION}s" --latency "$URL" >"$OUT/wrk.txt" 2>&1 &
+say "Load: wrk -t4 -c$CONNS -d${DURATION}s scenario=$SCENARIO (capturing during it)"
+if [[ "$SCENARIO" == hello ]]; then
+  wrk -t4 -c"$CONNS" -d"${DURATION}s" --latency "$URL" >"$OUT/wrk.txt" 2>&1 &
+else
+  PAYLOAD_FILE="$PAYLOAD_FILE" wrk -t4 -c"$CONNS" -d"${DURATION}s" --latency -s "$LUA" "$URL" >"$OUT/wrk.txt" 2>&1 &
+fi
 WRK=$!
 sleep 5
 # per-core OS view (best effort)
@@ -128,7 +175,7 @@ PP(){ go tool pprof "$@" 2>/dev/null; }
 DIGEST="$OUT/DIGEST.txt"
 {
   echo "################ NUTCRACKER PROFILE DIGEST ################"
-  echo "commit $(git rev-parse --short HEAD 2>/dev/null)  conns=$CONNS dur=${DURATION}s cpu=${CPUSECS}s  endpoint=$URLPATH"
+  echo "commit $(git rev-parse --short HEAD 2>/dev/null)  scenario=$SCENARIO payload=$([[ $SCENARIO == passthrough ]] && echo $PAYLOAD || echo -)  conns=$CONNS dur=${DURATION}s cpu=${CPUSECS}s  endpoint=$SVCPATH"
   echo
   echo "==== wrk ===="; cat "$OUT/wrk.txt"
   echo

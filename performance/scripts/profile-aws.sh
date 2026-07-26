@@ -27,6 +27,11 @@
 
 set -uo pipefail
 
+# MODE=all  → CPU + heap + block + mutex profiles (block/mutex show contention).
+# MODE=cpu  → CPU-only: block/mutex profiling is disabled so it neither adds
+#             overhead nor distorts the CPU profile; the digest reports flat
+#             (self) CPU time — the trustworthy view of where cycles actually go.
+MODE="${MODE:-all}"
 CONNS="${CONNS:-200}"
 DURATION="${DURATION:-50}"
 CPUSECS="${CPUSECS:-30}"
@@ -46,13 +51,22 @@ for t in go wrk curl awk; do command -v "$t" >/dev/null || { echo "ERROR: '$t' n
 mkdir -p "$OUT"
 echo "commit: $(git rev-parse --short HEAD 2>/dev/null || echo '?')  |  output dir: $OUT"
 
-# ── ensure block/mutex profiling is enabled in the debug profiler ────────────
+# ── set block/mutex profiling to match MODE (temporary source patch) ─────────
+# MODE=all needs it present (for the block/mutex profiles); MODE=cpu needs it
+# absent (so it doesn't add overhead or distort the CPU profile). Either way the
+# source is restored afterwards.
 PATCHED=0
-if ! grep -q "SetMutexProfileFraction" "$PROF_SRC"; then
+has_bm(){ grep -q "SetMutexProfileFraction" "$PROF_SRC"; }
+if [[ "$MODE" == cpu ]] && has_bm; then
+  say "Disabling block/mutex profiling in $PROF_SRC for a clean CPU profile (temporary)"
+  cp "$PROF_SRC" "$OUT/prof_debug.go.bak"
+  perl -0pi -e 's/\n\truntime\.SetBlockProfileRate\(\d+\)\n\truntime\.SetMutexProfileFraction\(\d+\)\n//' "$PROF_SRC"
+  has_bm || PATCHED=1
+elif [[ "$MODE" != cpu ]] && ! has_bm; then
   say "Enabling block/mutex profiling in $PROF_SRC (temporary)"
   cp "$PROF_SRC" "$OUT/prof_debug.go.bak"
   perl -0pi -e 's/(\n\tif !p\.enabled \{\n\t\treturn nil\n\t\}\n)/$1\n\truntime.SetBlockProfileRate(10000)\n\truntime.SetMutexProfileFraction(10)\n/' "$PROF_SRC"
-  if grep -q "SetMutexProfileFraction" "$PROF_SRC"; then PATCHED=1; else
+  if has_bm; then PATCHED=1; else
     echo "WARN: could not auto-patch; block/mutex profiles may be empty"; cp "$OUT/prof_debug.go.bak" "$PROF_SRC"; fi
 fi
 restore(){ [[ "$PATCHED" == 1 ]] && cp "$OUT/prof_debug.go.bak" "$PROF_SRC" && echo "restored $PROF_SRC"; }
@@ -95,9 +109,11 @@ MPSTAT=""
 if command -v mpstat >/dev/null; then mpstat -P ALL 1 "$CPUSECS" >"$OUT/mpstat.txt" 2>&1 & MPSTAT=$!; fi
 # CPU profile blocks for CPUSECS
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/profile?seconds=$CPUSECS" -o "$OUT/cpu.pb.gz"
-# instantaneous captures while still under load
-curl -s "http://127.0.0.1:$PPROF/debug/pprof/block"            -o "$OUT/block.pb.gz"
-curl -s "http://127.0.0.1:$PPROF/debug/pprof/mutex"            -o "$OUT/mutex.pb.gz"
+# instantaneous captures while still under load (block/mutex only in full mode)
+if [[ "$MODE" != cpu ]]; then
+  curl -s "http://127.0.0.1:$PPROF/debug/pprof/block"          -o "$OUT/block.pb.gz"
+  curl -s "http://127.0.0.1:$PPROF/debug/pprof/mutex"          -o "$OUT/mutex.pb.gz"
+fi
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/allocs"           -o "$OUT/allocs.pb.gz"
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/goroutine?debug=1" -o "$OUT/goroutine.txt"
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/heap?debug=1"      -o "$OUT/memstats.txt"
@@ -128,11 +144,16 @@ DIGEST="$OUT/DIGEST.txt"
   else
     echo "==== per-core CPU: mpstat not installed (sudo yum install -y sysstat) ===="; echo
   fi
+  echo "==== CPU FLAT self-time (top 30) — where cycles actually go ===="
+  PP -top -flat -nodecount=30 "$BIN" "$OUT/cpu.pb.gz" | sed -n '1,37p'
+  echo
   echo "==== CPU (top 25, cumulative) ===="; PP -top -cum -nodecount=25 "$BIN" "$OUT/cpu.pb.gz" | sed -n '1,32p'
-  echo
-  echo "==== MUTEX contention (top 20 by delay) ===="; PP -top -sample_index=delay -nodecount=20 "$BIN" "$OUT/mutex.pb.gz" | sed -n '1,27p'
-  echo
-  echo "==== BLOCK (top 20 by delay) ===="; PP -top -sample_index=delay -nodecount=20 "$BIN" "$OUT/block.pb.gz" | sed -n '1,27p'
+  if [[ "$MODE" != cpu ]]; then
+    echo
+    echo "==== MUTEX contention (top 20 by delay) ===="; PP -top -sample_index=delay -nodecount=20 "$BIN" "$OUT/mutex.pb.gz" | sed -n '1,27p'
+    echo
+    echo "==== BLOCK (top 20 by delay) ===="; PP -top -sample_index=delay -nodecount=20 "$BIN" "$OUT/block.pb.gz" | sed -n '1,27p'
+  fi
   echo
   echo "==== ALLOCS (top 15 by bytes) ===="; PP -top -sample_index=alloc_space -nodecount=15 "$BIN" "$OUT/allocs.pb.gz" | sed -n '1,22p'
   echo "##########################################################"

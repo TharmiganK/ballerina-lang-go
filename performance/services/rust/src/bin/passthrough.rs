@@ -30,12 +30,13 @@ const BACKEND: &str = "http://localhost:8688/";
 
 #[tokio::main]
 async fn main() {
-    // Shared networking baseline (see performance/README.md): connection
-    // reuse, unlimited active connections, up to 100 idle per host, 300s idle
-    // timeout, 15s connect timeout, TCP_NODELAY on, no decompression (no
-    // compression features are enabled on reqwest).
+    // Shared networking baseline (see performance/README.md): connection reuse,
+    // unlimited active connections, idle pool sized to 512 (above the suite's
+    // 500-user peak so connections are reused, not evicted), 300s idle timeout,
+    // 15s connect timeout, TCP_NODELAY on, no decompression (no compression
+    // features are enabled on reqwest).
     let client = reqwest::Client::builder()
-        .pool_max_idle_per_host(100)
+        .pool_max_idle_per_host(512)
         .pool_idle_timeout(Duration::from_secs(300))
         .connect_timeout(Duration::from_secs(15))
         .tcp_nodelay(true)

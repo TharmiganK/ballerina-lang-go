@@ -46,10 +46,11 @@ var (
 			DisableKeepAlives:  false,
 			DisableCompression: true, // don't inject Accept-Encoding: gzip; Netty echoes it back
 
-			// Pool sized to match jBallerina defaults (maxIdleConnections=100, unlimited active).
-			// Go's default MaxIdleConnsPerHost=2 causes pool exhaustion under concurrent load.
+			// Idle pool sized to 512 — above the suite's 500-user peak so keep-alive
+			// connections are reused rather than evicted and re-dialed between requests.
+			// (Go's default MaxIdleConnsPerHost=2 causes pool exhaustion under load.)
 			MaxIdleConns:        512,
-			MaxIdleConnsPerHost: 100,
+			MaxIdleConnsPerHost: 512,
 			MaxConnsPerHost:     0,
 
 			// 300s matches jBallerina's minEvictableIdleTime so the pool never holds a

@@ -36,13 +36,13 @@ The two Ballerina runtimes share one source tree (`services/ballerina/{hello,pas
 
 ## Networking configuration
 
-For a fair comparison every runtime is configured to the same networking baseline — the jBallerina `http:Client` defaults, which the Go passthrough was hand-tuned to mirror:
+For a fair comparison every runtime is configured to the same networking baseline. The idle pool is sized to **512** — above the suite's 500-user peak — so backend keep-alive connections are reused rather than evicted and re-dialed between requests. (The earlier jBallerina/Go default of 100 idle throttled every runtime whose stack *has* an idle cap by ~20% at 200 users through connection churn, while the stacks with no cap — Netty, Reactor Netty, aiohttp, .NET — reused everything; 512 levels that so the comparison stays fair and representative of a real deployment.)
 
 | Setting | Value |
 |---|---|
 | Connection reuse (HTTP keep-alive) | enabled |
 | Max active connections per host | unlimited |
-| Max idle connections per host | 100 |
+| Max idle connections per host | 512 (≥ peak load) |
 | Idle / socket timeout | 300s |
 | Connect timeout | 15s |
 | TCP `TCP_NODELAY` | on |
@@ -53,12 +53,12 @@ How each runtime maps onto it:
 
 | Runtime | Pool / connection config |
 |---|---|
-| `nutcracker`, `swanlake`, `swanlake-graalvm` | `http:Client` `poolConfig` set explicitly to `maxActiveConnections = -1`, `maxIdleConnections = 100` (also the jBallerina default). |
-| `go` | `http.Transport`: `MaxIdleConnsPerHost = 100`, `MaxConnsPerHost = 0`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
-| `rust` | `reqwest` client: `pool_max_idle_per_host = 100`, `pool_idle_timeout = 300s`, 15s connect timeout, `TCP_NODELAY` on, no compression features enabled. |
+| `nutcracker`, `swanlake`, `swanlake-graalvm` | `http:Client` `poolConfig` set explicitly to `maxActiveConnections = -1`, `maxIdleConnections = 512`. |
+| `go` | `http.Transport`: `MaxIdleConnsPerHost = 512`, `MaxConnsPerHost = 0`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
+| `rust` | `reqwest` client: `pool_max_idle_per_host = 512`, `pool_idle_timeout = 300s`, 15s connect timeout, `TCP_NODELAY` on, no compression features enabled. |
 | `bun` | Bun's built-in `fetch`: upstream keep-alive on by default; no user-facing pool configuration. |
-| `node`, `node-express` | `http.Agent`: `keepAlive`, `maxSockets = 0`, `maxFreeSockets = 100`, `timeout = 300000`. |
-| `python-flask` | `requests` session with `HTTPAdapter(pool_maxsize = 100)`. |
+| `node`, `node-express` | `http.Agent`: `keepAlive`, `maxSockets = 0`, `maxFreeSockets = 512`, `timeout = 300000`. |
+| `python-flask` | `requests` session with `HTTPAdapter(pool_maxsize = 512)`. |
 | `python` | stdlib has no shared pool; one reused keep-alive connection per worker thread (300s timeout). |
 | `python-fastapi` | `aiohttp.ClientSession` with `TCPConnector(limit = 0, keepalive_timeout = 300)`, 15s connect timeout, decompression off. |
 | `java-netty`, `graalvm-netty` | Netty `SimpleChannelPool` (unlimited active, connections reused), `TCP_NODELAY` on, `SO_KEEPALIVE` off, 15s connect timeout. |

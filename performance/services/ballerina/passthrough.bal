@@ -18,13 +18,16 @@ import ballerina/http;
 import ballerina/log;
 
 // Shared networking baseline (see performance/README.md): unlimited active
-// connections, up to 100 idle per host. These are also jBallerina's defaults;
-// set explicitly so every runtime uses the same pool configuration.
+// connections; idle pool sized to 512 — above the suite's 500-user peak so
+// backend keep-alive connections are reused rather than evicted and re-dialed
+// between requests. This matches the effectively-unlimited pools of the
+// runtimes whose HTTP stacks expose no idle cap (Netty, Reactor Netty, aiohttp,
+// .NET SocketsHttpHandler); applied uniformly so passthrough stays comparable.
 final http:Client nettyEP = checkpanic new ("http://localhost:8688", {
     httpVersion: "1.1",
     poolConfig: {
         maxActiveConnections: -1,
-        maxIdleConnections: 100
+        maxIdleConnections: 512
     }
 });
 

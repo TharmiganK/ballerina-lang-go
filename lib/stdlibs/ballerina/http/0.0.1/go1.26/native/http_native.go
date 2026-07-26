@@ -192,13 +192,34 @@ func eagerBufferResponse(respHeaders map[string][]string, bodyStream io.ReadClos
 }
 
 // newMappingValue builds a fresh open map<anydata|error> value.
+// The header/request maps and value lists built per request all use the
+// program-constant MAPPING / LIST inherent types, whose atomic type does not
+// depend on the type context. ToMappingAtomicType/ToListAtomicType allocate a
+// fresh copy on every call, so cache the results once and reuse the shared
+// pointers — Map/List only read the atomic type, never mutate it, so sharing is
+// safe.
+var (
+	atomicTypesOnce   sync.Once
+	mappingAtomicType *semtypes.MappingAtomicType
+	listAtomicType    *semtypes.ListAtomicType
+)
+
+func initAtomicTypes(tc semtypes.Context) {
+	atomicTypesOnce.Do(func() {
+		mappingAtomicType = semtypes.ToMappingAtomicType(tc, semtypes.MAPPING)
+		listAtomicType = semtypes.ToListAtomicType(tc, semtypes.LIST)
+	})
+}
+
 func newMappingValue(tc semtypes.Context) *values.Map {
-	return values.NewMap(semtypes.MAPPING, semtypes.ToMappingAtomicType(tc, semtypes.MAPPING), false, nil)
+	initAtomicTypes(tc)
+	return values.NewMap(semtypes.MAPPING, mappingAtomicType, false, nil)
 }
 
 // newListValue builds a fresh open list seeded with items.
 func newListValue(tc semtypes.Context, items []values.BalValue) *values.List {
-	return values.NewList(semtypes.LIST, semtypes.ToListAtomicType(tc, semtypes.LIST), false, nil, 0, items)
+	initAtomicTypes(tc)
+	return values.NewList(semtypes.LIST, listAtomicType, false, nil, 0, items)
 }
 
 // newTypedListValue builds a typed list seeded with items.

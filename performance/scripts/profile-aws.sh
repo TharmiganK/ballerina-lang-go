@@ -91,7 +91,8 @@ wrk -t4 -c"$CONNS" -d"${DURATION}s" --latency "$URL" >"$OUT/wrk.txt" 2>&1 &
 WRK=$!
 sleep 5
 # per-core OS view (best effort)
-if command -v mpstat >/dev/null; then mpstat -P ALL 1 "$CPUSECS" >"$OUT/mpstat.txt" 2>&1 & fi
+MPSTAT=""
+if command -v mpstat >/dev/null; then mpstat -P ALL 1 "$CPUSECS" >"$OUT/mpstat.txt" 2>&1 & MPSTAT=$!; fi
 # CPU profile blocks for CPUSECS
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/profile?seconds=$CPUSECS" -o "$OUT/cpu.pb.gz"
 # instantaneous captures while still under load
@@ -101,7 +102,9 @@ curl -s "http://127.0.0.1:$PPROF/debug/pprof/allocs"           -o "$OUT/allocs.p
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/goroutine?debug=1" -o "$OUT/goroutine.txt"
 curl -s "http://127.0.0.1:$PPROF/debug/pprof/heap?debug=1"      -o "$OUT/memstats.txt"
 wait "$WRK" 2>/dev/null
-wait 2>/dev/null   # mpstat
+# Wait only on mpstat — a bare `wait` would also block on the service process,
+# which is a server that never exits.
+[[ -n "$MPSTAT" ]] && wait "$MPSTAT" 2>/dev/null || true
 
 # ── analyze ──────────────────────────────────────────────────────────────────
 BIN="$OUT/bal-debug"

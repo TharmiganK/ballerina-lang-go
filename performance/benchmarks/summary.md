@@ -98,11 +98,13 @@ The load charts give each runtime **three bars — 100, 200, 500 users** (left �
 
 ## Nutcracker, across the load range
 
-| Users | Throughput | Avg latency | p99 | Memory | Errors |
-|---|---:|---:|---:|---:|---:|
-| 100 | 64,607 req/s | 1.93 ms | 8.92 ms | 40.3 MB | 0% |
-| 200 | 66,241 req/s | 3.52 ms | 15.02 ms | 44.9 MB | 0% |
-| 500 | 65,893 req/s | 8.37 ms | 32.79 ms | 63.7 MB | 0% |
+| Users | Throughput | Avg latency | p99 | Memory | Max CPU | Errors |
+|---|---:|---:|---:|---:|---:|---:|
+| 100 | 64,607 req/s | 1.93 ms | 8.92 ms | 40.3 MB | 305% | 0% |
+| 200 | 66,241 req/s | 3.52 ms | 15.02 ms | 44.9 MB | 266% | 0% |
+| 500 | 65,893 req/s | 8.37 ms | 32.79 ms | 63.7 MB | 266% | 0% |
+
+_Max CPU is the peak aggregate across all cores; **400% = the box's 4 vCPUs fully used**. Nutcracker plateaus around **266%** under load — roughly 2.7 of 4 cores — so it is not CPU-bound at this workload; there is headroom the current single-service HTTP path doesn't yet exploit._
 
 **Nutcracker vs. Swan Lake (at 500 users):** ~**1.6×** the throughput · ~**108×** faster to start · ~**15×** less memory.
 
@@ -118,47 +120,49 @@ The load charts give each runtime **three bars — 100, 200, 500 users** (left �
 <details>
 <summary>Show the full numbers (per user count)</summary>
 
+_**Max CPU (%)** is the peak aggregate across cores — **400% = all 4 vCPUs**. Values above 400% are sampling peaks from runtimes that spread work across many OS threads/processes (FastAPI runs one worker per core; the JVM's GC/JIT threads spike the sampler). None of the runtimes is pinned._
+
 **100 users**
 
-| Runtime | Throughput | Avg (ms) | p99 (ms) | Std-dev (ms) | Memory (MB) | Errors |
-|---|---:|---:|---:|---:|---:|---:|
-| Rust | 152,074 | 0.63 | 2.36 | 0.48 | 6.7 | 0% |
-| .NET (ASP.NET Core) | 108,954 | 0.89 | 3.56 | 0.71 | 71.3 | 0% |
-| Go | 94,937 | 1.31 | 6.96 | 1.51 | 16.1 | 0% |
-| Ballerina Nutcracker (bal run) | 64,607 | 1.93 | 8.92 | 2.04 | 40.3 | 0% |
-| Ballerina Nutcracker (bal build) | 62,445 | 1.95 | 8.58 | 2.00 | 26.2 | 0% |
-| Java (Spring Boot) | 61,037 | 2.35 | 12.30 | 2.73 | 539.2 | 0% |
-| Ballerina Swan Lake | 37,748 | 2.72 | 8.91 | 1.75 | 628.4 | 0% |
-| Node.js | 27,119 | 3.69 | 4.76 | 0.72 | 80.4 | 0% |
-| Python (FastAPI) | 11,134 | 9.14 | 25.02 | 3.62 | 218.0 | 0% |
+| Runtime | Throughput | Avg (ms) | p99 (ms) | Std-dev (ms) | Memory (MB) | Max CPU (%) | Errors |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Rust | 152,074 | 0.63 | 2.36 | 0.48 | 6.7 | 305 | 0% |
+| .NET (ASP.NET Core) | 108,954 | 0.89 | 3.56 | 0.71 | 71.3 | 297 | 0% |
+| Go | 94,937 | 1.31 | 6.96 | 1.51 | 16.1 | 268 | 0% |
+| Ballerina Nutcracker (bal run) | 64,607 | 1.93 | 8.92 | 2.04 | 40.3 | 305 | 0% |
+| Ballerina Nutcracker (bal build) | 62,445 | 1.95 | 8.58 | 2.00 | 26.2 | 385 | 0% |
+| Java (Spring Boot) | 61,037 | 2.35 | 12.30 | 2.73 | 539.2 | 429 | 0% |
+| Ballerina Swan Lake | 37,748 | 2.72 | 8.91 | 1.75 | 628.4 | 418 | 0% |
+| Node.js | 27,119 | 3.69 | 4.76 | 0.72 | 80.4 | 165 | 0% |
+| Python (FastAPI) | 11,134 | 9.14 | 25.02 | 3.62 | 218.0 | 624 | 0% |
 
 **200 users**
 
-| Runtime | Throughput | Avg (ms) | p99 (ms) | Std-dev (ms) | Memory (MB) | Errors |
-|---|---:|---:|---:|---:|---:|---:|
-| Rust | 155,133 | 1.24 | 5.01 | 0.98 | 10.8 | 0% |
-| .NET (ASP.NET Core) | 115,215 | 1.59 | 4.61 | 0.87 | 89.8 | 0% |
-| Go | 95,622 | 2.39 | 10.91 | 2.46 | 18.9 | 0% |
-| Ballerina Nutcracker (bal run) | 66,241 | 3.52 | 15.02 | 3.47 | 44.9 | 0% |
-| Ballerina Nutcracker (bal build) | 64,987 | 3.57 | 14.94 | 3.47 | 29.5 | 0% |
-| Java (Spring Boot) | 60,822 | 3.73 | 14.53 | 3.16 | 540.4 | 0% |
-| Ballerina Swan Lake | 39,620 | 5.12 | 14.92 | 3.07 | 832.8 | 0% |
-| Node.js | 27,299 | 7.34 | 9.47 | 2.26 | 84.0 | 0% |
-| Python (FastAPI) | 10,841 | 18.52 | 39.72 | 5.54 | 223.7 | 0% |
+| Runtime | Throughput | Avg (ms) | p99 (ms) | Std-dev (ms) | Memory (MB) | Max CPU (%) | Errors |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Rust | 155,133 | 1.24 | 5.01 | 0.98 | 10.8 | 190 | 0% |
+| .NET (ASP.NET Core) | 115,215 | 1.59 | 4.61 | 0.87 | 89.8 | 219 | 0% |
+| Go | 95,622 | 2.39 | 10.91 | 2.46 | 18.9 | 237 | 0% |
+| Ballerina Nutcracker (bal run) | 66,241 | 3.52 | 15.02 | 3.47 | 44.9 | 266 | 0% |
+| Ballerina Nutcracker (bal build) | 64,987 | 3.57 | 14.94 | 3.47 | 29.5 | 268 | 0% |
+| Java (Spring Boot) | 60,822 | 3.73 | 14.53 | 3.16 | 540.4 | 265 | 0% |
+| Ballerina Swan Lake | 39,620 | 5.12 | 14.92 | 3.07 | 832.8 | 321 | 0% |
+| Node.js | 27,299 | 7.34 | 9.47 | 2.26 | 84.0 | 100 | 0% |
+| Python (FastAPI) | 10,841 | 18.52 | 39.72 | 5.54 | 223.7 | 355 | 0% |
 
 **500 users**
 
-| Runtime | Throughput | Avg (ms) | p99 (ms) | Std-dev (ms) | Memory (MB) | Errors |
-|---|---:|---:|---:|---:|---:|---:|
-| Rust | 154,527 | 3.14 | 12.12 | 2.52 | 19.8 | 0% |
-| .NET (ASP.NET Core) | 119,776 | 3.70 | 9.52 | 1.66 | 116.0 | 0% |
-| Go | 97,449 | 5.43 | 22.16 | 4.93 | 29.1 | 0% |
-| Ballerina Nutcracker (bal run) | 65,893 | 8.37 | 32.79 | 7.48 | 63.7 | 0% |
-| Ballerina Nutcracker (bal build) | 65,164 | 8.46 | 33.19 | 7.56 | 47.7 | 0% |
-| Java (Spring Boot) | 61,546 | 8.10 | 21.30 | 4.32 | 615.5 | 0% |
-| Ballerina Swan Lake | 40,585 | 12.33 | 32.12 | 6.53 | 964.5 | 0% |
-| Node.js | 26,049 | 19.28 | 24.19 | 10.24 | 90.8 | 0% |
-| Python (FastAPI) | 9,651 | 51.84 | 98.15 | 15.02 | 238.8 | 0% |
+| Runtime | Throughput | Avg (ms) | p99 (ms) | Std-dev (ms) | Memory (MB) | Max CPU (%) | Errors |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Rust | 154,527 | 3.14 | 12.12 | 2.52 | 19.8 | 190 | 0% |
+| .NET (ASP.NET Core) | 119,776 | 3.70 | 9.52 | 1.66 | 116.0 | 219 | 0% |
+| Go | 97,449 | 5.43 | 22.16 | 4.93 | 29.1 | 237 | 0% |
+| Ballerina Nutcracker (bal run) | 65,893 | 8.37 | 32.79 | 7.48 | 63.7 | 266 | 0% |
+| Ballerina Nutcracker (bal build) | 65,164 | 8.46 | 33.19 | 7.56 | 47.7 | 268 | 0% |
+| Java (Spring Boot) | 61,546 | 8.10 | 21.30 | 4.32 | 615.5 | 265 | 0% |
+| Ballerina Swan Lake | 40,585 | 12.33 | 32.12 | 6.53 | 964.5 | 320 | 0% |
+| Node.js | 26,049 | 19.28 | 24.19 | 10.24 | 90.8 | 100 | 0% |
+| Python (FastAPI) | 9,651 | 51.84 | 98.15 | 15.02 | 238.8 | 354 | 0% |
 
 </details>
 

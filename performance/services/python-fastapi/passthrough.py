@@ -18,6 +18,10 @@
 on port 8688 via an aiohttp client. Served by uvicorn as `passthrough:app` with
 uvloop + httptools and one worker per core (see run.sh)."""
 
+# Defer annotation evaluation so the `X | None` union syntax (PEP 604) works on
+# Python 3.9, which is still shipped on some hosts (e.g. Amazon Linux 2023).
+from __future__ import annotations
+
 from contextlib import asynccontextmanager
 
 import aiohttp

@@ -709,8 +709,22 @@ func writeResult(rt *runtime.Runtime, _ semtypes.Context, w http.ResponseWriter,
 	}
 }
 
-// writeStream writes the body to w via io.Copy (streaming) or w.Write (buffered),
-// then closes the stream. After this call the holder is exhausted.
+// copyBufPool reuses 32 KB buffers for streaming a backend response body to the
+// downstream client. Without it, io.Copy → net/http's response.ReadFrom
+// allocates a fresh 32 KB buffer on every request (kernel splice is unavailable
+// when the source is a userspace stream), which dominates allocations at large
+// payloads.
+var copyBufPool = sync.Pool{New: func() any { b := make([]byte, 32*1024); return &b }}
+
+// onlyWriter exposes only Write, hiding any ReadFrom the underlying writer has,
+// so io.CopyBuffer uses our pooled buffer instead of response.ReadFrom's
+// per-call allocation. Output is identical — the ResponseWriter's Write already
+// handles chunked/content-length framing.
+type onlyWriter struct{ io.Writer }
+
+// writeStream writes the body to w via io.CopyBuffer (streaming, pooled buffer)
+// or w.Write (buffered), then closes the stream. After this call the holder is
+// exhausted.
 func (h *responseBodyHolder) writeStream(w io.Writer) error {
 	var (
 		s   io.ReadCloser
@@ -727,7 +741,9 @@ func (h *responseBodyHolder) writeStream(w io.Writer) error {
 		}
 	})
 	if s != nil {
-		_, err := io.Copy(w, s)
+		bufp := copyBufPool.Get().(*[]byte)
+		_, err := io.CopyBuffer(onlyWriter{w}, s, *bufp)
+		copyBufPool.Put(bufp)
 		_ = s.Close()
 		return err
 	}

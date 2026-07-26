@@ -80,12 +80,15 @@ func (p *enabledProfiler) Start() error {
 	runtime.SetBlockProfileRate(10000)
 	runtime.SetMutexProfileFraction(10)
 
-	// Create HTTP server (pprof handlers auto-registered by import)
+	// Create HTTP server (pprof handlers auto-registered by import).
+	// WriteTimeout is left unset: /debug/pprof/profile?seconds=N holds the
+	// connection open for N seconds before writing, so any finite write deadline
+	// shorter than the requested profile duration would truncate the CPU profile
+	// to an empty response.
 	p.server = &http.Server{
-		Addr:         p.addr,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:        p.addr,
+		ReadTimeout: 5 * time.Second,
+		IdleTimeout: 60 * time.Second,
 	}
 
 	// Start server in background

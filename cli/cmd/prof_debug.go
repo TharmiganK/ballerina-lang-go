@@ -72,6 +72,14 @@ func (p *enabledProfiler) Start() error {
 		return nil
 	}
 
+	// Enable block and mutex profiling so /debug/pprof/{block,mutex} return data
+	// (both are off by default). These surface contention — the signal that
+	// matters when CPU is not saturated. The rates are modest to keep overhead
+	// low: sample a blocking event roughly per 10µs blocked, and 1 in 10 mutex
+	// contention events.
+	runtime.SetBlockProfileRate(10000)
+	runtime.SetMutexProfileFraction(10)
+
 	// Create HTTP server (pprof handlers auto-registered by import)
 	p.server = &http.Server{
 		Addr:         p.addr,

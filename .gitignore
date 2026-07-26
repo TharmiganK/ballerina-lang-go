@@ -38,6 +38,8 @@ go.work.sum
 # Performance benchmark suite: raw run outputs + per-runtime build artifacts.
 # The curated summaries under performance/benchmarks/ ARE tracked.
 /performance/results/
+# Output dirs from performance/scripts/profile-aws.sh (created in the repo root).
+/perf-profile-*/
 /performance/services/go/bin/
 /performance/services/node-express/node_modules/
 /performance/services/dotnet/bin/

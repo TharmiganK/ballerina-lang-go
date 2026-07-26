@@ -17,15 +17,14 @@
 import ballerina/http;
 import ballerina/log;
 
-// EXPERIMENT: idle pool raised from the 100 baseline to 250 (> the 200-connection
-// load) so no idle connection is evicted between requests — isolates whether the
-// per-request bufio/connect churn seen in profiling is idle-pool churn. Revert to
-// 100 (jBallerina's default shared baseline) before comparing across runtimes.
+// Shared networking baseline (see performance/README.md): unlimited active
+// connections, up to 100 idle per host. These are also jBallerina's defaults;
+// set explicitly so every runtime uses the same pool configuration.
 final http:Client nettyEP = checkpanic new ("http://localhost:8688", {
     httpVersion: "1.1",
     poolConfig: {
         maxActiveConnections: -1,
-        maxIdleConnections: 250
+        maxIdleConnections: 100
     }
 });
 

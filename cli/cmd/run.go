@@ -24,33 +24,34 @@ import (
 	goruntime "runtime"
 	"strings"
 
-	interpsrc "ballerina-lang-go"
-	"ballerina-lang-go/bir"
-	"ballerina-lang-go/cli/internal/nativeexec"
-	"ballerina-lang-go/cli/internal/nativerunner"
-	debugcommon "ballerina-lang-go/common"
-	_ "ballerina-lang-go/lib/rt"
-	"ballerina-lang-go/lib/stdlibs"
-	"ballerina-lang-go/platform/palnative"
-	"ballerina-lang-go/projects"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/tools/diagnostics"
+	interpsrc "ballerina"
+	"ballerina/bir"
+	"ballerina/cli/internal/nativeexec"
+	"ballerina/cli/internal/nativerunner"
+	debugcommon "ballerina/common"
+	_ "ballerina/lib/rt"
+	"ballerina/lib/stdlibs"
+	"ballerina/platform/palnative"
+	"ballerina/projects"
+	"ballerina/runtime"
+	"ballerina/semtypes"
+	"ballerina/tools/diagnostics"
 
 	"github.com/spf13/cobra"
 )
 
 var runOpts struct {
-	dumpTokens    bool
-	dumpST        bool
-	dumpAST       bool
-	dumpCFG       bool
-	dumpBIR       bool
-	traceRecovery bool
-	stats         bool
-	statsOneline  bool
-	logFile       string
-	format        string // Output format (dot, etc.)
+	dumpTokens       bool
+	dumpST           bool
+	dumpAST          bool
+	dumpRecoveredAST bool
+	dumpCFG          bool
+	dumpBIR          bool
+	traceRecovery    bool
+	stats            bool
+	statsOneline     bool
+	logFile          string
+	format           string // Output format (dot, etc.)
 }
 
 var runCmd = &cobra.Command{
@@ -89,6 +90,7 @@ func init() {
 	runCmd.Flags().BoolVar(&runOpts.dumpTokens, "dump-tokens", false, "Dump lexer tokens")
 	runCmd.Flags().BoolVar(&runOpts.dumpST, "dump-st", false, "Dump syntax tree")
 	runCmd.Flags().BoolVar(&runOpts.dumpAST, "dump-ast", false, "Dump abstract syntax tree")
+	runCmd.Flags().BoolVar(&runOpts.dumpRecoveredAST, "dump-recovered-ast", false, "Dump recovered abstract syntax tree")
 	runCmd.Flags().BoolVar(&runOpts.dumpCFG, "dump-cfg", false, "Dump control flow graph")
 	runCmd.Flags().BoolVar(&runOpts.dumpBIR, "dump-bir", false, "Dump Ballerina Intermediate Representation")
 	runCmd.Flags().BoolVar(&runOpts.traceRecovery, "trace-recovery", false, "Enable error recovery tracing")
@@ -104,6 +106,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	// buildOpts can be the single source of truth for all flag reads.
 	buildOpts := projects.NewBuildOptionsBuilder().
 		WithDumpAST(runOpts.dumpAST).
+		WithDumpRecoveredAST(runOpts.dumpRecoveredAST).
 		WithDumpBIR(runOpts.dumpBIR).
 		WithDumpCFG(runOpts.dumpCFG).
 		WithDumpCFGFormat(projects.ParseCFGFormat(runOpts.format)).
@@ -455,7 +458,7 @@ func chooseNativeExecutor(outBin, targetPackage string) (nativeexec.NativeExecut
 	return local, nil
 }
 
-// findInterpreterRoot returns the absolute path to the ballerina-lang-go source tree.
+// findInterpreterRoot returns the absolute path to the ballerina source tree.
 // It checks BALLERINA_SRC first, then falls back to the source tree embedded
 // in the binary (extracted to a cache directory on first use).
 func findInterpreterRoot() (string, error) {
@@ -472,7 +475,7 @@ func findInterpreterRoot() (string, error) {
 	return resolved, nil
 }
 
-// locateInterpreterRoot finds the ballerina-lang-go source tree without
+// locateInterpreterRoot finds the ballerina source tree without
 // resolving symlinks; see findInterpreterRoot for why that resolution matters.
 func locateInterpreterRoot() (string, error) {
 	if src := os.Getenv("BALLERINA_SRC"); src != "" {
@@ -481,7 +484,7 @@ func locateInterpreterRoot() (string, error) {
 
 	cacheRoot, err := getBallerinaEnvPath()
 	if err != nil {
-		return "", fmt.Errorf("interpreter source not found; set BALLERINA_SRC to the ballerina-lang-go directory")
+		return "", fmt.Errorf("interpreter source not found; set BALLERINA_SRC to the ballerina directory")
 	}
 	return interpsrc.ExtractTo(cacheRoot, Version)
 }

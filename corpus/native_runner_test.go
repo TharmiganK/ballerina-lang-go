@@ -31,16 +31,16 @@ import (
 	"testing/fstest"
 
 	interpsrc "ballerina-lang-go"
-	"ballerina-lang-go/lib/stdlibs"
-	"ballerina-lang-go/projects"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/test_util"
-	"ballerina-lang-go/test_util/testharness"
+	"ballerina/lib/stdlibs"
+	"ballerina/projects"
+	"ballerina/runtime"
+	"ballerina/test_util"
+	"ballerina/test_util/testharness"
 
 	// Blank-import native packages so their init() registers extern
 	// functions before tests run; testdata isn't in ./... builds otherwise.
-	_ "ballerina-lang-go/projects/testdata/repo/bala/acmeorg/calcpkg/1.0.0/go1.26/native"
-	_ "ballerina-lang-go/projects/testdata/repo/bala/mockorg/nativepkg/1.0.0/go1.26/native"
+	_ "ballerina/projects/testdata/repo/bala/acmeorg/calcpkg/1.0.0/go1.26/native"
+	_ "ballerina/projects/testdata/repo/bala/mockorg/nativepkg/1.0.0/go1.26/native"
 )
 
 const nativeTestDataDir = "extern/testdata"

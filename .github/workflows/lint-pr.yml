@@ -30,58 +30,40 @@ env:
     perf
     test
     revert
+  MAX_SUBJECT_LENGTH: 72
+  ALLOWED_SCOPES: ""
+  SUBJECT_CASE: lower
+  ALLOW_BREAKING_CHANGE_MARKER: "true"
 
 jobs:
   validate-pr-title:
     name: Validate PR Title
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
     steps:
-      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Checks out the base branch (the default ref for pull_request_target), not the PR head,
+      # so the validation script itself can't be altered by the PR under review.
+      - uses: actions/checkout@v7
+      - uses: actions/github-script@v9
         with:
-          types: ${{ env.COMMIT_TYPES }}
-          requireScope: false
-          subjectPattern: ^[a-z].*$
-          subjectPatternError: |
-            The subject must start with a lowercase letter, got: "{subject}".
-            Example: "fix(ast): recover missing identifier nodes"
+          script: |
+            const { validatePrTitle } = require('./.github/scripts/validate-commits.js');
+            await validatePrTitle({ github, context, core });
 
   validate-commit-messages:
     name: Validate Commit Messages
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
     steps:
-      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      # Checks out the base branch (the default ref for pull_request_target), not the PR head,
+      # so the validation script itself can't be altered by the PR under review.
+      - uses: actions/checkout@v7
+      - uses: actions/github-script@v9
         with:
           script: |
-            const types = process.env.COMMIT_TYPES.trim().split('\n').map((t) => t.trim()).filter(Boolean);
-            const pattern = new RegExp(`^(${types.join('|')})(\\([^)]+\\))?!?: [a-z].*$`);
-
-            const commits = await github.paginate(github.rest.pulls.listCommits, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-            });
-
-            const errors = [];
-            for (const item of commits) {
-              if (item.parents && item.parents.length > 1) continue;
-              const subject = item.commit.message.split('\n')[0];
-              if (!pattern.test(subject)) {
-                errors.push(`${item.sha.substring(0, 7)}: "${subject}"`);
-              }
-            }
-
-            if (errors.length > 0) {
-              core.setFailed(
-                'The following commits do not follow Conventional Commits format:\n' +
-                errors.join('\n') +
-                '\n\nExpected: <type>(<optional scope>): <description>\n' +
-                `Types: ${types.join(', ')}\n` +
-                'The description must start with a lowercase letter.'
-              );
-            }
+            const { validateCommitMessages } = require('./.github/scripts/validate-commits.js');
+            await validateCommitMessages({ github, context, core });

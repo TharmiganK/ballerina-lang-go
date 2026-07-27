@@ -532,7 +532,7 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 			writeErrorJSON(rt, w, r, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeResult(rt, ctx.TypeCtx(), w, r, result)
+		writeResult(rt, w, r, result)
 		return
 	}
 	// The path matched a service but no resource under the requested method. If
@@ -654,7 +654,7 @@ func writeErrorJSON(rt *runtime.Runtime, w http.ResponseWriter, r *http.Request,
 }
 
 // writeResult writes a Ballerina resource method return value as an HTTP response.
-func writeResult(rt *runtime.Runtime, _ semtypes.Context, w http.ResponseWriter, r *http.Request, result values.BalValue) {
+func writeResult(rt *runtime.Runtime, w http.ResponseWriter, r *http.Request, result values.BalValue) {
 	switch v := result.(type) {
 	case nil:
 		w.WriteHeader(http.StatusAccepted)

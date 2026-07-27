@@ -75,7 +75,7 @@ func initOSModule(rt *runtime.Runtime) {
 	// do not vary per strand, so compute them once instead of on every call.
 	initCtx := semtypes.ContextFrom(env)
 	strMapAtomic := semtypes.ToMappingAtomicType(initCtx, strMapTy)
-	byteArrAtomic := semtypes.ToListAtomicType(initCtx, byteArrTy)
+	byteArrAtomic := semtypes.ToListAtomicType(env, byteArrTy)
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "getEnv",
 		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {

@@ -105,7 +105,7 @@ func roundingUnit(precision int) int64 {
 
 // buildUtcTuple wraps epochSec and frac into a readonly [int, decimal] Ballerina tuple.
 func buildUtcTuple(utcTy semtypes.SemType, tc semtypes.Context, epochSec int64, frac *decimal.Decimal) *values.List {
-	atomic := semtypes.ToListAtomicType(tc, utcTy)
+	atomic := semtypes.ToListAtomicType(tc.Env(), utcTy)
 	items := []values.BalValue{epochSec, frac}
 	return values.NewList(utcTy, atomic, true, nil, 2, items)
 }

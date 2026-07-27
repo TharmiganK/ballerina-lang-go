@@ -45,7 +45,7 @@ func execNewArray(ctx *extern.Context, newArray *bir.NewArray, frame *Frame) {
 	for i, value := range newArray.Values {
 		initial[i] = getOperandValue(ctx, value, frame)
 	}
-	atomic := semtypes.ToListAtomicType(ctx.TypeCtx(), newArray.Type)
+	atomic := semtypes.ToListAtomicType(ctx.TypeEnv(), newArray.Type)
 	list := values.NewList(newArray.Type, atomic, newArray.IsReadonly, newArray.Filler, size, initial)
 	setOperandValue(ctx, newArray.LhsOp, frame, list)
 }

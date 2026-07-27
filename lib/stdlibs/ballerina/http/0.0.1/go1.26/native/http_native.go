@@ -207,7 +207,7 @@ var (
 func initAtomicTypes(tc semtypes.Context) {
 	atomicTypesOnce.Do(func() {
 		mappingAtomicType = semtypes.ToMappingAtomicType(tc, semtypes.MAPPING)
-		listAtomicType = semtypes.ToListAtomicType(tc, semtypes.LIST)
+		listAtomicType = semtypes.ToListAtomicType(tc.Env(), semtypes.LIST)
 	})
 }
 
@@ -224,7 +224,7 @@ func newListValue(tc semtypes.Context, items []values.BalValue) *values.List {
 
 // newTypedListValue builds a typed list seeded with items.
 func newTypedListValue(tc semtypes.Context, ty semtypes.SemType, items []values.BalValue) *values.List {
-	return values.NewList(ty, semtypes.ToListAtomicType(tc, ty), false, nil, 0, items)
+	return values.NewList(ty, semtypes.ToListAtomicType(tc.Env(), ty), false, nil, 0, items)
 }
 
 // lazyRequestHeaders holds an inbound request's raw header map until a header is

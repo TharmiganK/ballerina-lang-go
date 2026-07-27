@@ -34,7 +34,7 @@ type NativeFunc func(ctx *Context, args []values.BalValue) (values.BalValue, err
 type Context struct {
 	Env       *Env
 	CallStack any // opaque pointer to the call stack
-	TypeCtx   semtypes.Context
+	typeCtx   semtypes.Context
 	StrandID  uint64
 	heldLocks []*locks.ReentrantMutex
 }
@@ -78,9 +78,25 @@ func (e *Env) AllocateStrandID() uint64 {
 // its release). Callers that own a well-defined unit of work end-to-end (like
 // HTTP resource/remote dispatch) should prefer Runtime.AcquirePooledContext.
 func CreateContext(env *Env) *Context {
-	tyCtx := semtypes.ContextFrom(env.TypeEnv)
-	ctx := Context{Env: env, TypeCtx: tyCtx, StrandID: env.AllocateStrandID()}
+	ctx := Context{Env: env, StrandID: env.AllocateStrandID()}
 	return &ctx
+}
+
+// TypeCtx returns the strand's semtype type-check context, building it lazily
+// on first use. Not every invocation performs a type check, so the context
+// (and its memo caches) is only allocated for strands that actually call this.
+func (ctx *Context) TypeCtx() semtypes.Context {
+	if ctx.typeCtx == nil {
+		ctx.typeCtx = semtypes.ContextFrom(ctx.Env.TypeEnv)
+	}
+	return ctx.typeCtx
+}
+
+// TypeEnv returns the program-constant semantic type environment directly,
+// for callers that only need type definitions and not a full type-check
+// context (which would otherwise force allocation of TypeCtx's memo caches).
+func (ctx *Context) TypeEnv() semtypes.Env {
+	return ctx.Env.TypeEnv
 }
 
 // ResetForReuse clears a context's per-request mutable state — a fresh strand

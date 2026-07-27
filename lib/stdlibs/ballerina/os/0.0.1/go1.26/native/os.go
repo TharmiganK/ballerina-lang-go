@@ -118,7 +118,7 @@ func initOSModule(rt *runtime.Runtime) {
 			envMap := rt.Platform().OS.ListEnv()
 			m := values.NewMap(strMapTy, strMapAtomic, false, nil)
 			for k, v := range envMap {
-				m.Put(ctx.TypeCtx, k, v)
+				m.Put(ctx.TypeCtx(), k, v)
 			}
 			return m, nil
 		})

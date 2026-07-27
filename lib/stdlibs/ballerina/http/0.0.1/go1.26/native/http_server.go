@@ -532,7 +532,7 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 			writeErrorJSON(rt, w, r, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeResult(rt, ctx.TypeCtx, w, r, result)
+		writeResult(rt, ctx.TypeCtx(), w, r, result)
 		return
 	}
 	// The path matched a service but no resource under the requested method. If

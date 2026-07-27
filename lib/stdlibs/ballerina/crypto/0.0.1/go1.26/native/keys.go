@@ -322,7 +322,7 @@ func buildPublicKeyMap(types cryptoTypes, ctx *extern.Context, key any, algorith
 
 // buildCertMap converts an x509.Certificate to a Ballerina Certificate record.
 func buildCertMap(types cryptoTypes, ctx *extern.Context, cert *x509.Certificate) *values.Map {
-	sigBytes := values.ByteSliceToList(types.byteArrTy, ctx.TypeCtx(), cert.Signature)
+	sigBytes := values.ByteSliceToList(types.byteArrTy, ctx.TypeEnv(), cert.Signature)
 	return values.NewMap(types.keyMapTy, semtypes.ToMappingAtomicType(ctx.TypeCtx(), types.keyMapTy), false, []values.MapEntry{
 		{Key: "version", Value: int64(cert.Version)},
 		{Key: "serial", Value: cert.SerialNumber.Int64()},
@@ -341,5 +341,5 @@ func goTimeToUtc(types cryptoTypes, ctx *extern.Context, t time.Time) *values.Li
 	nanos := decimal.FromInt64(int64(t.Nanosecond()))
 	nanosPerSec := decimal.FromInt64(1_000_000_000)
 	frac, _ := nanos.Quo(nanosPerSec)
-	return values.NewList(types.utcTy, semtypes.ToListAtomicType(ctx.TypeCtx(), types.utcTy), true, nil, 2, []values.BalValue{t.Unix(), frac})
+	return values.NewList(types.utcTy, semtypes.ToListAtomicType(ctx.TypeEnv(), types.utcTy), true, nil, 2, []values.BalValue{t.Unix(), frac})
 }

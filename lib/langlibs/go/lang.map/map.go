@@ -43,7 +43,7 @@ func mapKeys(env semtypes.Env) extern.NativeFunc {
 		for i, k := range keys {
 			items[i] = k
 		}
-		atomic := semtypes.ToListAtomicType(ctx.TypeCtx(), stringArrayTy)
+		atomic := semtypes.ToListAtomicType(ctx.TypeEnv(), stringArrayTy)
 		list := values.NewList(stringArrayTy, atomic, false, nil, 0, items)
 		return list, nil
 	}

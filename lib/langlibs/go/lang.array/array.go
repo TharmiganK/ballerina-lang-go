@@ -54,7 +54,7 @@ func arrayFromBase64(byteArrTy semtypes.SemType, ctx *extern.Context, args []val
 	if err != nil {
 		return values.NewErrorWithMessage("failed to decode base64 string"), nil
 	}
-	return values.ByteSliceToList(byteArrTy, ctx.TypeCtx(), data), nil
+	return values.ByteSliceToList(byteArrTy, ctx.TypeEnv(), data), nil
 }
 
 func arrayFromBase16(byteArrTy semtypes.SemType, ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
@@ -63,7 +63,7 @@ func arrayFromBase16(byteArrTy semtypes.SemType, ctx *extern.Context, args []val
 	if err != nil {
 		return values.NewErrorWithMessage("failed to decode base16 string"), nil
 	}
-	return values.ByteSliceToList(byteArrTy, ctx.TypeCtx(), data), nil
+	return values.ByteSliceToList(byteArrTy, ctx.TypeEnv(), data), nil
 }
 
 func arrayPush(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {

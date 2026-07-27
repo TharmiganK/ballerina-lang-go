@@ -71,6 +71,12 @@ func (e *Env) AllocateStrandID() uint64 {
 	}
 }
 
+// CreateContext builds a fresh, unpooled Context. Use this for callers that
+// cannot guarantee a single clear release point — e.g. a strand started via
+// StartMethod, or the public InvokeFunction API — where routing through a
+// pool would be pure overhead (or a correctness risk if the context outlives
+// its release). Callers that own a well-defined unit of work end-to-end (like
+// HTTP resource/remote dispatch) should prefer Runtime.AcquirePooledContext.
 func CreateContext(env *Env) *Context {
 	tyCtx := semtypes.ContextFrom(env.TypeEnv)
 	ctx := Context{Env: env, TypeCtx: tyCtx, StrandID: env.AllocateStrandID()}

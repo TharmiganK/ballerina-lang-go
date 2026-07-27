@@ -197,11 +197,17 @@ func (rt *Runtime) GetTypeEnv() semtypes.Env {
 	return rt.env.TypeEnv
 }
 
-// NewExternContext creates a properly initialised extern.Context with a fresh
-// call stack. Use this when dispatching Ballerina code from outside the main
-// interpreter loop, such as from HTTP handler goroutines. Each concurrent
-// execution path must have its own context.
-func (rt *Runtime) NewExternContext() *extern.Context {
+// AcquirePooledContext creates a properly initialised extern.Context with a
+// fresh call stack, reusing a pooled context when one is available. Use this
+// only when the caller knows exactly when its unit of work ends and can
+// guarantee a matching ReleasePooledContext call (e.g. HTTP resource/remote
+// dispatch, which releases once the response is fully written) — every
+// context obtained here MUST be released back to the pool. Callers that
+// cannot make that guarantee (starting a strand, the public calling API)
+// should use exec.CreateContext / extern.CreateContext instead; going through
+// the pool without a guaranteed release point is just overhead, and a context
+// that never gets released is never reused.
+func (rt *Runtime) AcquirePooledContext() *extern.Context {
 	if v := rt.ctxPool.Get(); v != nil {
 		ctx := v.(*extern.Context)
 		exec.ResetContextForReuse(ctx)
@@ -210,10 +216,10 @@ func (rt *Runtime) NewExternContext() *extern.Context {
 	return exec.CreateContext(rt.env)
 }
 
-// ReleaseExternContext returns a context obtained from NewExternContext to the
-// pool for reuse. Call it once the owning strand is done with the context and
-// nothing else still references it or its TypeCtx (e.g. after the response is
-// fully written).
+// ReleasePooledContext returns a context obtained from AcquirePooledContext to
+// the pool for reuse. Call it once the owning strand is done with the context
+// and nothing else still references it or its TypeCtx (e.g. after the
+// response is fully written).
 //
 // Async work spawned during the invocation is safe: StartMethod snapshots the
 // caller's frames by value and runStrand builds each started strand its own
@@ -221,7 +227,7 @@ func (rt *Runtime) NewExternContext() *extern.Context {
 // this context — releasing it does not race with in-flight children. The only
 // shared state is the program-wide Env, which every context already shares and
 // which is not recycled here.
-func (rt *Runtime) ReleaseExternContext(ctx *extern.Context) {
+func (rt *Runtime) ReleasePooledContext(ctx *extern.Context) {
 	rt.ctxPool.Put(ctx)
 }
 

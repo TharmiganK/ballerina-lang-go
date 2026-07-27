@@ -104,7 +104,7 @@ E.g.
 `bal build` compiles a package, workspace, or single source file into a standalone executable that bundles the Ballerina runtime. It needs a `balrt` stripped-down runtime in the same working directory:
 
 ```bash
-go build -o balrt ./cli/cmd/balrt
+go build -o balrt ./cli/internal/balrt
 go build -o bal ./cli/cmd
 ```
 

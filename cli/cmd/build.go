@@ -24,16 +24,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"ballerina-lang-go/cli/internal/executable"
-	"ballerina-lang-go/cli/internal/nativeexec"
-	debugcommon "ballerina-lang-go/common"
-	"ballerina-lang-go/projects"
-	"ballerina-lang-go/tools/diagnostics"
+	"ballerina/cli/internal/executable"
+	"ballerina/cli/internal/nativeexec"
+	debugcommon "ballerina/common"
+	"ballerina/projects"
+	"ballerina/tools/diagnostics"
 
 	"github.com/spf13/cobra"
 )
 
 const binSubdir = "bin"
+
+// nativeStubName is the intermediate, native-woven stub buildNativeStub
+// produces — distinct from outPath and the installed "balrt" name.
+const nativeStubName = "balrt-native"
 
 // RuntimeStubPath overrides the default <dist>/rt/<os>-<arch> runner-stub
 // lookup (executable.ResolveStub) when non-empty. Set via -ldflags at bal's
@@ -320,14 +324,10 @@ func buildOneProject(cmd *cobra.Command, opts *buildOptions, stderr io.Writer, f
 	return nil
 }
 
-// nativeStubName is the intermediate, native-woven stub buildNativeStub
-// produces — distinct from outPath and the installed "balrt" name.
-const nativeStubName = "balrt-native"
-
 // buildNativeStub builds (or reuses a fingerprint-cached) balrt-shaped stub
 // embedding nativeBalaProjects' native Go sources, for bal build to pack
 // instead of the predefined stub. Like execWithNativeRunner (run.go), but
-// targets the slim cli/cmd/balrt stub and returns a bare binary path rather
+// targets the slim cli/internal/balrt stub and returns a bare binary path rather
 // than an auto-executing Runner.
 //
 // Cross-compiling works the same way (LocalExecutor.Build sets GOOS/GOARCH);
@@ -341,7 +341,7 @@ func buildNativeStub(stderr io.Writer, absBaseDir string, nativeBalaProjects []*
 	platformDir := targetPlatform.OS + "-" + targetPlatform.Arch
 	outBin := filepath.Join(absBaseDir, projects.TargetDir, binSubdir, "native", platformDir, stubName)
 
-	executor, err := chooseNativeExecutor(outBin, "cli/cmd/balrt")
+	executor, err := chooseNativeExecutor(outBin, "cli/internal/balrt")
 	if err != nil {
 		return "", err
 	}

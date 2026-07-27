@@ -26,9 +26,9 @@ import (
 	"strings"
 	"testing"
 
-	"ballerina-lang-go/bir"
-	"ballerina-lang-go/projects"
-	"ballerina-lang-go/semtypes"
+	"ballerina/bir"
+	"ballerina/projects"
+	"ballerina/semtypes"
 )
 
 // compileMinimalPackage compiles a tiny package and returns its BIR

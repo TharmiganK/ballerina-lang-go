@@ -19,7 +19,7 @@ package diagnostics
 import (
 	"testing"
 
-	"ballerina-lang-go/tools/text"
+	"ballerina/tools/text"
 )
 
 // TestRegisterFile_SamePointerTwice: registering the same TextDocument

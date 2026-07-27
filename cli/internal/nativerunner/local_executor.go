@@ -52,7 +52,7 @@ type LocalExecutor struct {
 	// Relative paths are resolved against the interpreter root.
 	outputBinary string
 	// targetPackage is the Go import path go build compiles, relative to
-	// interpreterRoot — e.g. "cli/cmd" (bal run) or "cli/cmd/balrt" (bal build).
+	// interpreterRoot — e.g. "cli/cmd" (bal run) or "cli/internal/balrt" (bal build).
 	targetPackage string
 }
 
@@ -65,7 +65,7 @@ func New(interpreterRoot, outputBinary string) *LocalExecutor {
 }
 
 // NewForTarget creates a LocalExecutor targeting an arbitrary Go package
-// instead of the full CLI — e.g. bal build uses "cli/cmd/balrt" for a slim
+// instead of the full CLI — e.g. bal build uses "cli/internal/balrt" for a slim
 // stub with native code woven in.
 func NewForTarget(interpreterRoot, outputBinary, targetPackage string) *LocalExecutor {
 	return &LocalExecutor{

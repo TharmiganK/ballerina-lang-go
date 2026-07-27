@@ -27,8 +27,8 @@ import (
 	"fmt"
 	"os"
 
-	"ballerina-lang-go/cli/internal/executable"
-	_ "ballerina-lang-go/lib/rt"
+	"ballerina/cli/internal/executable"
+	_ "ballerina/lib/rt"
 )
 
 func main() {

@@ -444,7 +444,7 @@ func isEmbeddedPackage(bp *projects.BalaProject) bool {
 }
 
 // chooseNativeExecutor returns a LocalExecutor targeting targetPackage
-// (e.g. "cli/cmd" for run's re-exec, "cli/cmd/balrt" for build's slim stub),
+// (e.g. "cli/cmd" for run's re-exec, "cli/internal/balrt" for build's slim stub),
 // erroring if Go isn't installed or the interpreter source can't be found.
 func chooseNativeExecutor(outBin, targetPackage string) (nativeexec.NativeExecutor, error) {
 	root, err := findInterpreterRoot()

@@ -24,13 +24,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	goruntime "runtime" // aliased: this file also imports ballerina-lang-go/runtime as runtime
+	goruntime "runtime" // aliased: this file also imports ballerina/runtime as runtime
 	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
 
-	interpsrc "ballerina-lang-go"
+	interpsrc "ballerina"
 	"ballerina/lib/stdlibs"
 	"ballerina/projects"
 	"ballerina/runtime"

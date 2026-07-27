@@ -318,12 +318,12 @@ func TestNew_DefaultsToCliCmdTarget(t *testing.T) {
 }
 
 // TestNewForTarget_SetsTargetPackage checks it targets the slim stub
-// (cli/cmd/balrt) rather than the full CLI, matching bal build's use.
+// (cli/internal/balrt) rather than the full CLI, matching bal build's use.
 func TestNewForTarget_SetsTargetPackage(t *testing.T) {
 	t.Parallel()
-	e := NewForTarget("/interp/root", "/out/balrt", "cli/cmd/balrt")
-	if e.targetPackage != "cli/cmd/balrt" {
-		t.Errorf("NewForTarget's targetPackage = %q, want %q", e.targetPackage, "cli/cmd/balrt")
+	e := NewForTarget("/interp/root", "/out/balrt", "cli/internal/balrt")
+	if e.targetPackage != "cli/internal/balrt" {
+		t.Errorf("NewForTarget's targetPackage = %q, want %q", e.targetPackage, "cli/internal/balrt")
 	}
 }
 
@@ -340,7 +340,7 @@ func newFakeInterpreterRoot(t *testing.T) string {
 // TestLocalFingerprint_DiffersByTargetPackage covers two identical builds
 // (same interpreter root, payloads, Go version, platform) that differ only
 // in targetPackage — e.g. bal run's "cli/cmd" vs bal build's
-// "cli/cmd/balrt" — which must produce different fingerprints, so a cache
+// "cli/internal/balrt" — which must produce different fingerprints, so a cache
 // hit can never reuse a binary built for the wrong target package.
 func TestLocalFingerprint_DiffersByTargetPackage(t *testing.T) {
 	t.Parallel()
@@ -356,9 +356,9 @@ func TestLocalFingerprint_DiffersByTargetPackage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("localFingerprint (cli/cmd): %v", err)
 	}
-	fpB, err := localFingerprint(interpRoot, "cli/cmd/balrt", payloads, runtime.GOOS, runtime.GOARCH)
+	fpB, err := localFingerprint(interpRoot, "cli/internal/balrt", payloads, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
-		t.Fatalf("localFingerprint (cli/cmd/balrt): %v", err)
+		t.Fatalf("localFingerprint (cli/internal/balrt): %v", err)
 	}
 	if fpA == fpB {
 		t.Fatal("expected different fingerprints for different target packages, got the same one")
@@ -378,7 +378,7 @@ func TestLoadCachedBinary(t *testing.T) {
 			Module:  "example.com/pkg",
 		},
 	}
-	fingerprint, err := localFingerprint(interpRoot, "cli/cmd/balrt", payloads, runtime.GOOS, runtime.GOARCH)
+	fingerprint, err := localFingerprint(interpRoot, "cli/internal/balrt", payloads, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		t.Fatalf("localFingerprint: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestLoadCachedBinary(t *testing.T) {
 		mustWriteFile(t, outBin, "fake-binary-bytes")
 		mustWriteFile(t, nativeexec.FingerprintPath(outBin), fingerprint)
 
-		e := NewForTarget(interpRoot, outBin, "cli/cmd/balrt")
+		e := NewForTarget(interpRoot, outBin, "cli/internal/balrt")
 		got, ok := e.loadCachedBinary(fingerprint)
 		if !ok {
 			t.Fatalf("expected a cache hit")
@@ -403,7 +403,7 @@ func TestLoadCachedBinary(t *testing.T) {
 		mustWriteFile(t, outBin, "fake-binary-bytes")
 		mustWriteFile(t, nativeexec.FingerprintPath(outBin), "stale-fingerprint")
 
-		e := NewForTarget(interpRoot, outBin, "cli/cmd/balrt")
+		e := NewForTarget(interpRoot, outBin, "cli/internal/balrt")
 		if _, ok := e.loadCachedBinary(fingerprint); ok {
 			t.Error("expected a cache miss for a mismatched fingerprint")
 		}
@@ -413,7 +413,7 @@ func TestLoadCachedBinary(t *testing.T) {
 		outBin := filepath.Join(t.TempDir(), "out-bin")
 		mustWriteFile(t, outBin, "fake-binary-bytes")
 
-		e := NewForTarget(interpRoot, outBin, "cli/cmd/balrt")
+		e := NewForTarget(interpRoot, outBin, "cli/internal/balrt")
 		if _, ok := e.loadCachedBinary(fingerprint); ok {
 			t.Error("expected a cache miss when no fingerprint file exists")
 		}
@@ -424,7 +424,7 @@ func TestLoadCachedBinary(t *testing.T) {
 		mustWriteFile(t, nativeexec.FingerprintPath(outBin), fingerprint)
 		// outBin itself is deliberately not created.
 
-		e := NewForTarget(interpRoot, outBin, "cli/cmd/balrt")
+		e := NewForTarget(interpRoot, outBin, "cli/internal/balrt")
 		if _, ok := e.loadCachedBinary(fingerprint); ok {
 			t.Error("expected a cache miss when the binary itself is missing")
 		}
@@ -486,7 +486,7 @@ func TestBuild_CacheHit_ReturnsCachedPathNoToolchain(t *testing.T) {
 			Module:  "example.com/pkg",
 		},
 	}
-	fingerprint, err := localFingerprint(interpRoot, "cli/cmd/balrt", payloads, runtime.GOOS, runtime.GOARCH)
+	fingerprint, err := localFingerprint(interpRoot, "cli/internal/balrt", payloads, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		t.Fatalf("localFingerprint: %v", err)
 	}
@@ -495,7 +495,7 @@ func TestBuild_CacheHit_ReturnsCachedPathNoToolchain(t *testing.T) {
 	mustWriteFile(t, outBin, "fake-binary-bytes")
 	mustWriteFile(t, nativeexec.FingerprintPath(outBin), fingerprint)
 
-	e := NewForTarget(interpRoot, outBin, "cli/cmd/balrt")
+	e := NewForTarget(interpRoot, outBin, "cli/internal/balrt")
 	got, err := e.Build(context.Background(), nativeexec.NativeRunnerRequest{Payloads: payloads})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -553,7 +553,7 @@ func TestBuildOrReuse_TempDirCreationFails(t *testing.T) {
 	t.Setenv("TMPDIR", blockedTMPDIR) // consulted by os.TempDir on unix
 	t.Setenv("TMP", blockedTMPDIR)    // consulted by os.TempDir on windows
 
-	e := NewForTarget(interpRoot, filepath.Join(t.TempDir(), "out"), "cli/cmd/balrt")
+	e := NewForTarget(interpRoot, filepath.Join(t.TempDir(), "out"), "cli/internal/balrt")
 	payloads := []nativeexec.NativePayload{
 		&nativeexec.GoSourcePayload{
 			GoFiles: fstest.MapFS{"pkg.go": {Data: []byte("package pkg\n")}},
@@ -579,7 +579,7 @@ func TestBuildOrReuse_OutputDirBlocked(t *testing.T) {
 	mustWriteFile(t, blockingFile, "not a directory")
 	outBin := filepath.Join(blockingFile, "bin", "balrt-native")
 
-	e := NewForTarget(interpRoot, outBin, "cli/cmd/balrt")
+	e := NewForTarget(interpRoot, outBin, "cli/internal/balrt")
 	payloads := []nativeexec.NativePayload{
 		&nativeexec.GoSourcePayload{
 			GoFiles: fstest.MapFS{"pkg.go": {Data: []byte("package pkg\n")}},
@@ -606,7 +606,7 @@ func (errWriter) Write([]byte) (int, error) { return 0, errors.New("write failed
 func TestBuildOrReuse_WriteBuildStatusFails(t *testing.T) {
 	t.Parallel()
 	interpRoot := newFakeInterpreterRoot(t)
-	e := NewForTarget(interpRoot, filepath.Join(t.TempDir(), "out"), "cli/cmd/balrt")
+	e := NewForTarget(interpRoot, filepath.Join(t.TempDir(), "out"), "cli/internal/balrt")
 	payloads := []nativeexec.NativePayload{
 		&nativeexec.GoSourcePayload{
 			GoFiles: fstest.MapFS{"pkg.go": {Data: []byte("package pkg\n")}},
@@ -696,7 +696,7 @@ func mustReadFile(t *testing.T, path string) string {
 // TestBuild_CompileErrorInNativeSource covers a native Go dependency that
 // fails to compile — must surface as a clear "building native interpreter"
 // error, not a panic or hang. Uses the real repo as interpreterRoot (a fake
-// minimal go.mod can't compile cli/cmd/balrt).
+// minimal go.mod can't compile cli/internal/balrt).
 func TestBuild_CompileErrorInNativeSource(t *testing.T) {
 	t.Parallel()
 	repoRoot, err := filepath.Abs("../../..")
@@ -714,7 +714,7 @@ func TestBuild_CompileErrorInNativeSource(t *testing.T) {
 	}
 
 	outBin := filepath.Join(t.TempDir(), "balrt-native")
-	executor := NewForTarget(repoRoot, outBin, "cli/cmd/balrt")
+	executor := NewForTarget(repoRoot, outBin, "cli/internal/balrt")
 	if !executor.Available() {
 		t.Skip("Go toolchain or interpreter source unavailable in this environment")
 	}

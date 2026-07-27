@@ -1348,7 +1348,7 @@ func buildCrossBalrtStub(t *testing.T, repoRoot, rtDir, goos, goarch string) str
 	}
 	env = append(env, "GOOS="+goos, "GOARCH="+goarch, "CGO_ENABLED=0")
 
-	cmd := exec.Command("go", "build", "-o", outputPath, "./cli/cmd/balrt")
+	cmd := exec.Command("go", "build", "-o", outputPath, "./cli/internal/balrt")
 	cmd.Dir = repoRoot
 	cmd.Env = env
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -1434,7 +1434,7 @@ func TestBalBuildUnsupportedTargetPlatform(t *testing.T) {
 
 // TestBalBuildNativeDependency exercises `bal build` end-to-end on a package
 // with a native Go dependency: it must build a native-woven standalone stub
-// (targeting cli/cmd/balrt, not the full CLI) instead of looking up the
+// (targeting cli/internal/balrt, not the full CLI) instead of looking up the
 // predefined installed stub, and the produced binary must be genuinely
 // standalone — runnable with no bal/Go toolchain involved. Mirrors
 // TestNativeRunner_ColdBuildAndCacheHit's cold/cache-hit pattern for bal run
@@ -1492,7 +1492,7 @@ func TestBalBuildNativeDependency(t *testing.T) {
 		t.Fatalf("failed to stat bal binary %s: %v", balBin, err)
 	}
 	if builtInfo.Size() >= balInfo.Size()/2 {
-		t.Fatalf("built binary %s (%d bytes) is not meaningfully smaller than bal (%d bytes); expected the slim cli/cmd/balrt-targeted stub, not the full CLI",
+		t.Fatalf("built binary %s (%d bytes) is not meaningfully smaller than bal (%d bytes); expected the slim cli/internal/balrt-targeted stub, not the full CLI",
 			binPath, builtInfo.Size(), balInfo.Size())
 	}
 
@@ -2120,7 +2120,7 @@ func buildBalrtBinaryTo(repoRoot, coverDir, outputPath string) error {
 	if coverDir != "" {
 		args = append(args, "-cover", "-coverpkg=./...")
 	}
-	args = append(args, "./cli/cmd/balrt")
+	args = append(args, "./cli/internal/balrt")
 
 	cmd := exec.Command("go", args...)
 	cmd.Dir = repoRoot

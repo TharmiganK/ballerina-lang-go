@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"ballerina-lang-go/cli/internal/executable"
+	"ballerina/cli/internal/executable"
 
 	"github.com/spf13/cobra"
 )

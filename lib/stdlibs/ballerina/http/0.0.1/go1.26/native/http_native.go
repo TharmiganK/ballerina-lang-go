@@ -193,38 +193,29 @@ func eagerBufferResponse(respHeaders map[string][]string, bodyStream io.ReadClos
 
 // newMappingValue builds a fresh open map<anydata|error> value.
 // The header/request maps and value lists built per request all use the
-// program-constant MAPPING / LIST inherent types, whose atomic type does not
-// depend on the type context. ToMappingAtomicType/ToListAtomicType allocate a
-// fresh copy on every call, so cache the results once and reuse the shared
-// pointers — Map/List only read the atomic type, never mutate it, so sharing is
-// safe.
+// program-constant MAPPING / LIST inherent types, and MAPPING_ATOMIC_INNER /
+// LIST_ATOMIC_INNER are exactly what ToMappingAtomicType/ToListAtomicType
+// compute for those two types (their fast path for a type with no subtype
+// data) — so the shared instances can be referenced directly at package load
+// without needing a type context (or even an Env) at all. Map/List only read
+// the atomic type, never mutate it, so sharing is safe.
 var (
-	atomicTypesOnce   sync.Once
-	mappingAtomicType *semtypes.MappingAtomicType
-	listAtomicType    *semtypes.ListAtomicType
+	mappingAtomicType = &semtypes.MAPPING_ATOMIC_INNER
+	listAtomicType    = &semtypes.LIST_ATOMIC_INNER
 )
 
-func initAtomicTypes(tc semtypes.Context) {
-	atomicTypesOnce.Do(func() {
-		mappingAtomicType = semtypes.ToMappingAtomicType(tc, semtypes.MAPPING)
-		listAtomicType = semtypes.ToListAtomicType(tc.Env(), semtypes.LIST)
-	})
-}
-
-func newMappingValue(tc semtypes.Context) *values.Map {
-	initAtomicTypes(tc)
+func newMappingValue() *values.Map {
 	return values.NewMap(semtypes.MAPPING, mappingAtomicType, false, nil)
 }
 
 // newListValue builds a fresh open list seeded with items.
-func newListValue(tc semtypes.Context, items []values.BalValue) *values.List {
-	initAtomicTypes(tc)
+func newListValue(items []values.BalValue) *values.List {
 	return values.NewList(semtypes.LIST, listAtomicType, false, nil, 0, items)
 }
 
 // newTypedListValue builds a typed list seeded with items.
-func newTypedListValue(tc semtypes.Context, ty semtypes.SemType, items []values.BalValue) *values.List {
-	return values.NewList(ty, semtypes.ToListAtomicType(tc.Env(), ty), false, nil, 0, items)
+func newTypedListValue(env semtypes.Env, ty semtypes.SemType, items []values.BalValue) *values.List {
+	return values.NewList(ty, semtypes.ToListAtomicType(env, ty), false, nil, 0, items)
 }
 
 // lazyRequestHeaders holds an inbound request's raw header map until a header is
@@ -238,13 +229,13 @@ type lazyRequestHeaders struct {
 // materializeHeaders converts a raw HTTP header map into a Ballerina header Map
 // (map<string[]> keyed by lower-cased name).
 func materializeHeaders(tc semtypes.Context, raw map[string][]string) *values.Map {
-	headersMap := newMappingValue(tc)
+	headersMap := newMappingValue()
 	for k, vals := range raw {
 		items := make([]values.BalValue, len(vals))
 		for i, v := range vals {
 			items[i] = v
 		}
-		headersMap.Put(tc, strings.ToLower(k), newListValue(tc, items))
+		headersMap.Put(tc, strings.ToLower(k), newListValue(items))
 	}
 	return headersMap
 }
@@ -309,10 +300,10 @@ func rawRequestHeaders(self *values.Object) map[string][]string {
 func setRequestHeader(self *values.Object, name, val string, tc semtypes.Context) {
 	hdrs, ok := requestHeadersMap(tc, self)
 	if !ok {
-		hdrs = newMappingValue(tc)
+		hdrs = newMappingValue()
 		self.Put("$headers", hdrs)
 	}
-	hdrs.Put(tc, name, newListValue(tc, []values.BalValue{val}))
+	hdrs.Put(tc, name, newListValue([]values.BalValue{val}))
 }
 
 // goCtxOrBackground returns the Go context from an extern.Context if available,
@@ -972,7 +963,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.initNative",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			self.Put("$headers", newMappingValue(ctx.TypeCtx()))
+			self.Put("$headers", newMappingValue())
 			self.Put("body", &responseBodyHolder{buf: []byte{}})
 			return nil, nil
 		})
@@ -987,7 +978,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1005,7 +996,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1024,7 +1015,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1034,7 +1025,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			name := strings.ToLower(args[1].(string))
 			val := args[2].(string)
 			headers := responseHeaders(self)
-			headers.Put(ctx.TypeCtx(), name, newListValue(ctx.TypeCtx(), []values.BalValue{val}))
+			headers.Put(ctx.TypeCtx(), name, newListValue([]values.BalValue{val}))
 			return nil, nil
 		})
 
@@ -1049,7 +1040,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if ok {
 				existing.(*values.List).Append(ctx.TypeCtx(), val)
 			} else {
-				headers.Put(ctx.TypeCtx(), name, newListValue(ctx.TypeCtx(), []values.BalValue{val}))
+				headers.Put(ctx.TypeCtx(), name, newListValue([]values.BalValue{val}))
 			}
 			return nil, nil
 		})
@@ -1077,7 +1068,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			ct := args[1].(string)
-			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1158,7 +1149,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, b := range raw {
 				items[i] = int64(b)
 			}
-			return newTypedListValue(ctx.TypeCtx(), types.byteArrTy, items), nil
+			return newTypedListValue(ctx.TypeEnv(), types.byteArrTy, items), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.hasHeader",
@@ -1204,7 +1195,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, k := range keys {
 				items[i] = k
 			}
-			return newTypedListValue(ctx.TypeCtx(), types.strArrTy, items), nil
+			return newTypedListValue(ctx.TypeEnv(), types.strArrTy, items), nil
 		})
 
 	// Request class def.
@@ -1230,7 +1221,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			self.Put("$body", &requestBodyHolder{buf: []byte{}})
-			self.Put("$headers", newMappingValue(ctx.TypeCtx()))
+			self.Put("$headers", newMappingValue())
 			return nil, nil
 		})
 
@@ -1307,14 +1298,14 @@ func initHttpModule(rt *runtime.Runtime) {
 			val, _ := args[2].(string)
 			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
-				hdrs = newMappingValue(ctx.TypeCtx())
+				hdrs = newMappingValue()
 				self.Put("$headers", hdrs)
 			}
 			existing, ok := hdrs.Get(name)
 			if ok {
 				existing.(*values.List).Append(ctx.TypeCtx(), val)
 			} else {
-				hdrs.Put(ctx.TypeCtx(), name, newListValue(ctx.TypeCtx(), []values.BalValue{val}))
+				hdrs.Put(ctx.TypeCtx(), name, newListValue([]values.BalValue{val}))
 			}
 			return nil, nil
 		})
@@ -1346,14 +1337,14 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
-				return newTypedListValue(ctx.TypeCtx(), types.strArrTy, nil), nil
+				return newTypedListValue(ctx.TypeEnv(), types.strArrTy, nil), nil
 			}
 			keys := hdrs.Keys()
 			items := make([]values.BalValue, len(keys))
 			for i, k := range keys {
 				items[i] = k
 			}
-			return newTypedListValue(ctx.TypeCtx(), types.strArrTy, items), nil
+			return newTypedListValue(ctx.TypeEnv(), types.strArrTy, items), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setContentType",
@@ -1439,7 +1430,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, b := range raw {
 				items[i] = int64(b)
 			}
-			return newTypedListValue(ctx.TypeCtx(), types.byteArrTy, items), nil
+			return newTypedListValue(ctx.TypeEnv(), types.byteArrTy, items), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getHeader",
@@ -1495,13 +1486,13 @@ func initHttpModule(rt *runtime.Runtime) {
 			queryStrVal, _ := self.Get("$queryStr")
 			queryStr, _ := queryStrVal.(string)
 			parsed, _ := url.ParseQuery(queryStr)
-			m := newMappingValue(ctx.TypeCtx())
+			m := newMappingValue()
 			for k, vals := range parsed {
 				items := make([]values.BalValue, len(vals))
 				for i, v := range vals {
 					items[i] = v
 				}
-				m.Put(ctx.TypeCtx(), k, newTypedListValue(ctx.TypeCtx(), types.strArrTy, items))
+				m.Put(ctx.TypeCtx(), k, newTypedListValue(ctx.TypeEnv(), types.strArrTy, items))
 			}
 			return m, nil
 		})
@@ -1536,7 +1527,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, v := range vals {
 				items[i] = v
 			}
-			return newTypedListValue(ctx.TypeCtx(), types.strArrTy, items), nil
+			return newTypedListValue(ctx.TypeEnv(), types.strArrTy, items), nil
 		})
 
 	// Server-side: register the http:Listener class and its native methods.
@@ -1566,7 +1557,7 @@ func splitOutsideQuotes(s string, sep byte) []string {
 
 func parseHeader(tc semtypes.Context, input string) (*values.List, error) {
 	segments := splitOutsideQuotes(input, ',')
-	list := newListValue(tc, nil)
+	list := newListValue(nil)
 	for _, seg := range segments {
 		seg = strings.TrimSpace(seg)
 		if seg == "" {
@@ -1577,7 +1568,7 @@ func parseHeader(tc semtypes.Context, input string) (*values.List, error) {
 		if headerVal == "" {
 			return nil, fmt.Errorf("invalid header value: missing value before parameters")
 		}
-		params := newMappingValue(tc)
+		params := newMappingValue()
 		for _, param := range parts[1:] {
 			param = strings.TrimSpace(param)
 			if param == "" {
@@ -1595,7 +1586,7 @@ func parseHeader(tc semtypes.Context, input string) (*values.List, error) {
 			}
 			params.Put(tc, key, val)
 		}
-		entry := newMappingValue(tc)
+		entry := newMappingValue()
 		entry.Put(tc, "value", headerVal)
 		entry.Put(tc, "params", params)
 		list.Append(tc, entry)
@@ -1756,13 +1747,13 @@ func responseMethodKeys() map[string]string { return responseMethodKeyCache }
 // Netty pipeline behaviour; the Content-Encoding header is removed from the response.
 func buildResponse(tc semtypes.Context, statusCode int, respHeaders map[string][]string, bodyStream io.ReadCloser) *values.Object {
 	bodyStream = decompressResponseBody(respHeaders, bodyStream)
-	headersMap := newMappingValue(tc)
+	headersMap := newMappingValue()
 	for k, vals := range respHeaders {
 		items := make([]values.BalValue, len(vals))
 		for i, v := range vals {
 			items[i] = v
 		}
-		headersMap.Put(tc, strings.ToLower(k), newListValue(tc, items))
+		headersMap.Put(tc, strings.ToLower(k), newListValue(items))
 	}
 	holder := eagerBufferResponse(respHeaders, bodyStream)
 	return values.NewObject(

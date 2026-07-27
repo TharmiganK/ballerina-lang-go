@@ -962,9 +962,11 @@ func desugarForEachOnIterable(cx *functionContext, collection ast.BLangActionOrE
 	nextRefForNilCheck.SetSymbol(nextSymbol)
 	nextRefForNilCheck.SetDeterminedType(nextReturnType)
 
-	nilCheck := &ast.BLangTypeTestExpr{}
-	nilCheck.Expr = nextRefForNilCheck
-	nilCheck.Type = ast.TypeData{Type: semtypes.NIL}
+	nilCheck := ast.NewBLangTypeTestExpr(
+		nextRefForNilCheck,
+		ast.TypeData{Type: semtypes.NIL},
+		false,
+	)
 	nilCheck.SetDeterminedType(semtypes.BOOLEAN)
 
 	breakStmt := &ast.BLangBreak{}
@@ -984,9 +986,11 @@ func desugarForEachOnIterable(cx *functionContext, collection ast.BLangActionOrE
 		nextRefForErrCheck.SetSymbol(nextSymbol)
 		nextRefForErrCheck.SetDeterminedType(nextReturnType)
 
-		errCheck := &ast.BLangTypeTestExpr{}
-		errCheck.Expr = nextRefForErrCheck
-		errCheck.Type = ast.TypeData{Type: semtypes.ERROR}
+		errCheck := ast.NewBLangTypeTestExpr(
+			nextRefForErrCheck,
+			ast.TypeData{Type: semtypes.ERROR},
+			false,
+		)
 		errCheck.SetDeterminedType(semtypes.BOOLEAN)
 
 		nextRefForPanic := &ast.BLangSimpleVarRef{VariableName: nextVarName}

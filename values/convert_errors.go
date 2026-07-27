@@ -78,10 +78,6 @@ func (e *conversionFailure) render(b *strings.Builder, tabs int) {
 	b.WriteByte('}')
 }
 
-func cannotConvertNil(tc semtypes.Context, targetType semtypes.SemType) *conversionFailure {
-	return newConversionFailure(fmt.Sprintf("'()' value cannot be converted to '%s'", semtypes.ToString(tc, targetType)))
-}
-
 func newConversionFailure(message string) *conversionFailure {
 	return &conversionFailure{detailMessage: message}
 }

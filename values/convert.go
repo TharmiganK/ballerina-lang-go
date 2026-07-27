@@ -37,40 +37,36 @@ import (
 //
 // On failure it returns a ConversionError wrapped as *Error.
 func CloneWithType(tc semtypes.Context, value BalValue, targetType semtypes.SemType) (BalValue, *Error) {
-	result, err := convert(tc, value, targetType, true, nil)
+	result, err := convert(tc, value, targetType, nil)
 	if err != nil {
 		return nil, wrapConversionError(err)
 	}
 	return result, nil
 }
 
-func convert(tc semtypes.Context, value BalValue, target semtypes.SemType,
-	allowNumeric bool, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
-	if value == nil {
-		if isNilable(target) {
-			return nil, nil
+// convert converts value to target, trying each of target's basic-type constituents in turn;
+// candidateTypes orders them so any constituent value already satisfies precedes one that would
+// need numeric conversion, so a single pass suffices to prefer an exact match. See
+// conversionFailureFor for how a total failure is reported.
+func convert(tc semtypes.Context, value BalValue, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
+	candidates := candidateTypes(tc, value, target)
+	children := make([]*conversionFailure, 0, len(candidates))
+	for _, candidate := range candidates {
+		result, err := tryConvert(tc, value, candidate, visiting)
+		if err == nil {
+			return result, nil
 		}
-		return nil, cannotConvertNil(tc, target)
+		children = append(children, err)
 	}
-
-	if candidates := candidateTypes(tc, target); len(candidates) > 1 {
-		return convertUnion(tc, value, target, candidates, allowNumeric, visiting)
-	}
-	return convertBasicTypeValue(tc, value, target, allowNumeric, visiting)
-}
-
-func isNilable(target semtypes.SemType) bool {
-	return semtypes.ContainsBasicType(target, semtypes.NIL)
-}
-
-var simpleBasicTypes = []semtypes.SemType{
-	semtypes.NIL, semtypes.BOOLEAN, semtypes.INT, semtypes.FLOAT, semtypes.DECIMAL,
-	semtypes.STRING, semtypes.XML, semtypes.ERROR,
+	return nil, conversionFailureFor(tc, value, target, children)
 }
 
 // candidateTypes decomposes ty into its per-basic-type constituents (e.g. the mapping and list
-// alternatives of a union), skipping any constituent that is empty under tc.
-func candidateTypes(tc semtypes.Context, ty semtypes.SemType) []semtypes.SemType {
+// alternatives of a union), skipping any constituent that is empty under tc. Among the simple
+// (scalar) constituents, ones value already satisfies without numeric conversion are ordered
+// first, so a caller trying candidates in order finds an exact match before any that would widen
+// or narrow value numerically.
+func candidateTypes(tc semtypes.Context, value BalValue, ty semtypes.SemType) []semtypes.SemType {
 	var members []semtypes.SemType
 	basic := semtypes.WidenToBasicTypes(ty)
 
@@ -91,91 +87,45 @@ func candidateTypes(tc semtypes.Context, ty semtypes.SemType) []semtypes.SemType
 		}
 	}
 
-	for _, bt := range simpleBasicTypes {
+	valueTy := SemTypeForValue(value)
+	var exact, coerced []semtypes.SemType
+	for _, bt := range semtypes.SimpleBasicTypes {
 		if semtypes.ContainsBasicType(basic, bt) {
 			member := semtypes.Intersect(ty, bt)
 			if !semtypes.IsEmpty(tc, member) {
-				members = append(members, member)
+				if semtypes.IsSubtype(tc, valueTy, member) {
+					exact = append(exact, member)
+				} else {
+					coerced = append(coerced, member)
+				}
 			}
 		}
 	}
+	members = append(members, exact...)
+	members = append(members, coerced...)
 	return members
 }
 
-func convertUnion(tc semtypes.Context, value BalValue, target semtypes.SemType,
-	candidates []semtypes.SemType, allowNumeric bool, visiting map[BalValue]struct{},
-) (BalValue, *conversionFailure) {
-	if isStructuredValue(value) {
-		children := make([]*conversionFailure, 0, len(candidates))
-		for _, candidate := range candidates {
-			result, err := convertBasicTypeValue(tc, value, candidate, allowNumeric, visiting)
-			if err == nil {
-				return result, nil
-			}
-			children = append(children, err)
-		}
-		return nil, newUnionConversionFailure(children)
-	}
-
-	// For simple values prefer exact type match before allowing numeric conversion.
-	for _, candidate := range candidates {
-		if semtypes.IsSubtype(tc, SemTypeForValue(value), candidate) {
-			return convertBasicTypeValue(tc, value, candidate, false, visiting)
-		}
-	}
-	for _, candidate := range candidates {
-		if result, err := convertBasicTypeValue(tc, value, candidate, allowNumeric, visiting); err == nil {
-			return result, nil
-		}
-	}
-	return nil, incompatibleConversion(tc, value, target)
-}
-
-func isStructuredValue(value BalValue) bool {
-	switch value.(type) {
-	case *List, *Map:
-		return true
-	default:
-		return false
-	}
-}
-
-// convertBasicTypeValue converts value to a single, already-decomposed basic-type target (never a union).
-func convertBasicTypeValue(tc semtypes.Context, value BalValue, target semtypes.SemType,
-	allowNumeric bool, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
+// tryConvert converts value to a single, already-decomposed basic-type target (never a union),
+// dispatching on value's shape. Cycle detection happens in tryConvertMap/tryConvertList, since
+// only structured values can participate in a cycle.
+func tryConvert(tc semtypes.Context, value BalValue, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 	switch v := value.(type) {
 	case *Map:
 		if semtypes.IsSubtype(tc, target, semtypes.MAPPING) {
-			return convertMapping(tc, v, target, allowNumeric, visiting)
+			return tryConvertMap(tc, v, target, visiting)
 		}
 	case *List:
 		if semtypes.IsSubtype(tc, target, semtypes.LIST) {
-			return convertList(tc, v, target, allowNumeric, visiting)
+			return tryConvertList(tc, v, target, visiting)
 		}
 	default:
-		valueTy := SemTypeForValue(v)
-		if semtypes.IsSubtype(tc, valueTy, target) {
-			return v, nil
-		}
-		if allowNumeric {
-			switch v.(type) {
-			case int64, float64, *decimal.Decimal:
-				converted, numErr := convertNumeric(tc, v, target)
-				if numErr != nil {
-					return nil, numErr
-				}
-				if semtypes.IsSubtype(tc, SemTypeForValue(converted), target) {
-					return converted, nil
-				}
-			}
-		}
+		return tryConvertBasicType(tc, v, target)
 	}
 	return nil, incompatibleConversion(tc, value, target)
 }
 
-func convertMapping(tc semtypes.Context, source *Map, target semtypes.SemType,
-	allowNumeric bool, visiting map[BalValue]struct{},
-) (BalValue, *conversionFailure) {
+func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 	var cycleErr *conversionFailure
 	visiting, cycleErr = enterCycleCheck(tc, source.Type, source, visiting)
 	if cycleErr != nil {
@@ -210,7 +160,7 @@ func convertMapping(tc semtypes.Context, source *Map, target semtypes.SemType,
 		}
 		fieldTy := mappingFieldType(tc, target, atomic, key)
 		val, _ := source.Get(key)
-		converted, err := convert(tc, val, fieldTy, allowNumeric, visiting)
+		converted, err := convert(tc, val, fieldTy, visiting)
 		if err != nil {
 			return nil, err
 		}
@@ -232,6 +182,118 @@ func convertMapping(tc semtypes.Context, source *Map, target semtypes.SemType,
 
 	readonly := semtypes.IsSubtype(tc, target, semtypes.VAL_READONLY)
 	return NewMap(target, atomic, readonly, entries), nil
+}
+
+func tryConvertList(tc semtypes.Context, source *List, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
+	var cycleErr *conversionFailure
+	visiting, cycleErr = enterCycleCheck(tc, source.Type, source, visiting)
+	if cycleErr != nil {
+		return nil, cycleErr
+	}
+	defer delete(visiting, source)
+
+	atomic := semtypes.ToListAtomicType(tc, target)
+	if atomic == nil {
+		return nil, incompatibleConversion(tc, source, target)
+	}
+
+	fixedLen := atomic.Members.FixedLength
+	if semtypes.IsNever(atomic.Rest()) {
+		if source.Len() != fixedLen {
+			return nil, incompatibleConversion(tc, source, target)
+		}
+	} else if source.Len() < fixedLen {
+		return nil, incompatibleConversion(tc, source, target)
+	}
+
+	items := make([]BalValue, source.Len())
+	for i := 0; i < source.Len(); i++ {
+		memberTy := atomic.MemberAtInnerVal(i)
+		converted, err := convert(tc, source.Get(i), memberTy, visiting)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = converted
+	}
+
+	restFiller, _ := FillerFactoryFor(tc, atomic.Rest())
+	readonly := semtypes.IsSubtype(tc, target, semtypes.VAL_READONLY)
+	return NewList(target, atomic, readonly, restFiller, len(items), items), nil
+}
+
+func tryConvertBasicType(tc semtypes.Context, value BalValue, target semtypes.SemType) (BalValue, *conversionFailure) {
+	valueTy := SemTypeForValue(value)
+	if semtypes.IsSubtype(tc, valueTy, target) {
+		return value, nil
+	}
+	switch value.(type) {
+	case int64, float64, *decimal.Decimal:
+		converted, numErr := convertNumeric(tc, value, target)
+		if numErr != nil {
+			return nil, numErr
+		}
+		if semtypes.IsSubtype(tc, SemTypeForValue(converted), target) {
+			return converted, nil
+		}
+	}
+	return nil, incompatibleConversion(tc, value, target)
+}
+
+func convertNumeric(tc semtypes.Context, value BalValue, target semtypes.SemType) (BalValue, *conversionFailure) {
+	switch {
+	case semtypes.IsSubtype(tc, target, semtypes.BYTE):
+		n, err := NumericConvertToInt(value)
+		if err != nil {
+			return nil, newConversionFailure(err.Error())
+		}
+		if n >= 0 && n <= 255 {
+			return n, nil
+		}
+		return nil, incompatibleConversion(tc, value, target)
+	case semtypes.IsSubtypeSimple(target, semtypes.INT):
+		n, err := NumericConvertToInt(value)
+		if err != nil {
+			return nil, newConversionFailure(err.Error())
+		}
+		return n, nil
+	case semtypes.IsSubtypeSimple(target, semtypes.FLOAT):
+		f, err := NumericConvertToFloat(value)
+		if err != nil {
+			return nil, newConversionFailure(err.Error())
+		}
+		return f, nil
+	default: // DECIMAL
+		d, err := NumericConvertToDecimal(value)
+		if err != nil {
+			return nil, newConversionFailure(err.Error())
+		}
+		return d, nil
+	}
+}
+
+// conversionFailureFor reports why every candidate was rejected: structured values (maps/lists)
+// surface per-candidate detail (the single reason, or a union of reasons), since that detail is
+// often the only clue to which field or shape mismatched. Simple values get a single terse
+// message, since per-candidate detail adds little for scalars.
+func conversionFailureFor(tc semtypes.Context, value BalValue, target semtypes.SemType, children []*conversionFailure) *conversionFailure {
+	if isStructuredValue(value) {
+		if len(children) == 1 {
+			return children[0]
+		}
+		if len(children) > 1 {
+			return newUnionConversionFailure(children)
+		}
+	}
+	return incompatibleConversion(tc, value, target)
+}
+
+func isStructuredValue(value BalValue) bool {
+	switch value.(type) {
+	case *List, *Map:
+		return true
+	default:
+		return false
+	}
 }
 
 // enterCycleCheck lazily initialises visiting and checks whether source is already being
@@ -266,75 +328,4 @@ func mappingFieldType(tc semtypes.Context, target semtypes.SemType, atomic *semt
 
 func fieldMayOmitKey(tc semtypes.Context, target semtypes.SemType, name string) bool {
 	return semtypes.AllMappingAtomsHaveOptionalFieldByName(tc, target, name)
-}
-
-func convertList(tc semtypes.Context, source *List, target semtypes.SemType,
-	allowNumeric bool, visiting map[BalValue]struct{},
-) (BalValue, *conversionFailure) {
-	var cycleErr *conversionFailure
-	visiting, cycleErr = enterCycleCheck(tc, source.Type, source, visiting)
-	if cycleErr != nil {
-		return nil, cycleErr
-	}
-	defer delete(visiting, source)
-
-	atomic := semtypes.ToListAtomicType(tc, target)
-	if atomic == nil {
-		return nil, incompatibleConversion(tc, source, target)
-	}
-
-	fixedLen := atomic.Members.FixedLength
-	if semtypes.IsNever(atomic.Rest()) {
-		if source.Len() != fixedLen {
-			return nil, incompatibleConversion(tc, source, target)
-		}
-	} else if source.Len() < fixedLen {
-		return nil, incompatibleConversion(tc, source, target)
-	}
-
-	items := make([]BalValue, source.Len())
-	for i := 0; i < source.Len(); i++ {
-		memberTy := atomic.MemberAtInnerVal(i)
-		converted, err := convert(tc, source.Get(i), memberTy, allowNumeric, visiting)
-		if err != nil {
-			return nil, err
-		}
-		items[i] = converted
-	}
-
-	restFiller, _ := FillerFactoryFor(tc, atomic.Rest())
-	readonly := semtypes.IsSubtype(tc, target, semtypes.VAL_READONLY)
-	return NewList(target, atomic, readonly, restFiller, len(items), items), nil
-}
-
-func convertNumeric(tc semtypes.Context, value BalValue, target semtypes.SemType) (BalValue, *conversionFailure) {
-	switch {
-	case semtypes.IsSubtype(tc, target, semtypes.BYTE):
-		n, err := NumericConvertToInt(value)
-		if err != nil {
-			return nil, newConversionFailure(err.Error())
-		}
-		if n >= 0 && n <= 255 {
-			return n, nil
-		}
-		return nil, incompatibleConversion(tc, value, target)
-	case semtypes.IsSubtypeSimple(target, semtypes.INT):
-		n, err := NumericConvertToInt(value)
-		if err != nil {
-			return nil, newConversionFailure(err.Error())
-		}
-		return n, nil
-	case semtypes.IsSubtypeSimple(target, semtypes.FLOAT):
-		f, err := NumericConvertToFloat(value)
-		if err != nil {
-			return nil, newConversionFailure(err.Error())
-		}
-		return f, nil
-	default: // DECIMAL
-		d, err := NumericConvertToDecimal(value)
-		if err != nil {
-			return nil, newConversionFailure(err.Error())
-		}
-		return d, nil
-	}
 }

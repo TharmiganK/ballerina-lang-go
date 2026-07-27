@@ -75,6 +75,13 @@ var (
 	NUMBER           = numberBits.semType()
 	SIMPLE_BASIC     = simpleBasicBits.semType()
 
+	// SimpleBasicTypes lists, as individual SemTypes, the basic types outside MAPPING and
+	// LIST that a caller decomposing a union may need to try one at a time (e.g. via
+	// Intersect). MAPPING and LIST decompose differently, through MappingAlternatives and
+	// ListAlternatives, since a single union can hold multiple distinct record/tuple shapes.
+	// Callers must treat this slice as read-only.
+	SimpleBasicTypes = []SemType{NIL, BOOLEAN, INT, FLOAT, DECIMAL, STRING, XML, ERROR}
+
 	predefTypeEnv                         = predefinedTypeEnvGetInstance()
 	BYTE                                  = intWidthUnsigned(8)
 	STRING_CHAR                           = stringChar()

@@ -15,6 +15,7 @@ require (
 	github.com/ballerina-nutcracker/ballerina/parser v0.7.0
 	github.com/ballerina-nutcracker/ballerina/semantics v0.7.0
 	github.com/ballerina-nutcracker/ballerina/semtypes v0.7.0
+	github.com/ballerina-nutcracker/ballerina/st v0.7.0
 	github.com/ballerina-nutcracker/ballerina/tools v0.7.0
 	golang.org/x/tools v0.44.0
 )

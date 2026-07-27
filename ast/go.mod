@@ -9,6 +9,7 @@ require (
 	github.com/ballerina-nutcracker/ballerina/model v0.7.0
 	github.com/ballerina-nutcracker/ballerina/parser v0.7.0
 	github.com/ballerina-nutcracker/ballerina/semtypes v0.7.0
+	github.com/ballerina-nutcracker/ballerina/st v0.7.0
 	github.com/ballerina-nutcracker/ballerina/tools v0.7.0
 	github.com/ballerina-nutcracker/ballerina/values v0.7.0
 	github.com/sergi/go-diff v1.4.0

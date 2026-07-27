@@ -36,7 +36,6 @@ type ClassTemplate struct {
 
 type Registry struct {
 	birFunctions    map[string]*bir.BIRFunction
-	birClassDefs    map[string]*bir.BIRClassDef
 	classTemplates  map[string]*ClassTemplate
 	nativeFunctions map[string]*ExternFunction
 	runtimeBuiltins map[string]extern.NativeFunc
@@ -46,7 +45,6 @@ type Registry struct {
 func NewRegistry(builtins map[string]extern.NativeFunc) *Registry {
 	return &Registry{
 		birFunctions:    make(map[string]*bir.BIRFunction),
-		birClassDefs:    make(map[string]*bir.BIRClassDef),
 		classTemplates:  make(map[string]*ClassTemplate),
 		nativeFunctions: make(map[string]*ExternFunction),
 		runtimeBuiltins: builtins,
@@ -96,7 +94,6 @@ func (r *Registry) RegisterModule(id *model.PackageID, m *BIRModule) *BIRModule 
 		}
 		for i := range m.Pkg.ClassDefs {
 			classDef := &m.Pkg.ClassDefs[i]
-			r.birClassDefs[classDef.LookupKey] = classDef
 			r.classTemplates[classDef.LookupKey] = buildClassTemplate(classDef)
 			for _, fn := range classDef.VTable {
 				if fn.Flags.Has(model.FlagNative) {
@@ -140,10 +137,6 @@ func (r *Registry) RegisterExternFunction(orgName string, moduleName string, fun
 	r.nativeFunctions[funcName] = externFn
 }
 
-func (r *Registry) GetClassDef(lookupKey string) *bir.BIRClassDef {
-	return r.birClassDefs[lookupKey]
-}
-
 // GetClassTemplate returns the shared, precomputed method/resource tables for a
 // class. The returned maps are read-only and shared across every instance.
 func (r *Registry) GetClassTemplate(lookupKey string) *ClassTemplate {
@@ -154,7 +147,6 @@ func (r *Registry) GetClassTemplate(lookupKey string) *ClassTemplate {
 // can build method-key maps for Go-declared classes. VTable entries are intentionally
 // NOT added to birFunctions so that exec falls through to nativeFunctions for dispatch.
 func (r *Registry) RegisterExternClassDef(def *bir.BIRClassDef) {
-	r.birClassDefs[def.LookupKey] = def
 	r.classTemplates[def.LookupKey] = buildClassTemplate(def)
 }
 

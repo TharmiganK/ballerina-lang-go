@@ -35,6 +35,7 @@ import (
 	"github.com/ballerina-nutcracker/ballerina/desugar"
 	"github.com/ballerina-nutcracker/ballerina/model"
 	"github.com/ballerina-nutcracker/ballerina/model/symbolpool"
+	"github.com/ballerina-nutcracker/ballerina/nodebuilder"
 	"github.com/ballerina-nutcracker/ballerina/parser"
 	"github.com/ballerina-nutcracker/ballerina/projects"
 	"github.com/ballerina-nutcracker/ballerina/runtime"
@@ -615,7 +616,7 @@ func compileModuleFromSource(env *context.CompilerEnvironment, project projects.
 		if err != nil {
 			return nil, fmt.Errorf("parsing %s: %v", relPath, err)
 		}
-		cu := ast.GetCompilationUnit(cx, st)
+		cu := nodebuilder.GetCompilationUnit(cx, st)
 		syntaxTrees = append(syntaxTrees, cu)
 	}
 
@@ -646,7 +647,7 @@ func compileModuleFromSource(env *context.CompilerEnvironment, project projects.
 	if cx.HasDiagnostics() {
 		return nil, fmt.Errorf("symbol resolution failed")
 	}
-	pkg := ast.ToPackageFromCompilationUnits(syntaxTrees)
+	pkg := nodebuilder.ToPackageFromCompilationUnits(syntaxTrees)
 	pkg.Imports = nil
 	pkg.PackageID = pkgID
 	pkg.Scope = pkgScope

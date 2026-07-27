@@ -53,6 +53,8 @@ performance/**/dependency-reduced-pom.xml
 /performance/services/ballerina/*.jar
 # Nutcracker `bal build` executables (nutcracker-native runtime).
 /performance/services/ballerina/nutcracker-native/
+# SwanLake `bal build` executable jars (swanlake runtime).
+/performance/services/ballerina/swanlake-jar/
 
 # Generated test data files (run ./init.sh to regenerate).
 # package.json and dependency-graph.json are bala-format metadata fixtures

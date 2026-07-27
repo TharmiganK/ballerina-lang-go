@@ -6,9 +6,9 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 
 | Key | Runtime | Launched as |
 |---|---|---|
-| `nutcracker` | Ballerina Nutcracker (this repo) | `<repo>/bal run` |
-| `nutcracker-native` | Ballerina Nutcracker, `bal build` executable | `<repo>/bal build` binary |
-| `swanlake` | Ballerina Swan Lake (jBallerina) | jBallerina `bal run` |
+| `nutcracker` | Ballerina Nutcracker, `bal build` executable (this repo) | `<repo>/bal build` binary |
+| `nutcracker-run` | Ballerina Nutcracker, interpreted (this repo) | `<repo>/bal run` |
+| `swanlake` | Ballerina Swan Lake (jBallerina) | jBallerina `bal build` jar, launched with `java -jar` |
 | `swanlake-graalvm` | Ballerina Swan Lake, GraalVM native image | `bal build --graalvm` binary |
 | `go` | Go (`net/http`) | compiled binary |
 | `rust` | Rust (axum + tokio) | compiled binary |
@@ -23,9 +23,9 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | `java-spring` | Java + Spring Boot WebFlux (Reactor Netty) | `java -jar` |
 | `dotnet` | C# / ASP.NET Core (Kestrel minimal API) | `dotnet` |
 
-By default the suite runs the primary Ballerina runtimes against one industry-leading stack per language: `nutcracker`, `nutcracker-native`, `swanlake`, `go`, `rust`, `node`, `python-fastapi`, `java-spring`, `dotnet`. The stdlib/legacy baselines (`python`, `python-flask`, `node-express`, `bun`, `java-netty`) and the remaining native-image variants (`swanlake-graalvm`, `graalvm-netty`) join in with `--runtimes all` or an explicit `--runtimes` list.
+By default the suite runs the recommended Ballerina runtime against one industry-leading stack per language: `nutcracker`, `swanlake`, `go`, `rust`, `java-spring`, `dotnet`, `node`, `python-fastapi`. Every default runtime is launched as its production artifact (a compiled binary, a prebuilt jar/DLL, or the ecosystem's recommended server), so none recompiles on start. The interpreted `bal run` variant (`nutcracker-run`), the stdlib/legacy baselines (`python`, `python-flask`, `node-express`, `bun`, `java-netty`), and the remaining native-image variants (`swanlake-graalvm`, `graalvm-netty`) join in with `--runtimes all` or an explicit `--runtimes` list.
 
-`nutcracker-native` runs the same `services/ballerina/{hello,passthrough}.bal` sources compiled ahead-of-time via this repo's `bal build` into a standalone executable, rather than interpreted through `bal run`. Its executables are written to `services/ballerina/nutcracker-native/<stem>` — a dedicated directory kept separate from `swanlake-graalvm`'s images (which share `services/ballerina/<stem>`), so the two never clobber each other. `bal build` packs onto a `balrt` runner stub; for a local repo build the suite builds that stub next to `<repo>/bal` automatically (requires the Go toolchain).
+`nutcracker` (the default, recommended for production) runs the `services/ballerina/{hello,passthrough}.bal` sources compiled ahead-of-time via this repo's `bal build` into a standalone executable; `nutcracker-run` runs the same sources interpreted through `bal run` and is kept out of the default list. The `nutcracker` executables are written to `services/ballerina/nutcracker-native/<stem>` — a dedicated directory kept separate from `swanlake-graalvm`'s images (which share `services/ballerina/<stem>`), so the two never clobber each other. `bal build` packs onto a `balrt` runner stub; for a local repo build the suite builds that stub next to `<repo>/bal` automatically (requires the Go toolchain).
 
 ## Scenarios
 
@@ -53,7 +53,7 @@ How each runtime maps onto it:
 
 | Runtime | Pool / connection config |
 |---|---|
-| `nutcracker`, `swanlake`, `swanlake-graalvm` | `http:Client` `poolConfig` set explicitly to `maxActiveConnections = -1`, `maxIdleConnections = 512`. |
+| `nutcracker`, `nutcracker-run`, `swanlake`, `swanlake-graalvm` | `http:Client` `poolConfig` set explicitly to `maxActiveConnections = -1`, `maxIdleConnections = 512`. |
 | `go` | `http.Transport`: `MaxIdleConnsPerHost = 512`, `MaxConnsPerHost = 0`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
 | `rust` | `reqwest` client: `pool_max_idle_per_host = 512`, `pool_idle_timeout = 300s`, 15s connect timeout, `TCP_NODELAY` on, no compression features enabled. |
 | `bun` | Bun's built-in `fetch`: upstream keep-alive on by default; no user-facing pool configuration. |
@@ -90,7 +90,7 @@ Per runtime × scenario × configuration:
 Install what you need for the runtimes you plan to run:
 
 - **`wrk`** (load generator) and **`lsof`** — always required.
-- **Go** 1.26+ — for `go`, and to build this repo's `bal` (`go build -o bal ./cli/cmd` from the repo root). Also used by `nutcracker-native` to build the `balrt` runner stub `bal build` packs onto (done automatically on first run).
+- **Go** 1.26+ — for `go`, and to build this repo's `bal` (`go build -o bal ./cli/cmd` from the repo root). Also used by `nutcracker` to build the `balrt` runner stub `bal build` packs onto (done automatically on first run).
 - **Rust** (rustup/`cargo`) — for `rust` (`cargo build --release` runs automatically on first run).
 - **Bun** — for `bun`.
 - **.NET SDK 9** — for `dotnet` (`dotnet publish` runs automatically on first run).

@@ -47,6 +47,9 @@ BAL_NATIVE_DIR="$SCRIPT_DIR/services/ballerina"
 # Nutcracker `bal build` executables land in their own subdir so they never
 # clobber swanlake-graalvm's images, which share $BAL_NATIVE_DIR/<stem>.
 NUT_NATIVE_DIR="$SCRIPT_DIR/services/ballerina/nutcracker-native"
+# SwanLake `bal build` produces an executable jar per scenario, kept in its own
+# subdir and launched with `java -jar` (rather than recompiling on every run).
+SWAN_JAR_DIR="$SCRIPT_DIR/services/ballerina/swanlake-jar"
 PAYLOAD_DIR="$SCRIPT_DIR/payloads"
 LUA_SCRIPT="$SCRIPT_DIR/scripts/post_payload.lua"
 BAL_DIR="$SCRIPT_DIR/services/ballerina"
@@ -68,11 +71,12 @@ OUTPUT=""
 STARTUP_RUNS="3"   # cold-start the service this many times; report the min
 FORCE=false        # --force: rebuild every artifact even if it already exists
 
-ALL_RUNTIMES=(nutcracker nutcracker-native swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
-# Default: the primary Ballerina runtimes (interpreted + native build) vs one
-# industry-leading stack per language. The stdlib/legacy baselines and the
+ALL_RUNTIMES=(nutcracker nutcracker-run swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
+# Default: the recommended Ballerina runtime (the `bal build` executable, named
+# `nutcracker`) vs one industry-leading stack per language. The interpreted
+# `bal run` variant (`nutcracker-run`), the stdlib/legacy baselines, and the
 # remaining native-image variants stay behind --runtimes all (or an explicit list).
-DEFAULT_RUNTIMES=(nutcracker nutcracker-native swanlake go rust node python-fastapi java-spring dotnet)
+DEFAULT_RUNTIMES=(nutcracker swanlake go rust java-spring dotnet node python-fastapi)
 ALL_SCENARIOS=(hello-service passthrough)
 
 # Scenario → service file/module stem. The scenario id is user-facing (and can
@@ -192,11 +196,11 @@ ensure_backend() {
 }
 
 # Verify (and, when needed, build) the Nutcracker `bal` used by the nutcracker
-# and nutcracker-native runtimes. The default is this repo's ./bal, which is
+# and nutcracker-run runtimes. The default is this repo's ./bal, which is
 # built on demand (or rebuilt under --force); an externally-provided NUT_BAL is
 # not ours to build, so it is only verified to exist.
 ensure_nutcracker_bal() {
-    have_runtime nutcracker || have_runtime nutcracker-native || return 0
+    have_runtime nutcracker || have_runtime nutcracker-run || return 0
     if [[ "$NUT_BAL" != "$REPO_ROOT/bal" ]]; then
         [[ -x "$NUT_BAL" ]] || { echo "ERROR: NUT_BAL '$NUT_BAL' is not an executable." >&2; return 1; }
         return 0
@@ -233,7 +237,7 @@ ensure_builds() {
                 || { echo "  WARNING: native-image build failed (see /tmp/perf-native-gateway.log); graalvm-netty will be skipped." >&2; rm -f "$GATEWAY_NATIVE"; }
         fi
     fi
-    if have_runtime nutcracker-native; then
+    if have_runtime nutcracker; then
         # `bal build` packs onto a "balrt" runner stub. Local (repo) bal builds
         # resolve a flat balrt sibling next to the bal binary; build it if
         # missing. An external NUT_BAL is assumed to ship its own stub.
@@ -241,7 +245,7 @@ ensure_builds() {
         if should_build "$nut_balrt" && [[ -d "$REPO_ROOT/cli/cmd/balrt" ]] && command -v go >/dev/null; then
             echo "  Building Nutcracker runner stub (balrt)..."
             (cd "$REPO_ROOT" && go build -o "$nut_balrt" ./cli/cmd/balrt) \
-                || echo "  WARNING: failed to build balrt stub; nutcracker-native builds may fail." >&2
+                || echo "  WARNING: failed to build balrt stub; nutcracker builds may fail." >&2
         fi
         mkdir -p "$NUT_NATIVE_DIR"
         local scn stem
@@ -251,7 +255,20 @@ ensure_builds() {
                 echo "  Building Ballerina executable ($stem via Nutcracker bal build)..."
                 "$NUT_BAL" build -o "$NUT_NATIVE_DIR/$stem" "$BAL_DIR/$stem.bal" \
                     > "/tmp/perf-nut-native-$stem.log" 2>&1 \
-                    || { echo "  WARNING: Nutcracker bal build failed for $stem (see /tmp/perf-nut-native-$stem.log); nutcracker-native will be skipped for it." >&2; rm -f "$NUT_NATIVE_DIR/$stem"; }
+                    || { echo "  WARNING: Nutcracker bal build failed for $stem (see /tmp/perf-nut-native-$stem.log); nutcracker will be skipped for it." >&2; rm -f "$NUT_NATIVE_DIR/$stem"; }
+            fi
+        done
+    fi
+    if have_runtime swanlake; then
+        mkdir -p "$SWAN_JAR_DIR"
+        local scn stem
+        for scn in "${SCENARIO_LIST[@]}"; do
+            stem="$(scenario_stem "$scn")"
+            if should_build "$SWAN_JAR_DIR/$stem.jar"; then
+                echo "  Building Ballerina executable jar ($stem via SwanLake bal build)..."
+                "$SWAN_BAL" build -o "$SWAN_JAR_DIR/$stem.jar" "$BAL_DIR/$stem.bal" \
+                    > "/tmp/perf-swan-jar-$stem.log" 2>&1 \
+                    || { echo "  WARNING: SwanLake bal build failed for $stem (see /tmp/perf-swan-jar-$stem.log); swanlake will be skipped for it." >&2; rm -f "$SWAN_JAR_DIR/$stem.jar"; }
             fi
         done
     fi
@@ -340,9 +357,9 @@ session_spawn() {
 launch_service() {
     local rt="$1" scn="$2" stem="$3"
     case "$rt" in
-        nutcracker)       session_spawn "." "$NUT_BAL" run "$BAL_DIR/$stem.bal" ;;
-        nutcracker-native) session_spawn "." "$NUT_NATIVE_DIR/$stem" ;;
-        swanlake)         session_spawn "." "$SWAN_BAL" run "$BAL_DIR/$stem.bal" ;;
+        nutcracker)       session_spawn "." "$NUT_NATIVE_DIR/$stem" ;;
+        nutcracker-run)   session_spawn "." "$NUT_BAL" run "$BAL_DIR/$stem.bal" ;;
+        swanlake)         session_spawn "." java -jar "$SWAN_JAR_DIR/$stem.jar" ;;
         swanlake-graalvm) session_spawn "." "$BAL_NATIVE_DIR/$stem" ;;
         go)               session_spawn "." "$GO_BIN_DIR/$stem" ;;
         rust)             session_spawn "." "$RUST_BIN_DIR/$stem" ;;

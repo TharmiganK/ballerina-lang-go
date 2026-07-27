@@ -22,7 +22,9 @@ import "ballerina/runtime/extern"
 
 // CreateContext builds an extern.Context wired with a fresh call stack
 // ready to execute BIR functions. Runtime callers must use this rather
-// than extern.CreateContext directly so the call stack is populated.
+// than extern.CreateContext directly so the call stack is populated. This is
+// the unpooled path — see extern.CreateContext for when to use it versus
+// Runtime.AcquirePooledContext.
 func CreateContext(env *extern.Env) *extern.Context {
 	ctx := extern.CreateContext(env)
 	ctx.CallStack = &callStack{elements: make([]callStackEntry, 0, 32)}
@@ -31,7 +33,7 @@ func CreateContext(env *extern.Env) *extern.Context {
 
 // ResetContextForReuse prepares a pooled context to serve a fresh request:
 // it truncates the call stack and resets per-request state (extern.ResetForReuse)
-// while keeping the warm TypeCtx caches. Pairs with a pooled NewExternContext.
+// while keeping the warm TypeCtx caches. Pairs with Runtime.AcquirePooledContext.
 func ResetContextForReuse(ctx *extern.Context) {
 	ctx.ResetForReuse()
 	if cs, ok := ctx.CallStack.(*callStack); ok {

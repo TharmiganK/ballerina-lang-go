@@ -31,10 +31,10 @@ func CreateContext(env *extern.Env) *extern.Context {
 	return ctx
 }
 
-// ResetContextForReuse prepares a pooled context to serve a fresh request: it
-// truncates the call stack and resets per-request state, including clearing
-// TypeCtx if one was built (extern.ResetForReuse). Pairs with
-// Runtime.AcquirePooledContext.
+// ResetContextForReuse clears a pooled context's per-request state before it
+// goes back into the pool: it truncates the call stack and resets
+// per-request state, including clearing TypeCtx if one was built
+// (extern.ResetForReuse). Pairs with Runtime.ReleasePooledContext.
 func ResetContextForReuse(ctx *extern.Context) {
 	ctx.ResetForReuse()
 	if cs, ok := ctx.CallStack.(*callStack); ok {

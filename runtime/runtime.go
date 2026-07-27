@@ -207,11 +207,13 @@ func (rt *Runtime) GetTypeEnv() semtypes.Env {
 // should use exec.CreateContext / extern.CreateContext instead; going through
 // the pool without a guaranteed release point is just overhead, and a context
 // that never gets released is never reused.
+//
+// A context handed out here is already reset for a fresh unit of work —
+// ReleasePooledContext resets it before returning it to the pool, so it never
+// sits idle holding a prior request's state.
 func (rt *Runtime) AcquirePooledContext() *extern.Context {
 	if v := rt.ctxPool.Get(); v != nil {
-		ctx := v.(*extern.Context)
-		exec.ResetContextForReuse(ctx)
-		return ctx
+		return v.(*extern.Context)
 	}
 	return exec.CreateContext(rt.env)
 }
@@ -221,6 +223,11 @@ func (rt *Runtime) AcquirePooledContext() *extern.Context {
 // and nothing else still references it or its TypeCtx (e.g. after the
 // response is fully written).
 //
+// Resets the context before pooling it — rather than on the next Acquire —
+// so a context sitting idle in the pool doesn't keep a finished request's
+// call-stack frames, TypeCtx memo caches, and held-lock slots reachable any
+// longer than necessary.
+//
 // Async work spawned during the invocation is safe: StartMethod snapshots the
 // caller's frames by value and runStrand builds each started strand its own
 // context via CreateContext (own TypeCtx), so a started strand never aliases
@@ -228,6 +235,7 @@ func (rt *Runtime) AcquirePooledContext() *extern.Context {
 // shared state is the program-wide Env, which every context already shares and
 // which is not recycled here.
 func (rt *Runtime) ReleasePooledContext(ctx *extern.Context) {
+	exec.ResetContextForReuse(ctx)
 	rt.ctxPool.Put(ctx)
 }
 

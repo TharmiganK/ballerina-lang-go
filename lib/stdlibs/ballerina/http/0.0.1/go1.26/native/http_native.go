@@ -423,7 +423,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		contentType := ""
 		if len(args) > 2 && args[2] != nil {
 			var ct string
-			bodyReader, contentLength, ct = msgToBody(ctx.TypeCtx, args[2])
+			bodyReader, contentLength, ct = msgToBody(ctx.TypeCtx(), args[2])
 			if bodyReader == nil && ct == "json_error" {
 				return values.NewErrorWithMessage("failed to serialize body to JSON"), nil
 			}
@@ -452,7 +452,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		if err != nil {
 			return values.NewErrorWithMessage(err.Error()), nil
 		}
-		return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
+		return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
 	}
 
 	// Client class def.
@@ -487,7 +487,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if !ok {
 				return nil, fmt.Errorf("parseHeader: expected string argument")
 			}
-			result, err := parseHeader(ctx.TypeCtx, input)
+			result, err := parseHeader(ctx.TypeCtx(), input)
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
@@ -769,7 +769,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
+			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$post",
@@ -793,7 +793,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
+			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$options",
@@ -812,7 +812,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
+			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$put",
@@ -842,7 +842,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			contentType := ""
 			if len(args) > 3 && args[3] != nil {
 				var ct string
-				bodyReader, contentLength, ct = msgToBody(ctx.TypeCtx, args[3])
+				bodyReader, contentLength, ct = msgToBody(ctx.TypeCtx(), args[3])
 				if bodyReader == nil && ct == "json_error" {
 					return values.NewErrorWithMessage("failed to serialize body to JSON"), nil
 				}
@@ -871,7 +871,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
+			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
 		})
 
 	// forward: args = [self, path, request]
@@ -927,7 +927,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx, statusCode, respHeaders, respBodyStream), nil
+			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
 		})
 
 	// Default lambdas for Response header position params (return "LEADING").
@@ -972,7 +972,7 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.initNative",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			self.Put("$headers", newMappingValue(ctx.TypeCtx))
+			self.Put("$headers", newMappingValue(ctx.TypeCtx()))
 			self.Put("body", &responseBodyHolder{buf: []byte{}})
 			return nil, nil
 		})
@@ -987,7 +987,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			responseHeaders(self).Put(ctx.TypeCtx, "content-type", newListValue(ctx.TypeCtx, []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1005,7 +1005,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			responseHeaders(self).Put(ctx.TypeCtx, "content-type", newListValue(ctx.TypeCtx, []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1024,7 +1024,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			responseHeaders(self).Put(ctx.TypeCtx, "content-type", newListValue(ctx.TypeCtx, []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1034,7 +1034,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			name := strings.ToLower(args[1].(string))
 			val := args[2].(string)
 			headers := responseHeaders(self)
-			headers.Put(ctx.TypeCtx, name, newListValue(ctx.TypeCtx, []values.BalValue{val}))
+			headers.Put(ctx.TypeCtx(), name, newListValue(ctx.TypeCtx(), []values.BalValue{val}))
 			return nil, nil
 		})
 
@@ -1047,9 +1047,9 @@ func initHttpModule(rt *runtime.Runtime) {
 			headers := responseHeaders(self)
 			existing, ok := headers.Get(name)
 			if ok {
-				existing.(*values.List).Append(ctx.TypeCtx, val)
+				existing.(*values.List).Append(ctx.TypeCtx(), val)
 			} else {
-				headers.Put(ctx.TypeCtx, name, newListValue(ctx.TypeCtx, []values.BalValue{val}))
+				headers.Put(ctx.TypeCtx(), name, newListValue(ctx.TypeCtx(), []values.BalValue{val}))
 			}
 			return nil, nil
 		})
@@ -1059,7 +1059,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
 			// args[2] is position — always treat as LEADING
-			responseHeaders(self).Delete(ctx.TypeCtx, name)
+			responseHeaders(self).Delete(ctx.TypeCtx(), name)
 			return nil, nil
 		})
 
@@ -1068,7 +1068,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			// args[1] is position — always treat as LEADING
 			for _, k := range responseHeaders(self).Keys() {
-				responseHeaders(self).Delete(ctx.TypeCtx, k)
+				responseHeaders(self).Delete(ctx.TypeCtx(), k)
 			}
 			return nil, nil
 		})
@@ -1077,7 +1077,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			ct := args[1].(string)
-			responseHeaders(self).Put(ctx.TypeCtx, "content-type", newListValue(ctx.TypeCtx, []values.BalValue{ct}))
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue(ctx.TypeCtx(), []values.BalValue{ct}))
 			return nil, nil
 		})
 
@@ -1137,7 +1137,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err := dec.Decode(&v); err != nil {
 				return values.NewErrorWithMessage("failed to parse JSON payload: " + err.Error()), nil
 			}
-			return values.GoToBalValue(ctx.TypeCtx, v, types.jsonListTy, types.jsonMapTy), nil
+			return values.GoToBalValue(ctx.TypeCtx(), v, types.jsonListTy, types.jsonMapTy), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getBinaryPayload",
@@ -1158,7 +1158,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, b := range raw {
 				items[i] = int64(b)
 			}
-			return newTypedListValue(ctx.TypeCtx, types.byteArrTy, items), nil
+			return newTypedListValue(ctx.TypeCtx(), types.byteArrTy, items), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.hasHeader",
@@ -1204,7 +1204,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, k := range keys {
 				items[i] = k
 			}
-			return newTypedListValue(ctx.TypeCtx, types.strArrTy, items), nil
+			return newTypedListValue(ctx.TypeCtx(), types.strArrTy, items), nil
 		})
 
 	// Request class def.
@@ -1230,7 +1230,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			self.Put("$body", &requestBodyHolder{buf: []byte{}})
-			self.Put("$headers", newMappingValue(ctx.TypeCtx))
+			self.Put("$headers", newMappingValue(ctx.TypeCtx()))
 			return nil, nil
 		})
 
@@ -1245,7 +1245,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			setRequestHeader(self, "content-type", ct, ctx.TypeCtx)
+			setRequestHeader(self, "content-type", ct, ctx.TypeCtx())
 			return nil, nil
 		})
 
@@ -1263,7 +1263,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			setRequestHeader(self, "content-type", ct, ctx.TypeCtx)
+			setRequestHeader(self, "content-type", ct, ctx.TypeCtx())
 			return nil, nil
 		})
 
@@ -1287,7 +1287,7 @@ func initHttpModule(rt *runtime.Runtime) {
 					ct = s
 				}
 			}
-			setRequestHeader(self, "content-type", ct, ctx.TypeCtx)
+			setRequestHeader(self, "content-type", ct, ctx.TypeCtx())
 			return nil, nil
 		})
 
@@ -1296,7 +1296,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
 			val, _ := args[2].(string)
-			setRequestHeader(self, name, val, ctx.TypeCtx)
+			setRequestHeader(self, name, val, ctx.TypeCtx())
 			return nil, nil
 		})
 
@@ -1305,16 +1305,16 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
 			val, _ := args[2].(string)
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
-				hdrs = newMappingValue(ctx.TypeCtx)
+				hdrs = newMappingValue(ctx.TypeCtx())
 				self.Put("$headers", hdrs)
 			}
 			existing, ok := hdrs.Get(name)
 			if ok {
-				existing.(*values.List).Append(ctx.TypeCtx, val)
+				existing.(*values.List).Append(ctx.TypeCtx(), val)
 			} else {
-				hdrs.Put(ctx.TypeCtx, name, newListValue(ctx.TypeCtx, []values.BalValue{val}))
+				hdrs.Put(ctx.TypeCtx(), name, newListValue(ctx.TypeCtx(), []values.BalValue{val}))
 			}
 			return nil, nil
 		})
@@ -1323,8 +1323,8 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			if hdrs, ok := requestHeadersMap(ctx.TypeCtx, self); ok {
-				hdrs.Delete(ctx.TypeCtx, name)
+			if hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self); ok {
+				hdrs.Delete(ctx.TypeCtx(), name)
 			}
 			return nil, nil
 		})
@@ -1332,9 +1332,9 @@ func initHttpModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.removeAllHeaders",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			if hdrs, ok := requestHeadersMap(ctx.TypeCtx, self); ok {
+			if hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self); ok {
 				for _, k := range hdrs.Keys() {
-					hdrs.Delete(ctx.TypeCtx, k)
+					hdrs.Delete(ctx.TypeCtx(), k)
 				}
 			}
 			return nil, nil
@@ -1344,30 +1344,30 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 
 			self := args[0].(*values.Object)
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
-				return newTypedListValue(ctx.TypeCtx, types.strArrTy, nil), nil
+				return newTypedListValue(ctx.TypeCtx(), types.strArrTy, nil), nil
 			}
 			keys := hdrs.Keys()
 			items := make([]values.BalValue, len(keys))
 			for i, k := range keys {
 				items[i] = k
 			}
-			return newTypedListValue(ctx.TypeCtx, types.strArrTy, items), nil
+			return newTypedListValue(ctx.TypeCtx(), types.strArrTy, items), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setContentType",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			ct := args[1].(string)
-			setRequestHeader(self, "content-type", ct, ctx.TypeCtx)
+			setRequestHeader(self, "content-type", ct, ctx.TypeCtx())
 			return nil, nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getContentType",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
 				return "", nil
 			}
@@ -1419,7 +1419,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err := dec.Decode(&v); err != nil {
 				return values.NewErrorWithMessage("getJsonPayload: " + err.Error()), nil
 			}
-			return values.GoToBalValue(ctx.TypeCtx, v, types.jsonListTy, types.jsonMapTy), nil
+			return values.GoToBalValue(ctx.TypeCtx(), v, types.jsonListTy, types.jsonMapTy), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getBinaryPayload",
@@ -1439,14 +1439,14 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, b := range raw {
 				items[i] = int64(b)
 			}
-			return newTypedListValue(ctx.TypeCtx, types.byteArrTy, items), nil
+			return newTypedListValue(ctx.TypeCtx(), types.byteArrTy, items), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getHeader",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
 				return values.NewErrorWithMessage("header not found: " + name), nil
 			}
@@ -1465,7 +1465,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
 				return values.NewErrorWithMessage("header not found: " + name), nil
 			}
@@ -1480,7 +1480,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			name := strings.ToLower(args[1].(string))
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx, self)
+			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
 			if !ok {
 				return false, nil
 			}
@@ -1495,13 +1495,13 @@ func initHttpModule(rt *runtime.Runtime) {
 			queryStrVal, _ := self.Get("$queryStr")
 			queryStr, _ := queryStrVal.(string)
 			parsed, _ := url.ParseQuery(queryStr)
-			m := newMappingValue(ctx.TypeCtx)
+			m := newMappingValue(ctx.TypeCtx())
 			for k, vals := range parsed {
 				items := make([]values.BalValue, len(vals))
 				for i, v := range vals {
 					items[i] = v
 				}
-				m.Put(ctx.TypeCtx, k, newTypedListValue(ctx.TypeCtx, types.strArrTy, items))
+				m.Put(ctx.TypeCtx(), k, newTypedListValue(ctx.TypeCtx(), types.strArrTy, items))
 			}
 			return m, nil
 		})
@@ -1536,7 +1536,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			for i, v := range vals {
 				items[i] = v
 			}
-			return newTypedListValue(ctx.TypeCtx, types.strArrTy, items), nil
+			return newTypedListValue(ctx.TypeCtx(), types.strArrTy, items), nil
 		})
 
 	// Server-side: register the http:Listener class and its native methods.

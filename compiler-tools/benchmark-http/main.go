@@ -45,24 +45,10 @@ type config struct {
 }
 
 func main() {
-	var cfg config
-	flag.IntVar(&cfg.repeats, "repeats", 2, "measured runs per ref (interleaved base/head)")
-	flag.StringVar(&cfg.warmup, "warmup", "30s", "wrk warmup duration (discarded)")
-	flag.StringVar(&cfg.duration, "duration", "330s", "wrk measured duration")
-	flag.IntVar(&cfg.conns, "conns", 50, "wrk concurrent connections")
-	flag.Float64Var(&cfg.threshold, "threshold", 10, "throughput drop % that fails the gate")
-	flag.StringVar(&cfg.exportMD, "export-md", "", "write the markdown report to this path")
-	flag.StringVar(&cfg.resultJSON, "result-json", "", "write the JSON verdict to this path")
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: httpbench [flags] <base-ref> <head-ref>\n\n")
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-	if flag.NArg() != 2 {
-		flag.Usage()
+	cfg, err := parseConfig(os.Args[1:])
+	if err != nil {
 		os.Exit(2)
 	}
-	cfg.baseRef, cfg.headRef = flag.Arg(0), flag.Arg(1)
 
 	if err := run(cfg); err != nil {
 		// Operational failure (build/launch/parse) — emit an error report so the
@@ -73,6 +59,34 @@ func main() {
 		// skip artifact upload and leave no comment.
 		return
 	}
+}
+
+// parseConfig parses flags and the two positional refs out of a local
+// FlagSet (rather than the global flag.CommandLine) so it can be unit tested
+// with arbitrary argument slices without touching global state or exiting.
+func parseConfig(args []string) (config, error) {
+	var cfg config
+	fs := flag.NewFlagSet("httpbench", flag.ContinueOnError)
+	fs.IntVar(&cfg.repeats, "repeats", 2, "measured runs per ref (interleaved base/head)")
+	fs.StringVar(&cfg.warmup, "warmup", "30s", "wrk warmup duration (discarded)")
+	fs.StringVar(&cfg.duration, "duration", "330s", "wrk measured duration")
+	fs.IntVar(&cfg.conns, "conns", 50, "wrk concurrent connections")
+	fs.Float64Var(&cfg.threshold, "threshold", 10, "throughput drop % that fails the gate")
+	fs.StringVar(&cfg.exportMD, "export-md", "", "write the markdown report to this path")
+	fs.StringVar(&cfg.resultJSON, "result-json", "", "write the JSON verdict to this path")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "usage: httpbench [flags] <base-ref> <head-ref>\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return config{}, err
+	}
+	if fs.NArg() != 2 {
+		fs.Usage()
+		return config{}, fmt.Errorf("expected exactly 2 positional args (base-ref, head-ref), got %d", fs.NArg())
+	}
+	cfg.baseRef, cfg.headRef = fs.Arg(0), fs.Arg(1)
+	return cfg, nil
 }
 
 func run(cfg config) error {

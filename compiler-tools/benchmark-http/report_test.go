@@ -16,7 +16,56 @@
 
 package main
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestWriteFileRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.md")
+	if err := writeFile(path, "# hello"); err != nil {
+		t.Fatalf("writeFile: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != "# hello" {
+		t.Errorf("readback = %q, err = %v, want %q", got, err, "# hello")
+	}
+}
+
+func TestWriteFileFailsForMissingDir(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing-dir", "report.md")
+	if err := writeFile(path, "x"); err == nil {
+		t.Fatal("expected an error writing to a nonexistent directory")
+	}
+}
+
+func TestWriteResultJSONRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result.json")
+	want := result{Regressed: true, ThroughputBase: 1000, ThroughputHead: 800, ThroughputDelta: -20, ThresholdPct: 10}
+	if err := writeResultJSON(path, want); err != nil {
+		t.Fatalf("writeResultJSON: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading result.json: %v", err)
+	}
+	var got result
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got != want {
+		t.Errorf("result.json roundtrip = %+v, want %+v", got, want)
+	}
+}
+
+func TestWriteResultJSONFailsForMissingDir(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing-dir", "result.json")
+	if err := writeResultJSON(path, result{}); err == nil {
+		t.Fatal("expected an error writing to a nonexistent directory")
+	}
+}
 
 func thrSamples(vals ...float64) []sample {
 	out := make([]sample, len(vals))

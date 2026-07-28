@@ -30,11 +30,10 @@ func setProcAttr(cmd *exec.Cmd) {
 }
 
 // killGroup terminates the service's whole process group and reaps it, so a
-// forked child (should one appear) never strands the port.
+// forked child (should one appear) never strands the port. cmd.Process is
+// always set here: the only caller registers this via defer after a
+// successful cmd.Start(), which Go guarantees populates it.
 func killGroup(cmd *exec.Cmd) {
-	if cmd.Process == nil {
-		return
-	}
 	if pgid, err := syscall.Getpgid(cmd.Process.Pid); err == nil {
 		_ = syscall.Kill(-pgid, syscall.SIGKILL)
 	} else {

@@ -26,10 +26,9 @@ import "os/exec"
 
 func setProcAttr(_ *exec.Cmd) {}
 
+// cmd.Process is always set here: the only caller registers this via defer
+// after a successful cmd.Start(), which Go guarantees populates it.
 func killGroup(cmd *exec.Cmd) {
-	if cmd.Process == nil {
-		return
-	}
 	_ = cmd.Process.Kill()
 	_, _ = cmd.Process.Wait()
 }

@@ -24,10 +24,12 @@ jobs:
 
     steps:
       # Checks out the default branch (workflow_run always evaluates from
-      # there, never the PR head) so the comment script itself stays trusted
-      # — script-path needs the file on disk, unlike the old inline script.
+      # there, never the PR head) so the required()'d comment script itself
+      # stays trusted. No later step needs git credentials.
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Download benchmark artifact
         # Tolerate zero matching artifacts (e.g. prepare failed before upload):
@@ -45,4 +47,8 @@ jobs:
       - name: Post or update PR comment
         uses: actions/github-script@v7
         with:
-          script-path: .github/scripts/post-http-benchmark-comment.js
+          # actions/github-script has no script-path input — only inline
+          # `script`. Load the checked-in handler that way instead.
+          script: |
+            const script = require('${{ github.workspace }}/.github/scripts/post-http-benchmark-comment.js');
+            await script({ github, context, core });

@@ -24,7 +24,7 @@ import (
 	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
 )
 
-// DocumentationParser is a parser for Ballerina documentation (markdown).
+// documentationParser is a parser for Ballerina documentation (markdown).
 // Ballerina flavored markdown (BFM) is supported by the documentation.
 // There is no error handler attached to this parser.
 // In case of an error, simply missing token will be inserted.
@@ -327,25 +327,25 @@ type lookahead struct {
 
 func (p *documentationParser) isBallerinaNameRefTokenSequence(refGenre referenceGenre) bool {
 	hasMatch := false
-	lookahead := &lookahead{offset: 1}
+	la := &lookahead{offset: 1}
 
 	switch refGenre {
 	case referenceGenreSpecialKey:
 		// Look for x, m:x match
-		hasMatch = p.hasQualifiedIdentifier(lookahead)
+		hasMatch = p.hasQualifiedIdentifier(la)
 	case referenceGenreFunctionKey:
 		// Look for x, m:x, x(), m:x(), T.y(), m:T.y() match
-		hasMatch = p.hasBacktickExpr(lookahead, true)
+		hasMatch = p.hasBacktickExpr(la, true)
 	case referenceGenreNoKey:
 		// Look for x(), m:x(), T.y(), m:T.y() match
-		hasMatch = p.hasBacktickExpr(lookahead, false)
+		hasMatch = p.hasBacktickExpr(la, false)
 	}
 
 	if !hasMatch {
 		return false
 	}
 
-	peekToken := p.peekN(lookahead.offset)
+	peekToken := p.peekN(la.offset)
 	return peekToken != nil && peekToken.Kind() == st.BACKTICK_TOKEN
 }
 

@@ -16,7 +16,7 @@
 
 package st
 
-//go:generate ../tree-gen -config nodes.json -type node -template ../compiler-tools/tree-gen/templates/node.go.tmpl -output node_gen.go
+//go:generate ../compiler-tools/tree-gen -config nodes.json -type node -template ../compiler-tools/tree-gen/templates/node.go.tmpl -output node_gen.go
 
 import (
 	"iter"

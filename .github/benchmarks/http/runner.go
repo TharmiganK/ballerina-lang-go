@@ -25,7 +25,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -105,7 +104,7 @@ func runCmdSilent(dir, name string, args ...string) error {
 func measureOnce(balPath, helloFile string, cfg config) (sample, error) {
 	var s sample
 	cmd := exec.Command(balPath, "run", helloFile)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcAttr(cmd) // own process group (unix) so the whole tree can be killed
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	start := time.Now()
@@ -180,20 +179,6 @@ func waitPortClose(port int, timeout time.Duration) {
 		_ = c.Close()
 		time.Sleep(50 * time.Millisecond)
 	}
-}
-
-// killGroup terminates the service's whole process group and reaps it, so a
-// forked child (should one appear) never strands the port.
-func killGroup(cmd *exec.Cmd) {
-	if cmd.Process == nil {
-		return
-	}
-	if pgid, err := syscall.Getpgid(cmd.Process.Pid); err == nil {
-		_ = syscall.Kill(-pgid, syscall.SIGKILL)
-	} else {
-		_ = cmd.Process.Kill()
-	}
-	_, _ = cmd.Process.Wait()
 }
 
 // readPeakRSS reads VmHWM (peak resident set) for pid from /proc, in MB.

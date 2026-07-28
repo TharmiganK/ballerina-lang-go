@@ -46,9 +46,9 @@ type config struct {
 
 func main() {
 	var cfg config
-	flag.IntVar(&cfg.repeats, "repeats", 3, "measured runs per ref (interleaved base/head)")
+	flag.IntVar(&cfg.repeats, "repeats", 2, "measured runs per ref (interleaved base/head)")
 	flag.StringVar(&cfg.warmup, "warmup", "30s", "wrk warmup duration (discarded)")
-	flag.StringVar(&cfg.duration, "duration", "210s", "wrk measured duration")
+	flag.StringVar(&cfg.duration, "duration", "330s", "wrk measured duration")
 	flag.IntVar(&cfg.conns, "conns", 50, "wrk concurrent connections")
 	flag.Float64Var(&cfg.threshold, "threshold", 10, "throughput drop %% that fails the gate")
 	flag.StringVar(&cfg.exportMD, "export-md", "", "write the markdown report to this path")

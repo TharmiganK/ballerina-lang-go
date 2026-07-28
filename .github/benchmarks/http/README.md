@@ -22,9 +22,9 @@ Runs are **interleaved** (base, head, base, head, …) `--repeats` times so both
 ```text
 httpbench [flags] <base-ref> <head-ref>
 
-  --repeats N        measured runs per ref, interleaved (default 3)
+  --repeats N        measured runs per ref, interleaved (default 2)
   --warmup DUR       wrk warmup, discarded (default 30s)
-  --duration DUR     wrk measured run (default 210s)
+  --duration DUR     wrk measured run (default 330s)
   --conns N          wrk concurrent connections (default 50)
   --threshold PCT    throughput drop %% that fails the gate (default 10)
   --export-md PATH   write the markdown report here

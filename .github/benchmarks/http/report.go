@@ -97,10 +97,16 @@ func buildReport(baseRef, headRef string, base, head []sample, cfg config) (stri
 	rss := func(s sample) float64 { return s.rssMB }
 
 	baseThr, headThr := median(field(base, thr)), median(field(head, thr))
-	var delta float64
-	if baseThr != 0 {
-		delta = (headThr - baseThr) / baseThr * 100
+	// Fail closed: without samples on both sides and a positive baseline there is
+	// no meaningful delta, so report an error rather than a misleading "no
+	// regression" from a zero/empty baseline.
+	if len(base) == 0 || len(head) == 0 || baseThr <= 0 {
+		msg := fmt.Sprintf("invalid throughput samples (base runs=%d, head runs=%d, base median=%.1f req/s)",
+			len(base), len(head), baseThr)
+		return "HTTP benchmark could not compute a valid comparison:\n\n```text\n" + msg + "\n```\n",
+			result{Error: true, Message: msg, ThresholdPct: cfg.threshold}
 	}
+	delta := (headThr - baseThr) / baseThr * 100
 	regressed := delta < -cfg.threshold
 
 	var b strings.Builder

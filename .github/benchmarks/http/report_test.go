@@ -62,6 +62,25 @@ func TestGateIgnoresImprovement(t *testing.T) {
 	}
 }
 
+func TestGateErrorsOnEmptySamples(t *testing.T) {
+	cfg := config{repeats: 2, duration: "330s", conns: 50, threshold: 10}
+	_, res := buildReport("base", "head", nil, thrSamples(100000, 100000), cfg)
+	if !res.Error {
+		t.Errorf("expected Error=true when the base group has no samples")
+	}
+	if res.Regressed {
+		t.Errorf("must not report a regression on invalid samples")
+	}
+}
+
+func TestGateErrorsOnZeroBaseline(t *testing.T) {
+	cfg := config{repeats: 2, duration: "330s", conns: 50, threshold: 10}
+	_, res := buildReport("base", "head", thrSamples(0, 0), thrSamples(100000, 100000), cfg)
+	if !res.Error {
+		t.Errorf("expected Error=true when the base median throughput is 0")
+	}
+}
+
 func TestComma(t *testing.T) {
 	cases := map[float64]string{0: "0", 999: "999", 1000: "1,000", 69303: "69,303", 1234567: "1,234,567"}
 	for in, want := range cases {

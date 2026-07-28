@@ -103,6 +103,11 @@ func runCmdSilent(dir, name string, args ...string) error {
 // a measured wrk run, captures peak RSS, and tears the service down.
 func measureOnce(balPath, helloFile string, cfg config) (sample, error) {
 	var s sample
+	// Fail fast if the port is already taken: otherwise waitForPort would latch
+	// onto a stale/foreign listener and we would measure the wrong service.
+	if portOpen(servicePort) {
+		return s, fmt.Errorf("port %d is already in use before launch; a prior service may not have shut down", servicePort)
+	}
 	cmd := exec.Command(balPath, "run", helloFile)
 	setProcAttr(cmd) // own process group (unix) so the whole tree can be killed
 	cmd.Stdout = nil
@@ -154,13 +159,21 @@ func runWrk(threads, conns int, dur string) (string, error) {
 	return string(out), err
 }
 
+// portOpen reports whether something is already accepting TCP connections on
+// the port.
+func portOpen(port int) bool {
+	c, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), 200*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = c.Close()
+	return true
+}
+
 func waitForPort(port int, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
-	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 	for time.Now().Before(deadline) {
-		c, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-		if err == nil {
-			_ = c.Close()
+		if portOpen(port) {
 			return true
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -170,13 +183,10 @@ func waitForPort(port int, timeout time.Duration) bool {
 
 func waitPortClose(port int, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
-	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 	for time.Now().Before(deadline) {
-		c, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-		if err != nil {
+		if !portOpen(port) {
 			return
 		}
-		_ = c.Close()
 		time.Sleep(50 * time.Millisecond)
 	}
 }

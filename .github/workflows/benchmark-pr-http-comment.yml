@@ -24,6 +24,10 @@ jobs:
 
     steps:
       - name: Download benchmark artifact
+        # Tolerate zero matching artifacts (e.g. prepare failed before upload):
+        # download-artifact errors when nothing matches, so don't let that fail
+        # the job — the script below degrades gracefully when files are absent.
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
@@ -39,6 +43,13 @@ jobs:
             const fs = require("fs");
 
             const MARKER = "<!-- benchmark-http-pr-comment -->";
+
+            // The artifact may be absent if the prepare run produced none; without
+            // it (and its PR number) there is nothing to comment on.
+            if (!fs.existsSync("benchmark-artifact/benchmark-meta.json")) {
+              core.info("No benchmark artifact found; nothing to comment.");
+              return;
+            }
             const meta = JSON.parse(fs.readFileSync("benchmark-artifact/benchmark-meta.json", "utf8"));
             const { pr_number: issueNumber, head_sha: artifactHeadSha } = meta;
 
@@ -59,11 +70,19 @@ jobs:
               return fs.existsSync(path) ? fs.readFileSync(path, "utf8") : "";
             }
 
+            // report.md/run.log come from a tool built on PR-head code, so treat
+            // them as untrusted: neutralise raw HTML (angle brackets, ampersand)
+            // before posting, while leaving the Markdown table readable.
+            function escapeHtml(s) {
+              return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            }
+
             let report = readIfExists("benchmark-artifact/report.md").trim();
             if (!report) {
               const log = readIfExists("benchmark-artifact/run.log").trim();
               report = "```text\n" + (log || "No benchmark output was produced.") + "\n```";
             }
+            report = escapeHtml(report);
 
             const body = [
               MARKER,

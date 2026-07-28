@@ -19,7 +19,7 @@ Runs are **interleaved** (base, head, base, head, …) `--repeats` times so both
 
 ## Usage
 
-```
+```text
 httpbench [flags] <base-ref> <head-ref>
 
   --repeats N        measured runs per ref, interleaved (default 3)
@@ -35,7 +35,7 @@ Must be run from the repository root (it uses `git worktree`). Requires `git`, `
 
 Example (local A/B against a known-good vs suspected-bad commit):
 
-```
+```bash
 cd <repo-root>
 go build -o /tmp/httpbench ./.github/benchmarks/http    # build from the tool dir: (cd .github/benchmarks/http && go build -o /tmp/httpbench .)
 /tmp/httpbench --repeats 2 --duration 5s <good-sha> <bad-sha>

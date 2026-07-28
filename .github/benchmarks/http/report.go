@@ -114,12 +114,12 @@ func buildReport(baseRef, headRef string, base, head []sample, cfg config) (stri
 	}
 	fmt.Fprintf(&b, "| Throughput (req/s) | %s | %s | %s |\n",
 		countWithSpread(field(base, thr)), countWithSpread(field(head, thr)), thrDelta)
-	fmt.Fprintf(&b, "| Avg latency (ms) | %.2f | %.2f | %s |\n",
-		median(field(base, avg)), median(field(head, avg)), signedPct(median(field(base, avg)), median(field(head, avg))))
-	fmt.Fprintf(&b, "| p99 latency (ms) | %.2f | %.2f | %s |\n",
-		median(field(base, p99)), median(field(head, p99)), signedPct(median(field(base, p99)), median(field(head, p99))))
-	fmt.Fprintf(&b, "| Startup (s) | %.3f | %.3f | %s |\n",
-		median(field(base, up)), median(field(head, up)), signedPct(median(field(base, up)), median(field(head, up))))
+	baseAvg, headAvg := median(field(base, avg)), median(field(head, avg))
+	fmt.Fprintf(&b, "| Avg latency (ms) | %.2f | %.2f | %s |\n", baseAvg, headAvg, signedPct(baseAvg, headAvg))
+	baseP99, headP99 := median(field(base, p99)), median(field(head, p99))
+	fmt.Fprintf(&b, "| p99 latency (ms) | %.2f | %.2f | %s |\n", baseP99, headP99, signedPct(baseP99, headP99))
+	baseUp, headUp := median(field(base, up)), median(field(head, up))
+	fmt.Fprintf(&b, "| Startup (s) | %.3f | %.3f | %s |\n", baseUp, headUp, signedPct(baseUp, headUp))
 	fmt.Fprintf(&b, "| Peak RSS (MB) | %s | %s | %s |\n",
 		rssCell(field(base, rss)), rssCell(field(head, rss)), rssDelta(field(base, rss), field(head, rss)))
 

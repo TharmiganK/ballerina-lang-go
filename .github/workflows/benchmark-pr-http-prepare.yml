@@ -16,8 +16,6 @@ jobs:
     name: Benchmark HTTP base vs PR head
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
-    # ~24 min of load (2 repeats x 2 refs x (30s + 330s)) + builds/setup; the
-    # cap bounds a stalled git/network/hung-service step well above the norm.
     timeout-minutes: 45
 
     steps:
@@ -26,8 +24,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
-          # No git operation here needs the token (worktrees are local); don't
-          # leave credentials in .git/config while building untrusted PR code.
           persist-credentials: false
 
       - name: Set up Go
@@ -49,9 +45,6 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           mkdir -p benchmark-output
-          # httpbench treats a regression as data and exits 0; the Gate step
-          # below turns result.json into the pass/fail check. `|| true` guards
-          # only against an unexpected crash (handled by the Gate too).
           "$GITHUB_WORKSPACE/bin/httpbench" \
             --repeats 2 --warmup 30s --duration 330s --conns 50 --threshold 10 \
             --export-md benchmark-output/report.md \

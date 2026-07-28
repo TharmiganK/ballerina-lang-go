@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -43,8 +44,8 @@ type sample struct {
 
 // --- git worktree + interpreter build (adapted from compiler-tools/benchmark) ---
 
-func checkoutWorktree(workRoot, ref string) (string, error) {
-	path := filepath.Join(workRoot, "worktree-"+sanitize(ref))
+func checkoutWorktree(workRoot, role, ref string) (string, error) {
+	path := filepath.Join(workRoot, "worktree-"+role+"-"+sanitize(ref))
 	removeWorktree(path)
 	if err := runCmd(".", "git", "worktree", "add", "--detach", path, ref); err != nil {
 		return "", fmt.Errorf("failed to checkout worktree for ref %q: %w", ref, err)
@@ -148,7 +149,13 @@ func measureOnce(balPath, helloFile string, cfg config) (sample, error) {
 }
 
 func runWrk(threads, conns int, dur string) (string, error) {
-	cmd := exec.Command("wrk",
+	d, err := time.ParseDuration(dur)
+	if err != nil {
+		return "", fmt.Errorf("invalid wrk duration %q: %w", dur, err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), d+30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "wrk",
 		"-t", strconv.Itoa(threads),
 		"-c", strconv.Itoa(conns),
 		"-d", dur,

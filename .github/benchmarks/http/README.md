@@ -15,7 +15,7 @@ For each ref (base and head) it:
 
 Runs are **interleaved** (base, head, base, head, …) `--repeats` times so both refs share any drift on the host. It compares the **median** throughput and flags a regression when head is more than `--threshold` percent below base.
 
-`bal run` (interpret) is used, not `bal build` — no per-ref build step, cleanest isolation, and it exercises the same interpreter engine where language/`http` regressions surface.
+`bal run` (interpret) is used for the hello service, not `bal build` — no per-ref build step for the service itself, cleanest isolation, and it exercises the same interpreter engine where language/`http` regressions surface. Each worktree still compiles the `bal` CLI via `go build` (step 1) — that build step is unavoidable since it produces the binary under test.
 
 ## Usage
 
@@ -26,7 +26,7 @@ httpbench [flags] <base-ref> <head-ref>
   --warmup DUR       wrk warmup, discarded (default 30s)
   --duration DUR     wrk measured run (default 330s)
   --conns N          wrk concurrent connections (default 50)
-  --threshold PCT    throughput drop %% that fails the gate (default 10)
+  --threshold PCT    throughput drop % that fails the gate (default 10)
   --export-md PATH   write the markdown report here
   --result-json PATH write the JSON verdict here
 ```

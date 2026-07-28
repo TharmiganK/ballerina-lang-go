@@ -44,25 +44,35 @@ jobs:
 
             const MARKER = "<!-- benchmark-http-pr-comment -->";
 
-            // The artifact may be absent if the prepare run produced none; without
-            // it (and its PR number) there is nothing to comment on.
-            if (!fs.existsSync("benchmark-artifact/benchmark-meta.json")) {
-              core.info("No benchmark artifact found; nothing to comment.");
+            // PR identity must come from the trusted workflow_run event context,
+            // never from benchmark-meta.json — that file is written by the prepare
+            // job while running PR-head code, so a malicious PR could forge it to
+            // make this privileged (pull-requests: write) job comment on an
+            // unrelated PR. pull_requests is only populated for same-repo PRs and
+            // can be ambiguous in theory, so require exactly one association.
+            const pulls = context.payload.workflow_run.pull_requests || [];
+            if (pulls.length !== 1) {
+              core.info(`Skipping: workflow_run reports ${pulls.length} associated pull request(s); expected exactly 1.`);
               return;
             }
-            const meta = JSON.parse(fs.readFileSync("benchmark-artifact/benchmark-meta.json", "utf8"));
-            const { pr_number: issueNumber, head_sha: artifactHeadSha } = meta;
-
-            if (!issueNumber) return core.setFailed("benchmark-meta.json missing pr_number");
-            if (!artifactHeadSha) return core.setFailed("benchmark-meta.json missing head_sha");
+            const issueNumber = pulls[0].number;
+            const workflowHeadSha = context.payload.workflow_run.head_sha;
 
             // Bail out if a newer push has already superseded this run.
             const { data: pr } = await github.rest.pulls.get({
               ...context.repo,
               pull_number: issueNumber,
             });
-            if (pr.head.sha !== artifactHeadSha) {
-              core.info(`Skipping: artifact SHA ${artifactHeadSha} is not current PR head ${pr.head.sha}`);
+            if (pr.head.sha !== workflowHeadSha) {
+              core.info(`Skipping: workflow_run head ${workflowHeadSha} is not current PR head ${pr.head.sha}`);
+              return;
+            }
+
+            // The artifact itself (report/log) is still untrusted display content
+            // from PR-head code — escaped below — but no longer drives *who* we
+            // comment on. It may be absent if the prepare run produced none.
+            if (!fs.existsSync("benchmark-artifact")) {
+              core.info("No benchmark artifact found; nothing to comment.");
               return;
             }
 

@@ -50,7 +50,7 @@ func main() {
 	flag.StringVar(&cfg.warmup, "warmup", "30s", "wrk warmup duration (discarded)")
 	flag.StringVar(&cfg.duration, "duration", "330s", "wrk measured duration")
 	flag.IntVar(&cfg.conns, "conns", 50, "wrk concurrent connections")
-	flag.Float64Var(&cfg.threshold, "threshold", 10, "throughput drop %% that fails the gate")
+	flag.Float64Var(&cfg.threshold, "threshold", 10, "throughput drop % that fails the gate")
 	flag.StringVar(&cfg.exportMD, "export-md", "", "write the markdown report to this path")
 	flag.StringVar(&cfg.resultJSON, "result-json", "", "write the JSON verdict to this path")
 	flag.Usage = func() {
@@ -92,12 +92,12 @@ func run(cfg config) error {
 		return err
 	}
 
-	baseWT, err := checkoutWorktree(workRoot, cfg.baseRef)
+	baseWT, err := checkoutWorktree(workRoot, "base", cfg.baseRef)
 	if err != nil {
 		return err
 	}
 	defer removeWorktree(baseWT)
-	headWT, err := checkoutWorktree(workRoot, cfg.headRef)
+	headWT, err := checkoutWorktree(workRoot, "head", cfg.headRef)
 	if err != nil {
 		return err
 	}

@@ -204,7 +204,9 @@ func (c *context) resetConjunctionStack(depth int32) {
 // context that is about to be reused by an unrelated invocation, so cached
 // entries don't accumulate without bound over the context's pooled lifetime.
 func (c *context) Reset() {
+	clear(c._memoStack[:cap(c._memoStack)])
 	c._memoStack = c._memoStack[:0]
+	clear(c._conjunctions[:cap(c._conjunctions)])
 	c._conjunctions = c._conjunctions[:0]
 
 	c._jsonMemo = SemType{}

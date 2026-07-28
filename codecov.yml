@@ -3,10 +3,12 @@ github_checks:
 
 ignore:
   - "test_util/**"
+  - ".github/benchmarks/**"
 
 coverage:
   ignore:
     - "test_util/**"
+    - ".github/benchmarks/**"
   status:
     patch:
       default:

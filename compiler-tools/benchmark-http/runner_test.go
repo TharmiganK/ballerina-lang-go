@@ -28,9 +28,8 @@ import (
 	"time"
 )
 
-// sharedBalBinary is built once (checkoutWorktree + buildInterpreter of HEAD)
-// and reused by tests that only need a working `bal` to drive, so the ~16k
-// file worktree checkout + build isn't repeated per test.
+// sharedBalBinary is built once and reused by tests that just need a working
+// `bal`, so the worktree checkout + build isn't repeated per test.
 var (
 	sharedBalOnce sync.Once
 	sharedBalPath string
@@ -59,26 +58,19 @@ func ensureSharedBalBinary(t *testing.T) string {
 	return sharedBalPath
 }
 
-// skipWorktreeIntegrationOnWindows skips real git-worktree-checkout tests on
-// Windows. compiler-tools/benchmark uses the identical checkout+build
-// pattern and passes there, but httpbench itself only ever runs on
-// ubuntu-latest in CI (benchmark-pr-http-prepare.yml) — Windows execution
-// here is a side effect of module discovery, not a real use case — and
-// Windows test runs don't feed Codecov coverage (only native-ci's
-// ubuntu-build job uploads it). Skipping avoids chasing a platform-specific
-// flake in a code path this tool never actually exercises on Windows.
+// skipWorktreeIntegrationOnWindows skips real git-worktree checkout/build
+// tests there: httpbench only ever runs on ubuntu-latest in CI, and Windows
+// test runs don't feed Codecov coverage anyway.
 func skipWorktreeIntegrationOnWindows(t *testing.T) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
-		t.Skip("worktree checkout/build integration is exercised on Linux/macOS only; httpbench itself only runs on ubuntu-latest")
+		t.Skip("worktree checkout/build integration is exercised on Linux/macOS only")
 	}
 }
 
-// requireWrk fails the test if wrk is unavailable, mirroring the sibling
-// compiler-tools/benchmark tool's requireHyperfine: CI installs it, so
-// silently skipping would quietly erode coverage of the load-driving path.
-// wrk itself only builds on Linux/macOS, so Windows (which has no wrk
-// package) degrades to a skip instead.
+// requireWrk fails the test if wrk is unavailable (mirrors requireHyperfine
+// in the sibling compiler-tools/benchmark tool). wrk isn't installable on
+// Windows, so skip there instead.
 func requireWrk(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("wrk"); err != nil {
@@ -134,11 +126,7 @@ func TestRunCmdSilentSuccessAndFailure(t *testing.T) {
 	}
 }
 
-// Not parallel: real `git worktree add`/`remove` against this repo's own
-// .git; running these concurrently with each other adds worktree-metadata
-// contention for no real benefit (they're already the slow part of the
-// suite, dominated by the checkout itself, not CPU-bound work parallelism
-// would help with).
+// Not parallel: real git worktree checkout against this repo's own .git.
 func TestCheckoutAndRemoveWorktree(t *testing.T) {
 	skipWorktreeIntegrationOnWindows(t)
 	root := t.TempDir()
@@ -168,8 +156,7 @@ func TestCheckoutWorktreeFailsForInvalidRef(t *testing.T) {
 
 // TestCheckoutWorktreeIsolatesRolesForSameRef guards the fix that qualifies
 // worktree paths by role: base and head must not collide even when both
-// point at the same (or identically-sanitizing) ref. Not parallel — see
-// TestCheckoutAndRemoveWorktree.
+// point at the same ref. Not parallel — see TestCheckoutAndRemoveWorktree.
 func TestCheckoutWorktreeIsolatesRolesForSameRef(t *testing.T) {
 	skipWorktreeIntegrationOnWindows(t)
 	root := t.TempDir()
@@ -190,9 +177,6 @@ func TestCheckoutWorktreeIsolatesRolesForSameRef(t *testing.T) {
 	}
 }
 
-// Not parallel: shares the sync.Once-built binary from ensureSharedBalBinary
-// with TestMeasureOnceProducesSample; the Once makes concurrent calls safe,
-// but there's nothing to gain from racing them.
 func TestBuildInterpreterProducesRunnableBinary(t *testing.T) {
 	bin := ensureSharedBalBinary(t)
 	info, err := os.Stat(bin)
@@ -265,11 +249,9 @@ func TestRunWrkInvalidDuration(t *testing.T) {
 	}
 }
 
-// TestMeasureOnceFailsFastWhenPortBusy exercises the pre-launch port check
-// without needing wrk or a real bal binary: it fails before either is used.
-// Not parallel: binds the hardcoded servicePort (9090), which
-// TestMeasureOnceProducesSample and TestRunEndToEndSelfComparison also use
-// for a real service — concurrent use would collide.
+// TestMeasureOnceFailsFastWhenPortBusy fails before wrk or bal are ever
+// invoked. Not parallel: binds the hardcoded servicePort, which
+// TestMeasureOnceProducesSample also uses for a real service.
 func TestMeasureOnceFailsFastWhenPortBusy(t *testing.T) {
 	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(servicePort)))
 	if err != nil {

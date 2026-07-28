@@ -163,10 +163,9 @@ func TestRunFailsFastForInvalidBaseRef(t *testing.T) {
 // TestRunEndToEndSelfComparison drives the full base->head pipeline (worktree
 // checkout, bal build, service launch, wrk load, report+verdict) comparing
 // HEAD against itself. It requires wrk on PATH — see requireWrk.
+// Not parallel: run() binds the same hardcoded servicePort as
+// TestMeasureOnceProducesSample.
 func TestRunEndToEndSelfComparison(t *testing.T) {
-	// Not parallel: run() launches a real service on the hardcoded
-	// servicePort (9090) via measureOnce, which would collide with other
-	// tests that bind the same port (e.g. TestMeasureOnceProducesSample).
 	requireWrk(t)
 	dir := t.TempDir()
 	cfg := config{

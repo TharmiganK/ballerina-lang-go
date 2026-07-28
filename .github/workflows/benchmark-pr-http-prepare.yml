@@ -41,7 +41,7 @@ jobs:
           sudo apt-get install -y wrk
 
       - name: Build HTTP benchmark tool
-        working-directory: .github/benchmarks/http
+        working-directory: compiler-tools/benchmark-http
         run: go build -o "$GITHUB_WORKSPACE/bin/httpbench" .
 
       - name: Run HTTP benchmark

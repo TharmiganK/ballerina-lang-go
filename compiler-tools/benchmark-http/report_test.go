@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -98,6 +99,27 @@ func TestGatePassesWithinThreshold(t *testing.T) {
 	}
 	if res.ThroughputDelta != -5 {
 		t.Errorf("throughputDelta = %v, want -5", res.ThroughputDelta)
+	}
+}
+
+func TestGateFlagsRegressionAtExactThreshold(t *testing.T) {
+	cfg := config{repeats: 2, duration: "10s", conns: 50, threshold: 10}
+	base := thrSamples(100000, 100000)
+	head := thrSamples(90000, 90000) // exactly -10% at a 10% threshold
+	_, res := buildReport("base", "head", base, head, cfg)
+	if !res.Regressed {
+		t.Errorf("expected regressed=true when the drop exactly equals the threshold")
+	}
+}
+
+func TestBuildReportHeaderLabelsBaseAndHead(t *testing.T) {
+	cfg := config{repeats: 1, duration: "10s", conns: 50, threshold: 10}
+	md, _ := buildReport("base-ref", "head-ref", thrSamples(100000), thrSamples(100000), cfg)
+	if !strings.Contains(md, "`base-ref` (base)") {
+		t.Errorf("expected the base column to be labeled, report:\n%s", md)
+	}
+	if !strings.Contains(md, "`head-ref` (head)") {
+		t.Errorf("expected the head column to be labeled, report:\n%s", md)
 	}
 }
 

@@ -107,10 +107,10 @@ func buildReport(baseRef, headRef string, base, head []sample, cfg config) (stri
 			result{Error: true, Message: msg, ThresholdPct: cfg.threshold}
 	}
 	delta := (headThr - baseThr) / baseThr * 100
-	regressed := delta < -cfg.threshold
+	regressed := delta <= -cfg.threshold
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "| Metric | `%s` (base) | `%s` | Δ (head vs base) |\n", baseRef, headRef)
+	fmt.Fprintf(&b, "| Metric | `%s` (base) | `%s` (head) | Δ (head vs base) |\n", baseRef, headRef)
 	b.WriteString("|---|---|---|---|\n")
 
 	// Throughput — higher is better; a negative delta is the regression signal.

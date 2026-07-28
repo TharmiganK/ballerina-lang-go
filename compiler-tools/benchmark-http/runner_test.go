@@ -100,6 +100,7 @@ func findFreePort(t *testing.T) int {
 }
 
 func TestSanitize(t *testing.T) {
+	t.Parallel()
 	cases := map[string]string{
 		"feature/foo": "feature-foo",
 		"a:b\\c":      "a-b-c",
@@ -114,6 +115,7 @@ func TestSanitize(t *testing.T) {
 }
 
 func TestRunCmdSuccessAndFailure(t *testing.T) {
+	t.Parallel()
 	if err := runCmd(t.TempDir(), "go", "version"); err != nil {
 		t.Errorf("runCmd(go version) = %v, want nil", err)
 	}
@@ -123,6 +125,7 @@ func TestRunCmdSuccessAndFailure(t *testing.T) {
 }
 
 func TestRunCmdSilentSuccessAndFailure(t *testing.T) {
+	t.Parallel()
 	if err := runCmdSilent(t.TempDir(), "go", "version"); err != nil {
 		t.Errorf("runCmdSilent(go version) = %v, want nil", err)
 	}
@@ -131,6 +134,11 @@ func TestRunCmdSilentSuccessAndFailure(t *testing.T) {
 	}
 }
 
+// Not parallel: real `git worktree add`/`remove` against this repo's own
+// .git; running these concurrently with each other adds worktree-metadata
+// contention for no real benefit (they're already the slow part of the
+// suite, dominated by the checkout itself, not CPU-bound work parallelism
+// would help with).
 func TestCheckoutAndRemoveWorktree(t *testing.T) {
 	skipWorktreeIntegrationOnWindows(t)
 	root := t.TempDir()
@@ -152,6 +160,7 @@ func TestCheckoutAndRemoveWorktree(t *testing.T) {
 }
 
 func TestCheckoutWorktreeFailsForInvalidRef(t *testing.T) {
+	t.Parallel()
 	if _, err := checkoutWorktree(t.TempDir(), "role", "definitely-not-a-real-ref-xyz"); err == nil {
 		t.Fatal("expected an error for an invalid ref")
 	}
@@ -159,7 +168,8 @@ func TestCheckoutWorktreeFailsForInvalidRef(t *testing.T) {
 
 // TestCheckoutWorktreeIsolatesRolesForSameRef guards the fix that qualifies
 // worktree paths by role: base and head must not collide even when both
-// point at the same (or identically-sanitizing) ref.
+// point at the same (or identically-sanitizing) ref. Not parallel — see
+// TestCheckoutAndRemoveWorktree.
 func TestCheckoutWorktreeIsolatesRolesForSameRef(t *testing.T) {
 	skipWorktreeIntegrationOnWindows(t)
 	root := t.TempDir()
@@ -180,6 +190,9 @@ func TestCheckoutWorktreeIsolatesRolesForSameRef(t *testing.T) {
 	}
 }
 
+// Not parallel: shares the sync.Once-built binary from ensureSharedBalBinary
+// with TestMeasureOnceProducesSample; the Once makes concurrent calls safe,
+// but there's nothing to gain from racing them.
 func TestBuildInterpreterProducesRunnableBinary(t *testing.T) {
 	bin := ensureSharedBalBinary(t)
 	info, err := os.Stat(bin)
@@ -192,12 +205,14 @@ func TestBuildInterpreterProducesRunnableBinary(t *testing.T) {
 }
 
 func TestBuildInterpreterFailsForNonModuleDir(t *testing.T) {
+	t.Parallel()
 	if _, err := buildInterpreter(t.TempDir()); err == nil {
 		t.Fatal("expected an error building in a directory with no ./cli/cmd package")
 	}
 }
 
 func TestPortOpenAndWaitForPort(t *testing.T) {
+	t.Parallel()
 	port := findFreePort(t)
 	if portOpen(port) {
 		t.Fatalf("expected port %d to be free", port)
@@ -223,12 +238,14 @@ func TestPortOpenAndWaitForPort(t *testing.T) {
 }
 
 func TestReadPeakRSSUnknownPidReturnsZero(t *testing.T) {
+	t.Parallel()
 	if got := readPeakRSS(-1); got != 0 {
 		t.Errorf("readPeakRSS(-1) = %v, want 0", got)
 	}
 }
 
 func TestReadPeakRSSOwnProcess(t *testing.T) {
+	t.Parallel()
 	got := readPeakRSS(os.Getpid())
 	if runtime.GOOS == "linux" {
 		if got <= 0 {
@@ -242,6 +259,7 @@ func TestReadPeakRSSOwnProcess(t *testing.T) {
 }
 
 func TestRunWrkInvalidDuration(t *testing.T) {
+	t.Parallel()
 	if _, err := runWrk(1, 1, "not-a-duration"); err == nil {
 		t.Fatal("expected an error for an invalid wrk duration")
 	}
@@ -249,6 +267,9 @@ func TestRunWrkInvalidDuration(t *testing.T) {
 
 // TestMeasureOnceFailsFastWhenPortBusy exercises the pre-launch port check
 // without needing wrk or a real bal binary: it fails before either is used.
+// Not parallel: binds the hardcoded servicePort (9090), which
+// TestMeasureOnceProducesSample and TestRunEndToEndSelfComparison also use
+// for a real service — concurrent use would collide.
 func TestMeasureOnceFailsFastWhenPortBusy(t *testing.T) {
 	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(servicePort)))
 	if err != nil {
@@ -263,7 +284,8 @@ func TestMeasureOnceFailsFastWhenPortBusy(t *testing.T) {
 }
 
 // TestMeasureOnceProducesSample is the full launch->load->teardown path
-// against a real bal build; it requires wrk on PATH — see requireWrk.
+// against a real bal build; it requires wrk on PATH — see requireWrk. Not
+// parallel — see TestMeasureOnceFailsFastWhenPortBusy.
 func TestMeasureOnceProducesSample(t *testing.T) {
 	requireWrk(t)
 

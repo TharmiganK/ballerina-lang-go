@@ -26,6 +26,7 @@ import (
 )
 
 func TestParseConfigValid(t *testing.T) {
+	t.Parallel()
 	cfg, err := parseConfig([]string{
 		"--repeats=3", "--warmup=5s", "--duration=7s", "--conns=20", "--threshold=15",
 		"--export-md=/tmp/x.md", "--result-json=/tmp/x.json",
@@ -45,6 +46,7 @@ func TestParseConfigValid(t *testing.T) {
 }
 
 func TestParseConfigDefaults(t *testing.T) {
+	t.Parallel()
 	cfg, err := parseConfig([]string{"base", "head"})
 	if err != nil {
 		t.Fatalf("parseConfig: %v", err)
@@ -58,6 +60,7 @@ func TestParseConfigDefaults(t *testing.T) {
 }
 
 func TestParseConfigRequiresTwoPositionalArgs(t *testing.T) {
+	t.Parallel()
 	if _, err := parseConfig([]string{"only-one-ref"}); err == nil {
 		t.Error("expected an error when fewer than 2 refs are given")
 	}
@@ -67,12 +70,14 @@ func TestParseConfigRequiresTwoPositionalArgs(t *testing.T) {
 }
 
 func TestParseConfigRejectsUnknownFlag(t *testing.T) {
+	t.Parallel()
 	if _, err := parseConfig([]string{"--nope", "a", "b"}); err == nil {
 		t.Error("expected an error for an unknown flag")
 	}
 }
 
 func TestEmitWritesBothOutputs(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	cfg := config{
 		exportMD:   filepath.Join(dir, "report.md"),
@@ -102,12 +107,14 @@ func TestEmitWritesBothOutputs(t *testing.T) {
 }
 
 func TestEmitSkipsUnsetPaths(t *testing.T) {
+	t.Parallel()
 	if err := emit(config{}, "ignored", result{}); err != nil {
 		t.Fatalf("emit with no export paths should be a no-op, got: %v", err)
 	}
 }
 
 func TestEmitPropagatesWriteErrors(t *testing.T) {
+	t.Parallel()
 	cfg := config{exportMD: filepath.Join(t.TempDir(), "missing-dir", "report.md")}
 	if err := emit(cfg, "x", result{}); err == nil {
 		t.Fatal("expected an error writing to a nonexistent directory")
@@ -115,6 +122,7 @@ func TestEmitPropagatesWriteErrors(t *testing.T) {
 }
 
 func TestEmitErrorWritesFailureReport(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	cfg := config{
 		exportMD:   filepath.Join(dir, "report.md"),
@@ -142,6 +150,7 @@ func TestEmitErrorWritesFailureReport(t *testing.T) {
 }
 
 func TestRunFailsFastForInvalidBaseRef(t *testing.T) {
+	t.Parallel()
 	cfg := config{
 		baseRef: "definitely-not-a-real-ref-xyz", headRef: "HEAD",
 		repeats: 1, warmup: "1s", duration: "1s", conns: 2,
@@ -155,6 +164,9 @@ func TestRunFailsFastForInvalidBaseRef(t *testing.T) {
 // checkout, bal build, service launch, wrk load, report+verdict) comparing
 // HEAD against itself. It requires wrk on PATH — see requireWrk.
 func TestRunEndToEndSelfComparison(t *testing.T) {
+	// Not parallel: run() launches a real service on the hardcoded
+	// servicePort (9090) via measureOnce, which would collide with other
+	// tests that bind the same port (e.g. TestMeasureOnceProducesSample).
 	requireWrk(t)
 	dir := t.TempDir()
 	cfg := config{

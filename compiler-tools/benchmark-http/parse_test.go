@@ -53,6 +53,7 @@ Transfer/sec:      0.10MB`
 func approx(a, b float64) bool { return math.Abs(a-b) < 1e-6 }
 
 func TestParseWrkClean(t *testing.T) {
+	t.Parallel()
 	m, err := parseWrk(sampleClean)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -78,6 +79,7 @@ func TestParseWrkClean(t *testing.T) {
 }
 
 func TestParseWrkErrorsAndSecondsUnit(t *testing.T) {
+	t.Parallel()
 	m, err := parseWrk(sampleErrors)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -95,12 +97,14 @@ func TestParseWrkErrorsAndSecondsUnit(t *testing.T) {
 }
 
 func TestParseWrkNoThroughput(t *testing.T) {
+	t.Parallel()
 	if _, err := parseWrk("garbage output with no metrics"); err == nil {
 		t.Fatal("expected an error when Requests/sec is absent")
 	}
 }
 
 func TestToMsUnits(t *testing.T) {
+	t.Parallel()
 	cases := map[string]float64{
 		"850.00us": 0.85,
 		"1.76ms":   1.76,

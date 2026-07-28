@@ -25,6 +25,7 @@ import (
 )
 
 func TestWriteFileRoundTrip(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "report.md")
 	if err := writeFile(path, "# hello"); err != nil {
 		t.Fatalf("writeFile: %v", err)
@@ -36,6 +37,7 @@ func TestWriteFileRoundTrip(t *testing.T) {
 }
 
 func TestWriteFileFailsForMissingDir(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "missing-dir", "report.md")
 	if err := writeFile(path, "x"); err == nil {
 		t.Fatal("expected an error writing to a nonexistent directory")
@@ -43,6 +45,7 @@ func TestWriteFileFailsForMissingDir(t *testing.T) {
 }
 
 func TestWriteResultJSONRoundTrip(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "result.json")
 	want := result{Regressed: true, ThroughputBase: 1000, ThroughputHead: 800, ThroughputDelta: -20, ThresholdPct: 10}
 	if err := writeResultJSON(path, want); err != nil {
@@ -62,6 +65,7 @@ func TestWriteResultJSONRoundTrip(t *testing.T) {
 }
 
 func TestWriteResultJSONFailsForMissingDir(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "missing-dir", "result.json")
 	if err := writeResultJSON(path, result{}); err == nil {
 		t.Fatal("expected an error writing to a nonexistent directory")
@@ -77,6 +81,7 @@ func thrSamples(vals ...float64) []sample {
 }
 
 func TestGateFlagsSignificantRegression(t *testing.T) {
+	t.Parallel()
 	cfg := config{repeats: 3, duration: "10s", conns: 50, threshold: 10}
 	base := thrSamples(100000, 101000, 99000) // median 100000
 	head := thrSamples(85000, 86000, 84000)   // median 85000 -> -15%
@@ -90,6 +95,7 @@ func TestGateFlagsSignificantRegression(t *testing.T) {
 }
 
 func TestGatePassesWithinThreshold(t *testing.T) {
+	t.Parallel()
 	cfg := config{repeats: 3, duration: "10s", conns: 50, threshold: 10}
 	base := thrSamples(100000, 101000, 99000) // median 100000
 	head := thrSamples(95000, 96000, 94000)   // median 95000 -> -5%
@@ -103,6 +109,7 @@ func TestGatePassesWithinThreshold(t *testing.T) {
 }
 
 func TestGateFlagsRegressionAtExactThreshold(t *testing.T) {
+	t.Parallel()
 	cfg := config{repeats: 2, duration: "10s", conns: 50, threshold: 10}
 	base := thrSamples(100000, 100000)
 	head := thrSamples(90000, 90000) // exactly -10% at a 10% threshold
@@ -113,6 +120,7 @@ func TestGateFlagsRegressionAtExactThreshold(t *testing.T) {
 }
 
 func TestBuildReportHeaderLabelsBaseAndHead(t *testing.T) {
+	t.Parallel()
 	cfg := config{repeats: 1, duration: "10s", conns: 50, threshold: 10}
 	md, _ := buildReport("base-ref", "head-ref", thrSamples(100000), thrSamples(100000), cfg)
 	if !strings.Contains(md, "`base-ref` (base)") {
@@ -124,6 +132,7 @@ func TestBuildReportHeaderLabelsBaseAndHead(t *testing.T) {
 }
 
 func TestGateIgnoresImprovement(t *testing.T) {
+	t.Parallel()
 	cfg := config{repeats: 2, duration: "10s", conns: 50, threshold: 10}
 	base := thrSamples(100000, 100000)
 	head := thrSamples(120000, 120000) // +20% — never a regression
@@ -134,6 +143,7 @@ func TestGateIgnoresImprovement(t *testing.T) {
 }
 
 func TestGateErrorsOnEmptySamples(t *testing.T) {
+	t.Parallel()
 	cfg := config{repeats: 2, duration: "330s", conns: 50, threshold: 10}
 	_, res := buildReport("base", "head", nil, thrSamples(100000, 100000), cfg)
 	if !res.Error {
@@ -145,6 +155,7 @@ func TestGateErrorsOnEmptySamples(t *testing.T) {
 }
 
 func TestGateErrorsOnZeroBaseline(t *testing.T) {
+	t.Parallel()
 	cfg := config{repeats: 2, duration: "330s", conns: 50, threshold: 10}
 	_, res := buildReport("base", "head", thrSamples(0, 0), thrSamples(100000, 100000), cfg)
 	if !res.Error {
@@ -153,6 +164,7 @@ func TestGateErrorsOnZeroBaseline(t *testing.T) {
 }
 
 func TestComma(t *testing.T) {
+	t.Parallel()
 	cases := map[float64]string{0: "0", 999: "999", 1000: "1,000", 69303: "69,303", 1234567: "1,234,567"}
 	for in, want := range cases {
 		if got := comma(in); got != want {

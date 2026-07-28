@@ -39,6 +39,7 @@ var (
 
 func ensureSharedBalBinary(t *testing.T) string {
 	t.Helper()
+	skipWorktreeIntegrationOnWindows(t)
 	sharedBalOnce.Do(func() {
 		root, err := os.MkdirTemp("", "httpbench-shared-bal-*")
 		if err != nil {
@@ -56,6 +57,21 @@ func ensureSharedBalBinary(t *testing.T) string {
 		t.Fatalf("failed to build shared bal binary for tests: %v", sharedBalErr)
 	}
 	return sharedBalPath
+}
+
+// skipWorktreeIntegrationOnWindows skips real git-worktree-checkout tests on
+// Windows. compiler-tools/benchmark uses the identical checkout+build
+// pattern and passes there, but httpbench itself only ever runs on
+// ubuntu-latest in CI (benchmark-pr-http-prepare.yml) — Windows execution
+// here is a side effect of module discovery, not a real use case — and
+// Windows test runs don't feed Codecov coverage (only native-ci's
+// ubuntu-build job uploads it). Skipping avoids chasing a platform-specific
+// flake in a code path this tool never actually exercises on Windows.
+func skipWorktreeIntegrationOnWindows(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("worktree checkout/build integration is exercised on Linux/macOS only; httpbench itself only runs on ubuntu-latest")
+	}
 }
 
 // requireWrk fails the test if wrk is unavailable, mirroring the sibling
@@ -116,6 +132,7 @@ func TestRunCmdSilentSuccessAndFailure(t *testing.T) {
 }
 
 func TestCheckoutAndRemoveWorktree(t *testing.T) {
+	skipWorktreeIntegrationOnWindows(t)
 	root := t.TempDir()
 	wt, err := checkoutWorktree(root, "role1", "HEAD")
 	if err != nil {
@@ -144,6 +161,7 @@ func TestCheckoutWorktreeFailsForInvalidRef(t *testing.T) {
 // worktree paths by role: base and head must not collide even when both
 // point at the same (or identically-sanitizing) ref.
 func TestCheckoutWorktreeIsolatesRolesForSameRef(t *testing.T) {
+	skipWorktreeIntegrationOnWindows(t)
 	root := t.TempDir()
 	base, err := checkoutWorktree(root, "base", "HEAD")
 	if err != nil {

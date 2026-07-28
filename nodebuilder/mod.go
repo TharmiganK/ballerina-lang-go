@@ -55,27 +55,29 @@ func addCompilationUnitNodesToPackage(pkg *ast.BLangPackage, compilationUnit *as
 	for _, node := range compilationUnit.GetTopLevelNodes() {
 		switch node := node.(type) {
 		case *ast.BLangImportPackage:
-			pkg.Imports = append(pkg.Imports, *node)
-		case *ast.BLangConstant:
-			pkg.Constants = append(pkg.Constants, *node)
+			pkg.Imports = append(pkg.Imports, node)
+		case *ast.BLangVariable:
+			if node.IsConstant() {
+				pkg.Constants = append(pkg.Constants, node)
+			} else {
+				pkg.GlobalVars = append(pkg.GlobalVars, node)
+			}
 		case *ast.BLangService:
-			pkg.Services = append(pkg.Services, *node)
-		case *ast.BLangSimpleVariable:
-			pkg.GlobalVars = append(pkg.GlobalVars, *node)
+			pkg.Services = append(pkg.Services, node)
 		case *ast.BLangFunction:
 			if node.Name.GetValue() == "init" {
 				pkg.InitFunction = node
 			} else {
-				pkg.Functions = append(pkg.Functions, *node)
+				pkg.Functions = append(pkg.Functions, node)
 			}
 		case *ast.BLangTypeDefinition:
-			pkg.TypeDefinitions = append(pkg.TypeDefinitions, *node)
+			pkg.TypeDefinitions = append(pkg.TypeDefinitions, node)
 		case *ast.BLangAnnotation:
-			pkg.Annotations = append(pkg.Annotations, *node)
+			pkg.Annotations = append(pkg.Annotations, node)
 		case *ast.BLangXMLNS:
-			pkg.XmlnsList = append(pkg.XmlnsList, *node)
+			pkg.XmlnsList = append(pkg.XmlnsList, node)
 		case *ast.BLangClassDefinition:
-			pkg.ClassDefinitions = append(pkg.ClassDefinitions, *node)
+			pkg.ClassDefinitions = append(pkg.ClassDefinitions, node)
 		default:
 			panic(fmt.Sprintf("unexpected top-level node type: %T", node))
 		}

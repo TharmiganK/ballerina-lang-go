@@ -109,7 +109,8 @@
           (invocation describe expr:
             (simple-var-ref defaulted) ()))))))
   (function $default$0 (
-    (variable path)) ()
+    (variable path (type
+      (value-type )))) ()
     (block-function-body
       (return
         (literal false)))))

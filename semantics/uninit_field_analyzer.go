@@ -218,7 +218,7 @@ func analyzeUninitializedGlobalVars(ctx *context.CompilerContext, pkg *ast.BLang
 	// global variables, not to shadowed locals with the same name.
 	extractor := func(node ast.Node) string {
 		if assignment, ok := node.(*ast.BLangAssignment); ok {
-			if varRef, ok := assignment.VarRef.(*ast.BLangSimpleVarRef); ok {
+			if varRef, ok := assignment.VarRef.(*ast.BLangVarRef); ok {
 				if globalSymbols[varRef.Symbol()] {
 					return varRef.VariableName.GetValue()
 				}
@@ -240,7 +240,7 @@ func analyzeUninitializedGlobalVars(ctx *context.CompilerContext, pkg *ast.BLang
 
 func analyzeUninitializedFields(ctx *context.CompilerContext, pkg *ast.BLangPackage, cfg *PackageCFG) {
 	for i := range pkg.ClassDefinitions {
-		classDef := &pkg.ClassDefinitions[i]
+		classDef := pkg.ClassDefinitions[i]
 		var fieldsNeedingInit []string
 		for _, field := range classDef.Fields {
 			if field.GetInitialExpression() == nil {

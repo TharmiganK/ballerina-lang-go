@@ -32,7 +32,8 @@
         (variable $desugar$0 (expr
           (lambda
             (function $default$0 (
-              (variable callback)) ()
+              (variable callback (type
+                (value-type )))) ()
               (block-function-body
                 (var-def
                   (variable $desugar$0 (expr

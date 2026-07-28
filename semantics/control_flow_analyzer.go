@@ -107,10 +107,9 @@ func CreateControlFlowGraph(ctx *context.CompilerContext, pkg *ast.BLangPackage)
 	var mu sync.Mutex
 	for _, fn := range pkg.Functions {
 		wg.Add(1)
-		fn := fn // Capture loop variable
 		go func() {
 			defer wg.Done()
-			fnCfg := analyzeFunction(ctx, &fn)
+			fnCfg := analyzeFunction(ctx, fn)
 			mu.Lock()
 			cfg.funcCfgs[fn.Symbol()] = fnCfg
 			mu.Unlock()
@@ -147,13 +146,13 @@ func CreateControlFlowGraph(ctx *context.CompilerContext, pkg *ast.BLangPackage)
 		}
 	}
 	for i := range pkg.ClassDefinitions {
-		c := &pkg.ClassDefinitions[i]
+		c := pkg.ClassDefinitions[i]
 		methodCfgs := make(map[model.SymbolRef]functionCFG)
 		cfg.methodCfgs[c.Symbol()] = methodCfgs
 		analyzeClassBody(methodCfgs, c.InitFunction, c.Methods, c.ResourceMethods)
 	}
 	for i := range pkg.Services {
-		s := &pkg.Services[i]
+		s := pkg.Services[i]
 		analyzeClassBody(cfg.funcCfgs, s.InitFunction, s.Methods, s.ResourceMethods)
 	}
 	wg.Wait()

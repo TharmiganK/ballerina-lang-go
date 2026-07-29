@@ -23,14 +23,13 @@ import (
 	"ballerina/semtypes"
 )
 
-// numericTypes lists the numeric basic types, for which tryConvertBasicType can actually
-// widen or narrow a value (e.g. int -> float). candidateTypes tries an exact match among these
-// before one that would need conversion.
+// numericTypes are the basic types tryConvertBasicType can widen or narrow (e.g. int -> float);
+// candidateTypes orders an exact match among these before one that would need conversion.
 var numericTypes = []semtypes.SemType{semtypes.INT, semtypes.FLOAT, semtypes.DECIMAL}
 
-// nonStructuralTypes lists the scalar basic types outside MAPPING and LIST that are not
-// numeric. tryConvertBasicType has no conversion for these: a value either already satisfies
-// the candidate or the candidate can never succeed, so candidateTypes need not order them.
+// nonStructuralTypes are the scalar basic types besides numerics. tryConvertBasicType has no
+// conversion for these, so a candidate either already matches or can never succeed — no need
+// for candidateTypes to order them.
 var nonStructuralTypes = []semtypes.SemType{
 	semtypes.NIL, semtypes.BOOLEAN, semtypes.STRING, semtypes.XML, semtypes.ERROR,
 }
@@ -57,9 +56,10 @@ func CloneWithType(tc semtypes.Context, value BalValue, targetType semtypes.SemT
 }
 
 // convert converts value to target, trying each of target's basic-type constituents in turn;
-// candidateTypes orders them so any constituent value already satisfies precedes one that would
-// need numeric conversion, so a single pass suffices to prefer an exact match. See
-// conversionFailureFor for how a total failure is reported.
+// candidateTypes orders exact matches first so a single pass prefers them. A cyclic-reference
+// failure short-circuits immediately — value can't convert to anything once cyclic, so it
+// shouldn't be buried among unrelated per-candidate mismatches. See conversionFailureFor for
+// how any other total failure is reported.
 func convert(tc semtypes.Context, value BalValue, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 	candidates := candidateTypes(tc, SemTypeForValue(value), target)
 	children := make([]*conversionFailure, 0, len(candidates))
@@ -68,17 +68,19 @@ func convert(tc semtypes.Context, value BalValue, target semtypes.SemType, visit
 		if err == nil {
 			return result, nil
 		}
+		if err.isCyclic {
+			return nil, err
+		}
 		children = append(children, err)
 	}
 	return nil, conversionFailureFor(tc, value, target, children)
 }
 
-// candidateTypes decomposes ty into its per-basic-type constituents (e.g. the mapping and list
-// alternatives of a union), skipping any constituent that is empty under tc. Non-numeric scalar
-// constituents are unordered, since they either already match or can never convert. Numeric
-// constituents that valueTy already satisfies without conversion are ordered first, so a caller
-// trying candidates in order finds an exact match before any that would widen or narrow the
-// value numerically.
+// candidateTypes decomposes ty into its per-basic-type constituents (mapping/list alternatives
+// for a union, plus each matching scalar type), skipping any that are empty under tc. Numeric
+// constituents valueTy already satisfies are ordered first, so a caller trying candidates in
+// order hits an exact match before one needing numeric conversion; non-numeric constituents are
+// left unordered.
 func candidateTypes(tc semtypes.Context, valueTy semtypes.SemType, ty semtypes.SemType) []semtypes.SemType {
 	var members []semtypes.SemType
 	basic := semtypes.WidenToBasicTypes(ty)
@@ -105,31 +107,32 @@ func candidateTypes(tc semtypes.Context, valueTy semtypes.SemType, ty semtypes.S
 		}
 	}
 
+	// A non-numeric value can't exactly match a numeric candidate, so skip the IsSubtype check
+	// below — every numeric candidate just needs conversion then.
 	isNumericValue := semtypes.IsSubtype(tc, valueTy, semtypes.NUMBER)
 
-	var exact, coerced []semtypes.SemType
+	// exact holds candidates valueTy already satisfies; needsConversion holds the rest.
+	// Appending exact first gives the preferred try-order.
+	var exact, needsConversion []semtypes.SemType
 	for _, bt := range numericTypes {
 		if !semtypes.ContainsBasicType(basic, bt) {
 			continue
 		}
 		member := semtypes.Intersect(ty, bt)
-		if semtypes.IsEmpty(tc, member) {
-			continue
-		}
 		if isNumericValue && semtypes.IsSubtype(tc, valueTy, member) {
 			exact = append(exact, member)
 		} else {
-			coerced = append(coerced, member)
+			needsConversion = append(needsConversion, member)
 		}
 	}
 	members = append(members, exact...)
-	members = append(members, coerced...)
+	members = append(members, needsConversion...)
 	return members
 }
 
 // tryConvert converts value to a single, already-decomposed basic-type target (never a union),
-// dispatching on value's shape. Cycle detection only applies to *Map/*List, since only
-// structured values can participate in a cycle.
+// dispatching on value's shape. Only *Map/*List go through cycle detection, since only
+// structured values can cycle.
 func tryConvert(tc semtypes.Context, value BalValue, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 	var convertStructured func(map[BalValue]struct{}) (BalValue, *conversionFailure)
 	switch v := value.(type) {
@@ -167,7 +170,7 @@ func enterCycleCheck(tc semtypes.Context, sourceType semtypes.SemType, source Ba
 		visiting = make(map[BalValue]struct{})
 	}
 	if _, cycle := visiting[source]; cycle {
-		return visiting, newConversionFailure(fmt.Sprintf("'%s' value has cyclic reference", semtypes.ToString(tc, sourceType)))
+		return visiting, newCyclicConversionFailure(fmt.Sprintf("'%s' value has cyclic reference", semtypes.ToString(tc, sourceType)))
 	}
 	visiting[source] = struct{}{}
 	return visiting, nil
@@ -197,8 +200,7 @@ func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, vi
 		if atomic.IsOptional(tc, name) {
 			continue
 		}
-		// Neither a nil value nor a declared default is ever injected (default injection
-		// is not yet supported), so a required field absent from source is always an error.
+		// Absence is always an error: nil isn't injected, and defaults aren't supported yet.
 		return nil, missingRequiredField(tc, source, target, name)
 	}
 
@@ -292,27 +294,12 @@ func convertNumeric(tc semtypes.Context, value BalValue, target semtypes.SemType
 	}
 }
 
-// conversionFailureFor reports why every candidate was rejected: structured values (maps/lists)
-// surface per-candidate detail (the single reason, or a union of reasons), since that detail is
-// often the only clue to which field or shape mismatched. Simple values get a single terse
-// message, since per-candidate detail adds little for scalars.
+// conversionFailureFor reports why every candidate was rejected. One candidate's failure is
+// unambiguous, so it's surfaced as-is (e.g. which record field mismatched); with more than one,
+// there's no single thing to blame, so a terse message names the whole target instead.
 func conversionFailureFor(tc semtypes.Context, value BalValue, target semtypes.SemType, children []*conversionFailure) *conversionFailure {
-	if isStructuredValue(value) {
-		if len(children) == 1 {
-			return children[0]
-		}
-		if len(children) > 1 {
-			return newUnionConversionFailure(children)
-		}
+	if len(children) == 1 {
+		return children[0]
 	}
 	return incompatibleConversion(tc, value, target)
-}
-
-func isStructuredValue(value BalValue) bool {
-	switch value.(type) {
-	case *List, *Map:
-		return true
-	default:
-		return false
-	}
 }

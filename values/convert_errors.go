@@ -18,20 +18,17 @@ package values
 
 import (
 	"fmt"
-	"strings"
 
 	"ballerina/semtypes"
 )
 
 const conversionErrorTypeName = "{ballerina/lang.value}ConversionError"
 
-// conversionFailure is either a leaf (detailMessage set, no children) describing a single
-// conversion failure, or a union group (children set, detailMessage empty) describing why
-// each member of a union target was rejected. Rendering happens once, in Error, so nested
-// groups get correct depth-based indentation instead of being pre-rendered and re-embedded.
+// conversionFailure describes a single conversion failure. isCyclic marks one from a cyclic
+// reference, which convert short-circuits on instead of collecting alongside other mismatches.
 type conversionFailure struct {
 	detailMessage string
-	children      []*conversionFailure
+	isCyclic      bool
 }
 
 func wrapConversionError(err *conversionFailure) *Error {
@@ -43,50 +40,15 @@ func wrapConversionError(err *conversionFailure) *Error {
 }
 
 func (e *conversionFailure) Error() string {
-	if len(e.children) == 0 {
-		return e.detailMessage
-	}
-	var b strings.Builder
-	b.WriteString("\n\t\t")
-	e.render(&b, 0)
-	return b.String()
-}
-
-// render writes this failure at the given nesting depth, assuming the caller has already
-// positioned the cursor at the start of a line; it emits no leading line break itself so
-// callers control the break between siblings.
-func (e *conversionFailure) render(b *strings.Builder, tabs int) {
-	if len(e.children) == 0 {
-		b.WriteString(e.detailMessage)
-		return
-	}
-	indent := strings.Repeat("  ", tabs)
-	b.WriteByte('{')
-	for i, child := range e.children {
-		b.WriteString("\n\t\t")
-		b.WriteString(indent)
-		b.WriteString("  ")
-		child.render(b, tabs+1)
-		if i < len(e.children)-1 {
-			b.WriteString("\n\t\t")
-			b.WriteString(indent)
-			b.WriteString("  or")
-		}
-	}
-	b.WriteString("\n\t\t")
-	b.WriteString(indent)
-	b.WriteByte('}')
+	return e.detailMessage
 }
 
 func newConversionFailure(message string) *conversionFailure {
 	return &conversionFailure{detailMessage: message}
 }
 
-// newUnionConversionFailure reports that every member of a union target was rejected, one
-// failure per member (in try order). A member failure that is itself a union group renders
-// as a nested, correctly-indented block instead of a pre-rendered string.
-func newUnionConversionFailure(children []*conversionFailure) *conversionFailure {
-	return &conversionFailure{children: children}
+func newCyclicConversionFailure(message string) *conversionFailure {
+	return &conversionFailure{detailMessage: message, isCyclic: true}
 }
 
 func incompatibleConversion(tc semtypes.Context, value BalValue, targetType semtypes.SemType) *conversionFailure {
@@ -95,12 +57,11 @@ func incompatibleConversion(tc semtypes.Context, value BalValue, targetType semt
 		semtypes.ToString(tc, sourceTy), semtypes.ToString(tc, targetType)))
 }
 
-// missingRequiredField reports a required field absent from the source value. Note this
-// fires whether or not the field declares a default in `t`: default-value injection is not
-// yet implemented, so a declared default does not make the field any less required here.
+// missingRequiredField reports a required field absent from source. Fires regardless of a
+// declared default in targetType, since default-value injection isn't implemented yet.
 func missingRequiredField(tc semtypes.Context, value BalValue, targetType semtypes.SemType, fieldName string) *conversionFailure {
 	sourceTy := SemTypeForValue(value)
 	return newConversionFailure(fmt.Sprintf(
-		"'%s' value cannot be converted to '%s': field '%s' not present in value, and default values are not supported",
+		"'%s' value cannot be converted to '%s': field '%s' not present in value",
 		semtypes.ToString(tc, sourceTy), semtypes.ToString(tc, targetType), fieldName))
 }

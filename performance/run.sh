@@ -215,6 +215,24 @@ should_build() {
     [[ "$FORCE" == true || ! -e "$1" ]]
 }
 
+# .NET Native AOT ILCompiler packages are published only for *portable* RIDs
+# (linux-x64, linux-arm64, osx-arm64, …), not the distro-specific RID that
+# `dotnet --info` reports on some hosts — e.g. amzn.2023-x64 on Amazon Linux,
+# for which no `runtime.amzn.2023-x64.Microsoft.DotNet.ILCompiler` package
+# exists on nuget.org. Derive the portable RID from uname instead.
+dotnet_portable_rid() {
+    local os arch
+    case "$(uname -s)" in
+        Darwin) os=osx ;;
+        *)      os=linux ;;
+    esac
+    case "$(uname -m)" in
+        arm64|aarch64) arch=arm64 ;;
+        *)             arch=x64 ;;
+    esac
+    echo "$os-$arch"
+}
+
 ensure_backend() {
     if should_build "$BACKEND_JAR"; then
         echo "  Building Netty backend (mvn)..."
@@ -335,8 +353,8 @@ ensure_builds() {
         if ! command -v clang >/dev/null; then
             echo "  WARNING: dotnet-aot needs a C toolchain (clang/ld) for Native AOT; skipping build." >&2
         else
-            # Native AOT needs an explicit RID; use the host's (osx-arm64, linux-x64, …).
-            local dotnet_rid; dotnet_rid=$(dotnet --info 2>/dev/null | awk -F': *' '/^[[:space:]]*RID:/{print $2; exit}')
+            # Native AOT needs an explicit, portable RID (osx-arm64, linux-x64, …).
+            local dotnet_rid; dotnet_rid=$(dotnet_portable_rid)
             echo "  Building ASP.NET Core gateway native image (dotnet publish -p:PublishAot; slow)..."
             (cd "$SCRIPT_DIR/services/dotnet" && dotnet publish -c Release -r "$dotnet_rid" \
                 -p:PublishAot=true --self-contained -o bin/publish-aot --nologo -v quiet) \

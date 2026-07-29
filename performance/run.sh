@@ -71,6 +71,19 @@ OUTPUT=""
 STARTUP_RUNS="3"   # cold-start the service this many times; report the min
 FORCE=false        # --force: rebuild every artifact even if it already exists
 
+# ── Cold-start / warmup curve ─────────────────────────────────────────────────
+# Off by default. When on, each (scenario, runtime) also reports startup RSS and
+# a warmup curve — throughput over back-to-back short windows from a cold process
+# with no discarded warmup. This is the regime where AOT beats JIT: cloud
+# scale-to-zero / autoscaling has no warmup window, so request #1 is what ships.
+COLD_START=false
+COLD_WINDOWS="10"    # number of back-to-back measured windows
+COLD_WINDOW="1s"     # wrk duration per window (the curve's time resolution)
+COLD_USERS="50"      # concurrency held constant across the curve
+COLD_PAYLOAD="1KB"   # passthrough payload for the curve (ignored for hello)
+BACKEND_WARMUP="5s"  # pre-warm the JVM backend so the first-measured runtime
+                     # isn't charged for the backend's own cold-start (passthrough)
+
 ALL_RUNTIMES=(nutcracker nutcracker-run swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
 # Default: the recommended Ballerina runtime (the `bal build` executable, named
 # `nutcracker`) vs one industry-leading stack per language. The interpreted
@@ -100,6 +113,9 @@ Usage: $0 [OPTIONS]
   --threads   N      wrk threads (default: min(cores,users))
   --output    FILE   Markdown report path (default: results/perf-report-<ts>.md)
   --startup-runs N   cold starts per runtime; report the min (default: $STARTUP_RUNS)
+  --cold-start       also measure startup RSS + a cold warmup curve (AOT vs JIT)
+  --cold-windows N   warmup-curve windows of $COLD_WINDOW each (default: $COLD_WINDOWS)
+  --cold-users N     concurrency held across the warmup curve (default: $COLD_USERS)
   --force            rebuild every artifact (incl. Nutcracker bal) from scratch
 
 Env: NUT_BAL (Nutcracker bal, default <repo>/bal), SWAN_BAL (jBallerina bal, default 'bal').
@@ -118,6 +134,9 @@ while [[ $# -gt 0 ]]; do
         --threads)  THREADS="$2";        shift 2 ;;
         --output)   OUTPUT="$2";         shift 2 ;;
         --startup-runs) STARTUP_RUNS="$2"; shift 2 ;;
+        --cold-start)   COLD_START=true;   shift ;;
+        --cold-windows) COLD_WINDOWS="$2"; shift 2 ;;
+        --cold-users)   COLD_USERS="$2";   shift 2 ;;
         --force)    FORCE=true;          shift ;;
         -h|--help)  usage 0 ;;
         *) echo "Unknown option: $1" >&2; usage ;;
@@ -333,6 +352,27 @@ start_backend() {
     BACKEND_PID=$!
     wait_for_port "$BACKEND_PORT" 30
     echo "  Backend ready (PID $BACKEND_PID)"
+    warm_backend
+}
+
+# Warm the backend JVM before any runtime is measured. The backend is a cold
+# JVM that JITs on its first requests, so without this the runtime measured
+# first pays a ~20ms backend penalty that later runtimes — hitting an already-hot
+# backend — never see, skewing the cold-start first-request metric (and the first
+# runtime's warmup curve). A short wrk burst against the echo endpoint tiers up
+# its hot path. Gated on --cold-start; steady-state runs discard their own warmup
+# and so are unaffected either way.
+warm_backend() {
+    [[ "$COLD_START" == true ]] || return 0
+    command -v wrk >/dev/null || return 0
+    echo "  Warming backend JVM (${BACKEND_WARMUP})..."
+    local pfile="$PAYLOAD_DIR/${COLD_PAYLOAD}.txt"
+    if [[ -f "$pfile" ]]; then
+        PAYLOAD_FILE="$pfile" wrk -t2 -c10 -d"$BACKEND_WARMUP" -s "$LUA_SCRIPT" \
+            "http://localhost:$BACKEND_PORT/" >/dev/null 2>&1 || true
+    else
+        wrk -t2 -c10 -d"$BACKEND_WARMUP" "http://localhost:$BACKEND_PORT/" >/dev/null 2>&1 || true
+    fi
 }
 
 SERVICE_LOG=/tmp/perf-service.log
@@ -476,6 +516,67 @@ run_wrk() {
     rm -f "$out"
 }
 
+# ── Time the single first HTTP request against a cold service ─────────────────
+# Prints milliseconds (curl's %{time_total}, measured inside libcurl so curl's
+# own process startup is excluded) or N/A. Mirrors the load endpoint exactly:
+# GET /hello, or POST /passthrough with the payload. The readiness wait is a bare
+# TCP probe, so this is the genuine first request — on the JVM it pays class-load
+# plus the handler's first-hit JIT that the throughput windows average away.
+first_request_latency() {
+    local scn="$1" pfile="$2" out code secs
+    command -v curl >/dev/null || { echo "N/A"; return; }
+    if [[ "$scn" == "hello-service" ]]; then
+        out=$(curl -s -o /dev/null -w '%{http_code} %{time_total}' \
+            "http://localhost:$SERVICE_PORT/hello" 2>/dev/null || true)
+    else
+        [[ -n "$pfile" ]] || { echo "N/A"; return; }
+        out=$(curl -s -o /dev/null -w '%{http_code} %{time_total}' \
+            -X POST -H 'Content-Type: text/plain' --data-binary @"$pfile" \
+            "http://localhost:$SERVICE_PORT/passthrough" 2>/dev/null || true)
+    fi
+    read -r code secs <<< "$out"
+    [[ "$code" == 2* && -n "$secs" ]] || { echo "N/A"; return; }
+    awk -v s="$secs" 'BEGIN{printf "%.2f", s*1000}'
+}
+
+# ── Cold-start metrics ────────────────────────────────────────────────────────
+# Runs on the cold instance left listening by start_service (SERVICE_PID set):
+# readiness is a bare TCP probe, so the handler is still JIT-cold. Samples startup
+# RSS, times the very first HTTP request, then drives COLD_WINDOWS back-to-back
+# windows with no discarded warmup, recording throughput per window. AOT runtimes
+# are flat from window 1; JIT runtimes ramp as tiers compile — the gap is the
+# cold-start penalty steady-state numbers hide. Stores STARTRSS, FIRSTREQ, and a
+# space-joined COLDCURVE.
+measure_cold_start() {
+    local scn="$1" rt="$2"
+
+    local pfile=""
+    if [[ "$scn" != "hello-service" ]]; then
+        pfile="$PAYLOAD_DIR/${COLD_PAYLOAD}.txt"
+        [[ -f "$pfile" ]] || pfile=""
+    fi
+
+    local rss_pid rss_kb
+    rss_pid=$(lsof -ti "tcp:$SERVICE_PORT" -sTCP:LISTEN 2>/dev/null | head -1 || true)
+    if [[ -n "$rss_pid" ]]; then
+        rss_kb=$(ps -p "$rss_pid" -o rss= 2>/dev/null | awk '{s+=$1+0} END{print s}')
+        _store STARTRSS "$scn,$rt" "$(awk -v k="${rss_kb:-0}" 'BEGIN{printf "%.1f", k/1024}')"
+    else
+        _store STARTRSS "$scn,$rt" "N/A"
+    fi
+
+    _store FIRSTREQ "$scn,$rt" "$(first_request_latency "$scn" "$pfile")"
+
+    local threads="${THREADS:-$(( COLD_USERS < CORES ? COLD_USERS : CORES ))}"
+    local curve="" i thr rest
+    for (( i = 1; i <= COLD_WINDOWS; i++ )); do
+        read -r thr rest < <(run_wrk "$scn" "$COLD_USERS" "$threads" "$pfile" "$COLD_WINDOW" || true)
+        curve+="${curve:+ }${thr:-N/A}"
+    done
+    _store COLDCURVE "$scn,$rt" "$curve"
+    echo "  Cold-start: first-req $(_fetch FIRSTREQ "$scn,$rt")ms | RSS $(_fetch STARTRSS "$scn,$rt")MB | curve (req/s): $curve"
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 echo "============================================================"
 echo " HTTP Performance Benchmark"
@@ -523,6 +624,14 @@ for scn in "${SCENARIO_LIST[@]}"; do
         # user-count / payload is measured on an independent process (heaps are
         # high-water-mark, so a shared process inflates later memory readings).
         reuse_instance=1
+
+        # The cold warmup curve must see a JIT-cold handler, so measure it on this
+        # freshly started instance before any load, then cold-restart so the first
+        # steady-state run still gets a pristine process.
+        if [[ "$COLD_START" == true ]]; then
+            measure_cold_start "$scn" "$rt"
+            reuse_instance=0
+        fi
 
         for users in "${USER_LIST[@]}"; do
             local_threads="${THREADS:-$(( users < CORES ? users : CORES ))}"

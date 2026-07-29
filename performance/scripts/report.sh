@@ -52,6 +52,32 @@ _result_table() {
     echo ""
 }
 
+# Emit the cold-start warmup curve: one row per runtime, one column per window,
+# throughput (req/s) from a cold process. AOT holds flat from W1; JIT ramps.
+_warmup_curve_table() {
+    local scn="$1" rt w header sep curve row
+    local -a vals
+    echo "### Cold-Start Warmup Curve"
+    echo ""
+    echo "Throughput (req/s) over $COLD_WINDOWS × $COLD_WINDOW back-to-back windows at $COLD_USERS users, from a cold process with no prior warmup. AOT runtimes hold flat from W1; JIT runtimes ramp as tiers compile — that gap is the cold-start penalty steady-state numbers hide."
+    echo ""
+    header="| Runtime |"; sep="|---|"
+    for (( w = 1; w <= COLD_WINDOWS; w++ )); do header+=" W$w |"; sep+="---|"; done
+    echo "$header"; echo "$sep"
+    for rt in "${RUNTIME_LIST[@]}"; do
+        curve="$(_fetch COLDCURVE "$scn,$rt")"
+        row="| $rt |"
+        if [[ "$curve" == "N/A" || -z "$curve" ]]; then
+            for (( w = 1; w <= COLD_WINDOWS; w++ )); do row+=" N/A |"; done
+        else
+            read -r -a vals <<< "$curve"
+            for (( w = 0; w < COLD_WINDOWS; w++ )); do row+=" ${vals[w]:-N/A} |"; done
+        fi
+        echo "$row"
+    done
+    echo ""
+}
+
 generate_report() {
     local scn rt users payload wrk_ver
     wrk_ver="$(wrk --version 2>&1 | head -1 || true)"
@@ -70,6 +96,9 @@ generate_report() {
     echo "| Warmup | $WARMUP |"
     echo "| Duration per run | $DURATION |"
     echo "| Payload Sizes (passthrough) | $PAYLOADS |"
+    if [[ "${COLD_START:-false}" == true ]]; then
+        echo "| Cold-start curve | $COLD_WINDOWS × $COLD_WINDOW windows @ $COLD_USERS users |"
+    fi
     echo "| Load Tool | $wrk_ver |"
     echo "| Backend | perf-backend.jar (Netty, port $BACKEND_PORT) |"
     echo "| Host cores | $CORES |"
@@ -80,12 +109,22 @@ generate_report() {
         echo ""
         echo "### Startup Time"
         echo ""
-        echo "| Runtime | Startup (s) |"
-        echo "|---|---|"
-        for rt in "${RUNTIME_LIST[@]}"; do
-            echo "| $rt | $(_fetch STARTUP "$scn,$rt") |"
-        done
-        echo ""
+        if [[ "${COLD_START:-false}" == true ]]; then
+            echo "| Runtime | Startup (s) | First-request (ms) | Startup RSS (MB) |"
+            echo "|---|---|---|---|"
+            for rt in "${RUNTIME_LIST[@]}"; do
+                echo "| $rt | $(_fetch STARTUP "$scn,$rt") | $(_fetch FIRSTREQ "$scn,$rt") | $(_fetch STARTRSS "$scn,$rt") |"
+            done
+            echo ""
+            _warmup_curve_table "$scn"
+        else
+            echo "| Runtime | Startup (s) |"
+            echo "|---|---|"
+            for rt in "${RUNTIME_LIST[@]}"; do
+                echo "| $rt | $(_fetch STARTUP "$scn,$rt") |"
+            done
+            echo ""
+        fi
 
         local -a scn_payloads
         if [[ "$scn" == "hello-service" ]]; then

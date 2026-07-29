@@ -84,6 +84,15 @@ Per runtime × scenario × configuration:
 | Max memory (MB) | peak RSS sampled every 0.1s (`lsof` + `ps`, server + children) |
 | Max CPU (%) | peak aggregate CPU sampled every 0.1s |
 | Error rate (%) | wrk socket errors + non-2xx/3xx ÷ total requests |
+| Startup RSS (MB) | `--cold-start` only: RSS of the listening process sampled once, before any load |
+| First-request latency (ms) | `--cold-start` only: round-trip of the single first HTTP request against the cold service (`curl %{time_total}`, which excludes curl's own startup). The readiness wait is a bare TCP probe, so this request pays the JVM's class-load + first-hit handler JIT. For passthrough the JVM backend is pre-warmed first (see below) so this number reflects the runtime under test, not the backend's cold start |
+| Cold-start warmup curve (req/s) | `--cold-start` only: throughput over `--cold-windows` back-to-back `1s` windows at `--cold-users`, from a cold process with **no** discarded warmup |
+
+### Cold start & warmup (`--cold-start`)
+
+The steady-state grid above deliberately re-warms every runtime before measuring, so it reports each runtime at its peak. That flatters JIT runtimes: in cloud scale-to-zero / autoscaling there is **no** warmup window — a fresh instance must serve request #1 at full tilt. `--cold-start` measures that regime. On the freshly launched (JIT-cold) instance it samples startup RSS, then drives a short series of back-to-back windows with no discarded warmup and reports throughput per window. AOT runtimes (`go`, `rust`, `nutcracker`, `swanlake-graalvm`) are flat from window 1; JIT runtimes (`swanlake`, `java-spring`, `dotnet`, `node`) ramp as tiers compile — that gap is the cold-start penalty the steady-state numbers hide. The curve runs on the already-launched instance, so it adds only `--cold-windows × 1s` per runtime. Keep JVM/CLR flags at their realistic defaults — hobbling the JIT would make the comparison dishonest; note too that GraalVM native-image is AOT-for-Java and closes most of this gap.
+
+**Passthrough backend fairness.** The passthrough backend is itself a cold JVM that JITs on its first requests. Whichever runtime is measured first would otherwise be charged for that backend cold-start — a ~20 ms first-request penalty later runtimes never see (an observed 26 ms first request for the first runtime collapsed to ~2 ms once the backend was warm). So under `--cold-start` the harness fires a short `wrk` burst at the backend before any runtime is measured, isolating the runtime-under-test's own cold cost. (Steady-state runs are unaffected: each discards its own warmup, which already warms the backend.)
 
 ## Prerequisites
 
@@ -117,9 +126,12 @@ Build artifacts (Go binaries, jars, `node_modules`) are produced on first run an
 
 # Just Nutcracker vs Go, hello world.
 ./performance/run.sh --scenario hello-service --runtimes nutcracker,go --users 100,500
+
+# Add the AOT-vs-JIT cold-start story (startup RSS + warmup curve).
+./performance/run.sh --scenario hello-service --runtimes nutcracker,swanlake --cold-start
 ```
 
-Options: `--scenario hello-service|passthrough|all`, `--runtimes <list>|all|default`, `--users <list>`, `--payloads <list>`, `--warmup`, `--duration`, `--threads`, `--output`. See `./performance/run.sh --help`.
+Options: `--scenario hello-service|passthrough|all`, `--runtimes <list>|all|default`, `--users <list>`, `--payloads <list>`, `--warmup`, `--duration`, `--threads`, `--output`, `--cold-start` (+ `--cold-windows`, `--cold-users`). See `./performance/run.sh --help`.
 
 Each run writes a full timestamped report to `results/` (git-ignored). Curated cross-runtime summaries live in [`benchmarks/`](benchmarks/).
 

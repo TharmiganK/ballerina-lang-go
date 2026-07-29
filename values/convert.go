@@ -23,6 +23,18 @@ import (
 	"ballerina/semtypes"
 )
 
+// numericTypes lists the numeric basic types, for which tryConvertBasicType can actually
+// widen or narrow a value (e.g. int -> float). candidateTypes tries an exact match among these
+// before one that would need conversion.
+var numericTypes = []semtypes.SemType{semtypes.INT, semtypes.FLOAT, semtypes.DECIMAL}
+
+// nonStructuralTypes lists the scalar basic types outside MAPPING and LIST that are not
+// numeric. tryConvertBasicType has no conversion for these: a value either already satisfies
+// the candidate or the candidate can never succeed, so candidateTypes need not order them.
+var nonStructuralTypes = []semtypes.SemType{
+	semtypes.NIL, semtypes.BOOLEAN, semtypes.STRING, semtypes.XML, semtypes.ERROR,
+}
+
 // CloneWithType implements the cloneWithType abstract operation defined in the Ballerina spec
 // (https://ballerina.io/spec/lang/master/#section_16.6).
 //
@@ -49,7 +61,7 @@ func CloneWithType(tc semtypes.Context, value BalValue, targetType semtypes.SemT
 // need numeric conversion, so a single pass suffices to prefer an exact match. See
 // conversionFailureFor for how a total failure is reported.
 func convert(tc semtypes.Context, value BalValue, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
-	candidates := candidateTypes(tc, value, target)
+	candidates := candidateTypes(tc, SemTypeForValue(value), target)
 	children := make([]*conversionFailure, 0, len(candidates))
 	for _, candidate := range candidates {
 		result, err := tryConvert(tc, value, candidate, visiting)
@@ -62,43 +74,52 @@ func convert(tc semtypes.Context, value BalValue, target semtypes.SemType, visit
 }
 
 // candidateTypes decomposes ty into its per-basic-type constituents (e.g. the mapping and list
-// alternatives of a union), skipping any constituent that is empty under tc. Among the simple
-// (scalar) constituents, ones value already satisfies without numeric conversion are ordered
-// first, so a caller trying candidates in order finds an exact match before any that would widen
-// or narrow value numerically.
-func candidateTypes(tc semtypes.Context, value BalValue, ty semtypes.SemType) []semtypes.SemType {
+// alternatives of a union), skipping any constituent that is empty under tc. Non-numeric scalar
+// constituents are unordered, since they either already match or can never convert. Numeric
+// constituents that valueTy already satisfies without conversion are ordered first, so a caller
+// trying candidates in order finds an exact match before any that would widen or narrow the
+// value numerically.
+func candidateTypes(tc semtypes.Context, valueTy semtypes.SemType, ty semtypes.SemType) []semtypes.SemType {
 	var members []semtypes.SemType
 	basic := semtypes.WidenToBasicTypes(ty)
 
 	if semtypes.ContainsBasicType(basic, semtypes.MAPPING) {
 		mappingTy := semtypes.Intersect(ty, semtypes.MAPPING)
-		if !semtypes.IsEmpty(tc, mappingTy) {
-			for _, alt := range semtypes.MappingAlternatives(tc, mappingTy) {
-				members = append(members, alt.SemType)
-			}
+		for _, alt := range semtypes.MappingAlternatives(tc, mappingTy) {
+			members = append(members, alt.SemType)
 		}
 	}
 	if semtypes.ContainsBasicType(basic, semtypes.LIST) {
 		listTy := semtypes.Intersect(ty, semtypes.LIST)
-		if !semtypes.IsEmpty(tc, listTy) {
-			for _, alt := range semtypes.ListAlternatives(tc, listTy) {
-				members = append(members, alt.SemType)
+		for _, alt := range semtypes.ListAlternatives(tc, listTy) {
+			members = append(members, alt.SemType)
+		}
+	}
+
+	for _, bt := range nonStructuralTypes {
+		if semtypes.ContainsBasicType(basic, bt) {
+			member := semtypes.Intersect(ty, bt)
+			if !semtypes.IsEmpty(tc, member) {
+				members = append(members, member)
 			}
 		}
 	}
 
-	valueTy := SemTypeForValue(value)
+	isNumericValue := semtypes.IsSubtype(tc, valueTy, semtypes.NUMBER)
+
 	var exact, coerced []semtypes.SemType
-	for _, bt := range semtypes.SimpleBasicTypes {
-		if semtypes.ContainsBasicType(basic, bt) {
-			member := semtypes.Intersect(ty, bt)
-			if !semtypes.IsEmpty(tc, member) {
-				if semtypes.IsSubtype(tc, valueTy, member) {
-					exact = append(exact, member)
-				} else {
-					coerced = append(coerced, member)
-				}
-			}
+	for _, bt := range numericTypes {
+		if !semtypes.ContainsBasicType(basic, bt) {
+			continue
+		}
+		member := semtypes.Intersect(ty, bt)
+		if semtypes.IsEmpty(tc, member) {
+			continue
+		}
+		if isNumericValue && semtypes.IsSubtype(tc, valueTy, member) {
+			exact = append(exact, member)
+		} else {
+			coerced = append(coerced, member)
 		}
 	}
 	members = append(members, exact...)
@@ -107,57 +128,59 @@ func candidateTypes(tc semtypes.Context, value BalValue, ty semtypes.SemType) []
 }
 
 // tryConvert converts value to a single, already-decomposed basic-type target (never a union),
-// dispatching on value's shape. Cycle detection happens in tryConvertMap/tryConvertList, since
-// only structured values can participate in a cycle.
+// dispatching on value's shape. Cycle detection only applies to *Map/*List, since only
+// structured values can participate in a cycle.
 func tryConvert(tc semtypes.Context, value BalValue, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
+	var convertStructured func(map[BalValue]struct{}) (BalValue, *conversionFailure)
 	switch v := value.(type) {
 	case *Map:
-		if semtypes.IsSubtype(tc, target, semtypes.MAPPING) {
+		if !semtypes.IsSubtype(tc, target, semtypes.MAPPING) {
+			return nil, incompatibleConversion(tc, value, target)
+		}
+		convertStructured = func(visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 			return tryConvertMap(tc, v, target, visiting)
 		}
 	case *List:
-		if semtypes.IsSubtype(tc, target, semtypes.LIST) {
+		if !semtypes.IsSubtype(tc, target, semtypes.LIST) {
+			return nil, incompatibleConversion(tc, value, target)
+		}
+		convertStructured = func(visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 			return tryConvertList(tc, v, target, visiting)
 		}
 	default:
 		return tryConvertBasicType(tc, v, target)
 	}
-	return nil, incompatibleConversion(tc, value, target)
-}
 
-func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
-	var cycleErr *conversionFailure
-	visiting, cycleErr = enterCycleCheck(tc, source.Type, source, visiting)
+	visiting, cycleErr := enterCycleCheck(tc, SemTypeForValue(value), value, visiting)
 	if cycleErr != nil {
 		return nil, cycleErr
 	}
-	defer delete(visiting, source)
+	defer delete(visiting, value)
+	return convertStructured(visiting)
+}
 
+// enterCycleCheck lazily initialises visiting and checks whether source is already being
+// converted in the current recursion stack. The caller must defer delete(visiting, source)
+// on success so DAG-shared nodes are not falsely reported as cycles on the second reference.
+func enterCycleCheck(tc semtypes.Context, sourceType semtypes.SemType, source BalValue, visiting map[BalValue]struct{}) (map[BalValue]struct{}, *conversionFailure) {
+	if visiting == nil {
+		visiting = make(map[BalValue]struct{})
+	}
+	if _, cycle := visiting[source]; cycle {
+		return visiting, newConversionFailure(fmt.Sprintf("'%s' value has cyclic reference", semtypes.ToString(tc, sourceType)))
+	}
+	visiting[source] = struct{}{}
+	return visiting, nil
+}
+
+func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 	atomic := semtypes.ToMappingAtomicType(tc, target)
-	if atomic == nil {
-		return nil, incompatibleConversion(tc, source, target)
-	}
-
-	closed := isClosedRecord(atomic)
-
-	var declared map[string]struct{}
-	if closed {
-		declared = make(map[string]struct{}, len(atomic.Names))
-		for _, name := range atomic.Names {
-			declared[name] = struct{}{}
-		}
-	}
 
 	entries := make([]MapEntry, 0, source.Len())
 	seen := make(map[string]struct{}, source.Len())
 
 	for _, key := range source.Keys() {
 		seen[key] = struct{}{}
-		if closed {
-			if _, ok := declared[key]; !ok {
-				return nil, incompatibleConversion(tc, source, target)
-			}
-		}
 		fieldTy := mappingFieldType(tc, target, atomic, key)
 		val, _ := source.Get(key)
 		converted, err := convert(tc, val, fieldTy, visiting)
@@ -171,12 +194,11 @@ func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, vi
 		if _, ok := seen[name]; ok {
 			continue
 		}
-		if fieldMayOmitKey(tc, target, name) {
+		if atomic.IsOptional(tc, name) {
 			continue
 		}
-		// Required field (nilable or not) absent in source — always an error.
-		// A nil value must be explicitly present in the source; it is not injected,
-		// and neither is a declared default value (not yet supported).
+		// Neither a nil value nor a declared default is ever injected (default injection
+		// is not yet supported), so a required field absent from source is always an error.
 		return nil, missingRequiredField(tc, source, target, name)
 	}
 
@@ -184,18 +206,17 @@ func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, vi
 	return NewMap(target, atomic, readonly, entries), nil
 }
 
-func tryConvertList(tc semtypes.Context, source *List, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
-	var cycleErr *conversionFailure
-	visiting, cycleErr = enterCycleCheck(tc, source.Type, source, visiting)
-	if cycleErr != nil {
-		return nil, cycleErr
+func mappingFieldType(tc semtypes.Context, target semtypes.SemType, atomic *semtypes.MappingAtomicType, key string) semtypes.SemType {
+	for _, name := range atomic.Names {
+		if name == key {
+			return atomic.FieldInnerVal(key)
+		}
 	}
-	defer delete(visiting, source)
+	return semtypes.MappingMemberTypeInnerVal(tc, target, semtypes.StringConst(key))
+}
 
+func tryConvertList(tc semtypes.Context, source *List, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 	atomic := semtypes.ToListAtomicType(tc, target)
-	if atomic == nil {
-		return nil, incompatibleConversion(tc, source, target)
-	}
 
 	fixedLen := atomic.Members.FixedLength
 	if semtypes.IsNever(atomic.Rest()) {
@@ -294,38 +315,4 @@ func isStructuredValue(value BalValue) bool {
 	default:
 		return false
 	}
-}
-
-// enterCycleCheck lazily initialises visiting and checks whether source is already being
-// converted in the current recursion stack. The caller must defer delete(visiting, source)
-// on success so DAG-shared nodes are not falsely reported as cycles on the second reference.
-func enterCycleCheck(tc semtypes.Context, sourceType semtypes.SemType, source BalValue, visiting map[BalValue]struct{}) (map[BalValue]struct{}, *conversionFailure) {
-	if visiting == nil {
-		visiting = make(map[BalValue]struct{})
-	}
-	if _, cycle := visiting[source]; cycle {
-		return visiting, newConversionFailure(fmt.Sprintf("'%s' value has cyclic reference", semtypes.ToString(tc, sourceType)))
-	}
-	visiting[source] = struct{}{}
-	return visiting, nil
-}
-
-func isClosedRecord(atomic *semtypes.MappingAtomicType) bool {
-	restTy := atomic.FieldInnerVal("\x00")
-	return semtypes.IsNever(restTy)
-}
-
-func mappingFieldType(tc semtypes.Context, target semtypes.SemType, atomic *semtypes.MappingAtomicType, key string) semtypes.SemType {
-	if atomic != nil {
-		for _, name := range atomic.Names {
-			if name == key {
-				return atomic.FieldInnerVal(key)
-			}
-		}
-	}
-	return semtypes.MappingMemberTypeInnerVal(tc, target, semtypes.StringConst(key))
-}
-
-func fieldMayOmitKey(tc semtypes.Context, target semtypes.SemType, name string) bool {
-	return semtypes.AllMappingAtomsHaveOptionalFieldByName(tc, target, name)
 }

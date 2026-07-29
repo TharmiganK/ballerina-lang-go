@@ -81,6 +81,8 @@ FORCE=false        # --force: rebuild every artifact even if it already exists
 # with no discarded warmup. This is the regime where AOT beats JIT: cloud
 # scale-to-zero / autoscaling has no warmup window, so request #1 is what ships.
 COLD_START=false
+COLD_START_ONLY=false # --cold-start-only: run just the cold-start metrics, skip
+                      # the steady-state grid entirely (implies --cold-start)
 COLD_WINDOWS="10"    # number of back-to-back measured windows
 COLD_WINDOW="1s"     # wrk duration per window (the curve's time resolution)
 COLD_USERS="50"      # concurrency held constant across the curve
@@ -118,6 +120,7 @@ Usage: $0 [OPTIONS]
   --output    FILE   Markdown report path (default: results/perf-report-<ts>.md)
   --startup-runs N   cold starts per runtime; report the min (default: $STARTUP_RUNS)
   --cold-start       also measure startup RSS + a cold warmup curve (AOT vs JIT)
+  --cold-start-only  run ONLY the cold-start metrics; skip the steady-state grid
   --cold-windows N   warmup-curve windows of $COLD_WINDOW each (default: $COLD_WINDOWS)
   --cold-users N     concurrency held across the warmup curve (default: $COLD_USERS)
   --force            rebuild every artifact (incl. Nutcracker bal) from scratch
@@ -139,6 +142,7 @@ while [[ $# -gt 0 ]]; do
         --output)   OUTPUT="$2";         shift 2 ;;
         --startup-runs) STARTUP_RUNS="$2"; shift 2 ;;
         --cold-start)   COLD_START=true;   shift ;;
+        --cold-start-only) COLD_START=true; COLD_START_ONLY=true; shift ;;
         --cold-windows) COLD_WINDOWS="$2"; shift 2 ;;
         --cold-users)   COLD_USERS="$2";   shift 2 ;;
         --force)    FORCE=true;          shift ;;
@@ -601,7 +605,13 @@ echo " HTTP Performance Benchmark"
 echo "============================================================"
 echo " Scenarios: ${SCENARIO_LIST[*]}"
 echo " Runtimes:  ${RUNTIME_LIST[*]}"
-echo " Users: $USERS | Warmup: $WARMUP | Duration: $DURATION"
+if [[ "$COLD_START_ONLY" == true ]]; then
+    echo " Mode: cold-start only (no steady-state grid)"
+    echo " Cold-start: ${COLD_WINDOWS} x ${COLD_WINDOW} windows @ ${COLD_USERS} users"
+else
+    echo " Users: $USERS | Warmup: $WARMUP | Duration: $DURATION"
+    [[ "$COLD_START" == true ]] && echo " Cold-start: ${COLD_WINDOWS} x ${COLD_WINDOW} windows @ ${COLD_USERS} users"
+fi
 echo " Payloads (passthrough): $PAYLOADS"
 echo " Output: $OUTPUT"
 echo "============================================================"
@@ -651,6 +661,9 @@ for scn in "${SCENARIO_LIST[@]}"; do
             reuse_instance=0
         fi
 
+        # --cold-start-only stops here: the cold-start metrics above are the whole
+        # run, so skip the steady-state load grid entirely.
+        if [[ "$COLD_START_ONLY" != true ]]; then
         for users in "${USER_LIST[@]}"; do
             local_threads="${THREADS:-$(( users < CORES ? users : CORES ))}"
             for payload in "${SCN_PAYLOADS[@]}"; do
@@ -695,6 +708,7 @@ for scn in "${SCENARIO_LIST[@]}"; do
                 echo "    Throughput: $thr req/s | avg: ${avg}ms | p99: ${p99}ms | stdev: ${stdev}ms | mem: ${maxmem}MB | cpu: ${maxcpu}% | errors: ${err}%"
             done
         done
+        fi
 
         stop_service
     done

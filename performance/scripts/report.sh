@@ -126,18 +126,22 @@ generate_report() {
             echo ""
         fi
 
-        local -a scn_payloads
-        if [[ "$scn" == "hello-service" ]]; then
-            scn_payloads=("-")
-        else
-            scn_payloads=("${PAYLOAD_LIST[@]}")
-        fi
+        # --cold-start-only skips the steady-state grid, so there are no per-load
+        # result tables to emit.
+        if [[ "${COLD_START_ONLY:-false}" != true ]]; then
+            local -a scn_payloads
+            if [[ "$scn" == "hello-service" ]]; then
+                scn_payloads=("-")
+            else
+                scn_payloads=("${PAYLOAD_LIST[@]}")
+            fi
 
-        for users in "${USER_LIST[@]}"; do
-            for payload in "${scn_payloads[@]}"; do
-                _result_table "$scn" "$users" "$payload"
+            for users in "${USER_LIST[@]}"; do
+                for payload in "${scn_payloads[@]}"; do
+                    _result_table "$scn" "$users" "$payload"
+                done
             done
-        done
+        fi
     done
 
     echo "---"

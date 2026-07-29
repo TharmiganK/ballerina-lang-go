@@ -130,9 +130,12 @@ Build artifacts (Go binaries, jars, `node_modules`) are produced on first run an
 
 # Add the AOT-vs-JIT cold-start story (startup RSS + warmup curve).
 ./performance/run.sh --scenario hello-service --runtimes nutcracker,swanlake --cold-start
+
+# Only the cold-start metrics, skipping the (much longer) steady-state grid.
+./performance/run.sh --runtimes nutcracker,swanlake,go,dotnet --cold-start-only
 ```
 
-Options: `--scenario hello-service|passthrough|all`, `--runtimes <list>|all|default`, `--users <list>`, `--payloads <list>`, `--warmup`, `--duration`, `--threads`, `--output`, `--cold-start` (+ `--cold-windows`, `--cold-users`). See `./performance/run.sh --help`.
+Options: `--scenario hello-service|passthrough|all`, `--runtimes <list>|all|default`, `--users <list>`, `--payloads <list>`, `--warmup`, `--duration`, `--threads`, `--output`, `--cold-start` (+ `--cold-windows`, `--cold-users`), `--cold-start-only`. See `./performance/run.sh --help`.
 
 Each run writes a full timestamped report to `results/` (git-ignored). Curated cross-runtime summaries live in [`benchmarks/`](benchmarks/).
 

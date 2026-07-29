@@ -21,8 +21,11 @@ esac
 # Pin the jBallerina (Swan Lake) version here.
 BAL_VERSION="${BAL_VERSION:-2201.13.4}"
 
-echo "==> Base tooling (gcc, make, git, perl, lsof, ...)"
-sudo dnf -y install gcc make git perl lsof procps-ng unzip tar gzip \
+echo "==> Base tooling (gcc, clang, make, git, perl, lsof, ...)"
+# clang + zlib-devel are the .NET Native AOT link-step prerequisites for the
+# dotnet-aot runtime (run.sh skips its build if clang is absent); the rest is
+# shared by the other runtimes.
+sudo dnf -y install gcc clang make git perl lsof procps-ng unzip tar gzip \
     openssl-devel zlib-devel python3 python3-pip nodejs npm
 
 echo "==> wrk (built from source; no AL2023 package)"
@@ -88,7 +91,9 @@ if ! command -v bun >/dev/null && [[ ! -x "$HOME/.bun/bin/bun" ]]; then
     curl -fsSL https://bun.sh/install | bash
 fi
 
-echo "==> .NET SDK 9 (for the dotnet runtime)"
+echo "==> .NET SDK 9 (for the dotnet and dotnet-aot runtimes)"
+# dotnet-aot additionally needs clang + zlib-devel (installed in base tooling
+# above) for the Native AOT link step; the SDK ships the AOT compiler itself.
 # AL2023 repos may only carry dotnet-sdk-8.0; fall back to Microsoft's installer
 # script, which drops a self-contained SDK in $HOME/.dotnet.
 DOTNET_ROOT_DIR="$HOME/.dotnet"
@@ -123,5 +128,5 @@ echo "  1. Re-login (or: source /etc/profile.d/perf-bench.sh) so PATH/limits app
 echo "  2. Build Nutcracker's bal:   cd <repo-root> && go build -o bal ./cli/cmd"
 echo "  3. Verify:                   wrk -v; lsof -v; go version; bal version;"
 echo "                               java -version; mvn -v; node -v; native-image --version;"
-echo "                               cargo --version; bun --version; dotnet --version"
+echo "                               cargo --version; bun --version; dotnet --version; clang --version"
 echo "  4. Run:                      ./performance/run.sh"

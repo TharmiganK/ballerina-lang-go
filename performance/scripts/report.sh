@@ -30,6 +30,25 @@ _metric_row() {
     echo "$row"
 }
 
+# Emit the cloud-efficiency (throughput density) row: req/s ÷ peak RSS. This is
+# the metric that tracks cloud cost — you pay for memory (bin-packing / GB-s),
+# not raw req/s — so more req/s per MB is a leaner, cheaper deployment.
+_efficiency_row() {
+    local scn="$1" users="$2" payload="$3" rt row thr mem val
+    row="| **Throughput per MB (req/s/MB)** |"
+    for rt in "${RUNTIME_LIST[@]}"; do
+        thr="$(_fetch THROUGHPUT "$scn,$rt,$users,$payload")"
+        mem="$(_fetch MAXMEM "$scn,$rt,$users,$payload")"
+        if [[ "$thr" =~ ^[0-9.]+$ && "$mem" =~ ^[0-9.]+$ ]] && awk "BEGIN{exit !($mem>0)}"; then
+            val="$(awk -v t="$thr" -v m="$mem" 'BEGIN{printf "%.1f", t/m}')"
+        else
+            val="N/A"
+        fi
+        row+=" $val |"
+    done
+    echo "$row"
+}
+
 _result_table() {
     local scn="$1" users="$2" payload="$3" rt header sep
     if [[ "$payload" == "-" ]]; then
@@ -48,6 +67,7 @@ _result_table() {
     _metric_row "Max Latency (ms)"        MAXLAT     "$scn" "$users" "$payload"
     _metric_row "Max Memory (MB)"         MAXMEM     "$scn" "$users" "$payload"
     _metric_row "Max CPU (%)"             MAXCPU     "$scn" "$users" "$payload"
+    _efficiency_row "$scn" "$users" "$payload"
     _metric_row "Error Rate (%)"          ERR        "$scn" "$users" "$payload"
     echo ""
 }

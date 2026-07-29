@@ -22,8 +22,9 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | `graalvm-netty` | Java + Netty, GraalVM native image | `native-image` binary |
 | `java-spring` | Java + Spring Boot WebFlux (Reactor Netty) | `java -jar` |
 | `dotnet` | C# / ASP.NET Core (Kestrel minimal API) | `dotnet` |
+| `dotnet-aot` | C# / ASP.NET Core, .NET Native AOT | native binary |
 
-By default the suite runs the recommended Ballerina runtime against one industry-leading stack per language: `nutcracker`, `swanlake`, `go`, `rust`, `java-spring`, `dotnet`, `node`, `python-fastapi`. Every default runtime is launched as its production artifact (a compiled binary, a prebuilt jar/DLL, or the ecosystem's recommended server), so none recompiles on start. The interpreted `bal run` variant (`nutcracker-run`), the stdlib/legacy baselines (`python`, `python-flask`, `node-express`, `bun`, `java-netty`), and the remaining native-image variants (`swanlake-graalvm`, `graalvm-netty`) join in with `--runtimes all` or an explicit `--runtimes` list.
+By default the suite runs the recommended Ballerina runtime against one industry-leading stack per language: `nutcracker`, `swanlake`, `go`, `rust`, `java-spring`, `dotnet`, `node`, `python-fastapi`. Every default runtime is launched as its production artifact (a compiled binary, a prebuilt jar/DLL, or the ecosystem's recommended server), so none recompiles on start. The interpreted `bal run` variant (`nutcracker-run`), the stdlib/legacy baselines (`python`, `python-flask`, `node-express`, `bun`, `java-netty`), and the remaining native-image variants (`swanlake-graalvm`, `graalvm-netty`, `dotnet-aot`) join in with `--runtimes all` or an explicit `--runtimes` list.
 
 `nutcracker` (the default, recommended for production) runs the `services/ballerina/{hello,passthrough}.bal` sources compiled ahead-of-time via this repo's `bal build` into a standalone executable; `nutcracker-run` runs the same sources interpreted through `bal run` and is kept out of the default list. The `nutcracker` executables are written to `services/ballerina/nutcracker-native/<stem>` — a dedicated directory kept separate from `swanlake-graalvm`'s images (which share `services/ballerina/<stem>`), so the two never clobber each other. `bal build` packs onto a `balrt` runner stub; for a local repo build the suite builds that stub next to `<repo>/bal` automatically (requires the Go toolchain).
 
@@ -102,7 +103,7 @@ Install what you need for the runtimes you plan to run:
 - **Go** 1.26+ — for `go`, and to build this repo's `bal` (`go build -o bal ./cli/cmd` from the repo root). Also used by `nutcracker` to build the `balrt` runner stub `bal build` packs onto (done automatically on first run).
 - **Rust** (rustup/`cargo`) — for `rust` (`cargo build --release` runs automatically on first run).
 - **Bun** — for `bun`.
-- **.NET SDK 9** — for `dotnet` (`dotnet publish` runs automatically on first run).
+- **.NET SDK 9** — for `dotnet` (`dotnet publish` runs automatically on first run). `dotnet-aot` additionally needs a C toolchain (`clang`/`ld`; on macOS the Xcode Command Line Tools, on Linux `clang` + `zlib`) for the Native AOT link step, and its `dotnet publish -p:PublishAot` first build takes a minute or two.
 - **jBallerina** (Swan Lake) on `PATH` as `bal` — for `swanlake` and `swanlake-graalvm`. Override with `SWAN_BAL=/path/to/bal`.
 - **GraalVM** JDK with `native-image` on `PATH` — for `swanlake-graalvm` and `graalvm-netty`. These native images are built on first run (each takes a minute or two); if `native-image` is absent the two GraalVM runtimes are skipped with a warning.
 - **Java 21** + **Maven** — for `java-netty`, `graalvm-netty`, `java-spring`, and the Netty backend (built automatically on first run).

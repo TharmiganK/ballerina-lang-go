@@ -39,6 +39,10 @@ GATEWAY_JAR="$SCRIPT_DIR/services/java-netty/target/perf-gateway.jar"
 GATEWAY_NATIVE="$SCRIPT_DIR/services/java-netty/target/perf-gateway-native"
 SPRING_JAR="$SCRIPT_DIR/services/java-spring/target/perf-spring.jar"
 DOTNET_DLL="$SCRIPT_DIR/services/dotnet/bin/publish/perf-dotnet.dll"
+# Native AOT build of the same dotnet service: a self-contained native binary
+# (no managed .dll / `dotnet` host), published into its own dir so it never
+# clobbers the managed publish/ that the `dotnet` runtime launches.
+DOTNET_AOT_BIN="$SCRIPT_DIR/services/dotnet/bin/publish-aot/perf-dotnet"
 GO_BIN_DIR="$SCRIPT_DIR/services/go/bin"
 RUST_BIN_DIR="$SCRIPT_DIR/services/rust/target/release"
 # GraalVM native images built from the Ballerina services land beside their
@@ -84,7 +88,7 @@ COLD_PAYLOAD="1KB"   # passthrough payload for the curve (ignored for hello)
 BACKEND_WARMUP="5s"  # pre-warm the JVM backend so the first-measured runtime
                      # isn't charged for the backend's own cold-start (passthrough)
 
-ALL_RUNTIMES=(nutcracker nutcracker-run swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet)
+ALL_RUNTIMES=(nutcracker nutcracker-run swanlake swanlake-graalvm go rust node node-express bun python python-flask python-fastapi java-netty graalvm-netty java-spring dotnet dotnet-aot)
 # Default: the recommended Ballerina runtime (the `bal build` executable, named
 # `nutcracker`) vs one industry-leading stack per language. The interpreted
 # `bal run` variant (`nutcracker-run`), the stdlib/legacy baselines, and the
@@ -323,6 +327,19 @@ ensure_builds() {
         echo "  Building ASP.NET Core gateway (dotnet publish)..."
         (cd "$SCRIPT_DIR/services/dotnet" && dotnet publish -c Release -o bin/publish --nologo -v quiet)
     fi
+    if have_runtime dotnet-aot && should_build "$DOTNET_AOT_BIN"; then
+        if ! command -v clang >/dev/null; then
+            echo "  WARNING: dotnet-aot needs a C toolchain (clang/ld) for Native AOT; skipping build." >&2
+        else
+            # Native AOT needs an explicit RID; use the host's (osx-arm64, linux-x64, …).
+            local dotnet_rid; dotnet_rid=$(dotnet --info 2>/dev/null | awk -F': *' '/^[[:space:]]*RID:/{print $2; exit}')
+            echo "  Building ASP.NET Core gateway native image (dotnet publish -p:PublishAot; slow)..."
+            (cd "$SCRIPT_DIR/services/dotnet" && dotnet publish -c Release -r "$dotnet_rid" \
+                -p:PublishAot=true --self-contained -o bin/publish-aot --nologo -v quiet) \
+                > /tmp/perf-dotnet-aot.log 2>&1 \
+                || { echo "  WARNING: dotnet Native AOT publish failed (see /tmp/perf-dotnet-aot.log); dotnet-aot will be skipped." >&2; rm -f "$DOTNET_AOT_BIN"; }
+        fi
+    fi
     if have_runtime bun && ! command -v bun >/dev/null; then
         echo "  WARNING: bun not found on PATH (install from https://bun.sh); bun will fail to start." >&2
     fi
@@ -431,6 +448,7 @@ launch_service() {
         graalvm-netty) session_spawn "." "$GATEWAY_NATIVE" --scenario "$scn" --port "$SERVICE_PORT" ;;
         java-spring)  session_spawn "." java -jar "$SPRING_JAR" --scenario="$stem" --server.port="$SERVICE_PORT" ;;
         dotnet)       session_spawn "." dotnet "$DOTNET_DLL" --scenario "$stem" --port "$SERVICE_PORT" ;;
+        dotnet-aot)   session_spawn "." "$DOTNET_AOT_BIN" --scenario "$stem" --port "$SERVICE_PORT" ;;
         *) echo "Unknown runtime: $rt" >&2; return 1 ;;
     esac
 }

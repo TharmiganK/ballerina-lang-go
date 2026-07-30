@@ -344,11 +344,9 @@ func analyzeAndDesugar(moduleCtx *moduleContext) {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "==================BEGIN CFG==================")
 		if compilationOptions.DumpCFGFormat() == CFGFormatDot {
-			dotExporter := semantics.NewCFGDotExporter(compilerCtx)
-			fmt.Fprintln(os.Stderr, strings.TrimSpace(dotExporter.Export(cfg)))
+			fmt.Fprintln(os.Stderr, strings.TrimSpace(semantics.PrintCFGDot(compilerCtx, cfg)))
 		} else {
-			prettyPrinter := semantics.NewCFGPrettyPrinter(compilerCtx)
-			fmt.Fprintln(os.Stderr, strings.TrimSpace(prettyPrinter.Print(cfg)))
+			fmt.Fprintln(os.Stderr, strings.TrimSpace(semantics.PrettyPrintCFG(compilerCtx, cfg)))
 		}
 		fmt.Fprintln(os.Stderr, "===================END CFG===================")
 	}

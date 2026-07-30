@@ -19,10 +19,10 @@ package langruntime
 import (
 	"time"
 
-	"ballerina-lang-go/decimal"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/runtime/extern"
-	"ballerina-lang-go/values"
+	"ballerina/decimal"
+	"ballerina/runtime"
+	"ballerina/runtime/extern"
+	"ballerina/values"
 )
 
 const (

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"ballerina-lang-go/values"
+	"ballerina/values"
 )
 
 // The uuid module's behaviour is exercised end-to-end through the corpus

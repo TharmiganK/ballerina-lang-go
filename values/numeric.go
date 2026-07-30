@@ -39,10 +39,8 @@ func NumericConvertToInt(value BalValue) (int64, error) {
 		}
 		return int64(rounded), nil
 	case *decimal.Decimal:
-		n, ok, err := v.Int64()
-		if err != nil {
-			return 0, fmt.Errorf("cannot convert %v to int: %v", v, err)
-		}
+		// Int64 sets ok=false in both of its failure cases, so it alone reports failure.
+		n, ok, _ := v.Int64()
 		if !ok {
 			return 0, fmt.Errorf("cannot convert %v to int64: value out of range", v)
 		}

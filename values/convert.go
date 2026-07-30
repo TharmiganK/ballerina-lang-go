@@ -162,20 +162,6 @@ func tryConvert(tc semtypes.Context, value BalValue, target semtypes.SemType, vi
 	return convertStructured(visiting)
 }
 
-// enterCycleCheck lazily initialises visiting and checks whether source is already being
-// converted in the current recursion stack. The caller must defer delete(visiting, source)
-// on success so DAG-shared nodes are not falsely reported as cycles on the second reference.
-func enterCycleCheck(tc semtypes.Context, sourceType semtypes.SemType, source BalValue, visiting map[BalValue]struct{}) (map[BalValue]struct{}, *conversionFailure) {
-	if visiting == nil {
-		visiting = make(map[BalValue]struct{})
-	}
-	if _, cycle := visiting[source]; cycle {
-		return visiting, newCyclicConversionFailure(fmt.Sprintf("'%s' value has cyclic reference", semtypes.ToString(tc, sourceType)))
-	}
-	visiting[source] = struct{}{}
-	return visiting, nil
-}
-
 func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
 	atomic := semtypes.ToMappingAtomicType(tc, target)
 
@@ -206,15 +192,6 @@ func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, vi
 
 	readonly := semtypes.IsSubtype(tc, target, semtypes.VAL_READONLY)
 	return NewMap(target, atomic, readonly, entries), nil
-}
-
-func mappingFieldType(tc semtypes.Context, target semtypes.SemType, atomic *semtypes.MappingAtomicType, key string) semtypes.SemType {
-	for _, name := range atomic.Names {
-		if name == key {
-			return atomic.FieldInnerVal(key)
-		}
-	}
-	return semtypes.MappingMemberTypeInnerVal(tc, target, semtypes.StringConst(key))
 }
 
 func tryConvertList(tc semtypes.Context, source *List, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
@@ -280,10 +257,9 @@ func convertNumeric(tc semtypes.Context, value BalValue, target semtypes.SemType
 		}
 		return n, nil
 	case semtypes.IsSubtypeSimple(target, semtypes.FLOAT):
-		f, err := NumericConvertToFloat(value)
-		if err != nil {
-			return nil, newConversionFailure(err.Error())
-		}
+		// value is guaranteed int64/float64/*decimal.Decimal by tryConvertBasicType's type
+		// switch, so NumericConvertToFloat can't hit its error case (non-numeric input) here.
+		f, _ := NumericConvertToFloat(value)
 		return f, nil
 	default: // DECIMAL
 		d, err := NumericConvertToDecimal(value)
@@ -292,6 +268,29 @@ func convertNumeric(tc semtypes.Context, value BalValue, target semtypes.SemType
 		}
 		return d, nil
 	}
+}
+
+// enterCycleCheck lazily initialises visiting and checks whether source is already being
+// converted in the current recursion stack. The caller must defer delete(visiting, source)
+// on success so DAG-shared nodes are not falsely reported as cycles on the second reference.
+func enterCycleCheck(tc semtypes.Context, sourceType semtypes.SemType, source BalValue, visiting map[BalValue]struct{}) (map[BalValue]struct{}, *conversionFailure) {
+	if visiting == nil {
+		visiting = make(map[BalValue]struct{})
+	}
+	if _, cycle := visiting[source]; cycle {
+		return visiting, newCyclicConversionFailure(fmt.Sprintf("'%s' value has cyclic reference", semtypes.ToString(tc, sourceType)))
+	}
+	visiting[source] = struct{}{}
+	return visiting, nil
+}
+
+func mappingFieldType(tc semtypes.Context, target semtypes.SemType, atomic *semtypes.MappingAtomicType, key string) semtypes.SemType {
+	for _, name := range atomic.Names {
+		if name == key {
+			return atomic.FieldInnerVal(key)
+		}
+	}
+	return semtypes.MappingMemberTypeInnerVal(tc, target, semtypes.StringConst(key))
 }
 
 // conversionFailureFor reports why every candidate was rejected. One candidate's failure is

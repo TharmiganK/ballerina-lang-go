@@ -57,29 +57,37 @@ if (scenario == "passthrough")
 
     app.MapPost("/passthrough", async (HttpContext ctx) =>
     {
-        using var buffer = new MemoryStream();
-        await ctx.Request.Body.CopyToAsync(buffer);
-        var content = new ByteArrayContent(buffer.ToArray());
+        // Stream the request body straight to the backend — no full-body
+        // buffering. Propagate the incoming Content-Length so the forwarded
+        // request stays fixed-length (not chunked), matching the other proxies.
+        var content = new StreamContent(ctx.Request.Body);
         content.Headers.TryAddWithoutValidation(
             "Content-Type", ctx.Request.ContentType ?? "text/plain");
+        if (ctx.Request.ContentLength is long len)
+        {
+            content.Headers.ContentLength = len;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Post, backend) { Content = content };
 
-        byte[] data;
         try
         {
-            using var resp = await client.PostAsync(backend, content);
-            data = await resp.Content.ReadAsByteArrayAsync();
+            // ResponseHeadersRead: start forwarding as soon as headers arrive
+            // rather than buffering the whole response into memory first.
+            using var resp = await client.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead);
             ctx.Response.StatusCode = (int)resp.StatusCode;
             ctx.Response.ContentType =
                 resp.Content.Headers.ContentType?.ToString() ?? "text/plain";
+            ctx.Response.ContentLength = resp.Content.Headers.ContentLength;
+            await resp.Content.CopyToAsync(ctx.Response.Body);
         }
         catch (HttpRequestException err)
         {
             ctx.Response.StatusCode = 502;
             ctx.Response.ContentType = "text/plain";
-            data = System.Text.Encoding.UTF8.GetBytes(err.Message);
+            await ctx.Response.Body.WriteAsync(
+                System.Text.Encoding.UTF8.GetBytes(err.Message));
         }
-        ctx.Response.ContentLength = data.Length;
-        await ctx.Response.Body.WriteAsync(data);
     });
 }
 else

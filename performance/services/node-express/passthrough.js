@@ -18,42 +18,58 @@
 
 const express = require('express');
 const http = require('http');
+const cluster = require('cluster');
+const os = require('os');
 
-// Shared networking baseline (see performance/README.md): unlimited active
-// connections, idle pool sized to 512 (above the suite's 500-user peak so
-// connections are reused, not evicted), 300s idle timeout.
-const agent = new http.Agent({
-  keepAlive: true,
-  maxSockets: 0,          // unlimited active connections
-  maxFreeSockets: 512,    // max idle connections per host
-  timeout: 300000,        // 300s idle socket timeout
-});
+// One worker per core via the cluster module (see performance/README.md), all
+// sharing the :9090 listen socket, each with its own backend keep-alive pool —
+// the production-standard way to use every core, matching the multi-core parity
+// of the other runtimes.
+const WORKERS = os.availableParallelism ? os.availableParallelism() : os.cpus().length;
 
-const app = express();
-
-// No body parser: stream the raw request body straight to the backend.
-app.post('/passthrough', (req, res) => {
-  const headers = Object.assign({}, req.headers);
-  delete headers.connection;
-  delete headers['keep-alive'];
-  delete headers.host;
-
-  const proxyReq = http.request(
-    { host: 'localhost', port: 8688, path: '/', method: 'POST', headers, agent },
-    (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
-      proxyRes.pipe(res);
-    }
-  );
-
-  proxyReq.on('error', (err) => {
-    res.status(502).type('text/plain').send(err.message);
+function serve() {
+  // Shared networking baseline (see performance/README.md): unlimited active
+  // connections, idle pool sized to 512 (above the suite's 500-user peak so
+  // connections are reused, not evicted), 300s idle timeout.
+  const agent = new http.Agent({
+    keepAlive: true,
+    maxSockets: 0,          // unlimited active connections
+    maxFreeSockets: 512,    // max idle connections per host
+    timeout: 300000,        // 300s idle socket timeout
   });
 
-  req.pipe(proxyReq);
-});
+  const app = express();
 
-const server = app.listen(9090, () =>
-  console.log('Passthrough service (express) listening on :9090 (HTTP/1.1)')
-);
-server.keepAliveTimeout = 300000;
+  // No body parser: stream the raw request body straight to the backend.
+  app.post('/passthrough', (req, res) => {
+    const headers = Object.assign({}, req.headers);
+    delete headers.connection;
+    delete headers['keep-alive'];
+    delete headers.host;
+
+    const proxyReq = http.request(
+      { host: 'localhost', port: 8688, path: '/', method: 'POST', headers, agent },
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res);
+      }
+    );
+
+    proxyReq.on('error', (err) => {
+      res.status(502).type('text/plain').send(err.message);
+    });
+
+    req.pipe(proxyReq);
+  });
+
+  const server = app.listen(9090);
+  server.keepAliveTimeout = 300000;
+}
+
+if (cluster.isPrimary && WORKERS > 1) {
+  for (let i = 0; i < WORKERS; i++) cluster.fork();
+  console.log(`Passthrough service (express) listening on :9090 (HTTP/1.1), ${WORKERS} workers`);
+} else {
+  serve();
+  if (WORKERS <= 1) console.log('Passthrough service (express) listening on :9090 (HTTP/1.1)');
+}

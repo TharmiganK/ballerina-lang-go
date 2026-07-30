@@ -96,6 +96,22 @@
             <artifactId>netty-codec-http</artifactId>
             <version>${netty.version}</version>
         </dependency>
+        <!-- Native epoll transport (Linux only; faster than the portable NIO
+             selector). Both arch classifiers are bundled so the same jar runs
+             on x86_64 and aarch64 hosts; Main falls back to NIO when epoll's
+             native library is unavailable. -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-epoll</artifactId>
+            <version>${netty.version}</version>
+            <classifier>linux-x86_64</classifier>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-epoll</artifactId>
+            <version>${netty.version}</version>
+            <classifier>linux-aarch_64</classifier>
+        </dependency>
     </dependencies>
 
     <properties>

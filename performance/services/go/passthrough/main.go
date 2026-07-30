@@ -17,160 +17,61 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
-	"sync"
 	"time"
 )
 
-var (
-	backendHost = "localhost:8688"
+const backendURL = "http://localhost:8688"
 
-	// Pre-parsed backend URL; copied by value per-request — eliminates url.Parse
-	// allocation (~4 string allocs) on every incoming request.
-	backendBaseURL = url.URL{Scheme: "http", Host: backendHost, Path: "/"}
-
-	backendClient = &http.Client{
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 15 * time.Second,
-				// Disable TCP keep-alive to match jBallerina's socketConfig.keepAlive=false.
-				// Active keepalive probes can desync Netty's connection state machine under load.
-				KeepAlive: -1,
-			}).DialContext,
-			DisableKeepAlives:  false,
-			DisableCompression: true, // don't inject Accept-Encoding: gzip; Netty echoes it back
-
-			// Idle pool sized to 512 — above the suite's 500-user peak so keep-alive
-			// connections are reused rather than evicted and re-dialed between requests.
-			// (Go's default MaxIdleConnsPerHost=2 causes pool exhaustion under load.)
-			MaxIdleConns:        512,
-			MaxIdleConnsPerHost: 512,
-			MaxConnsPerHost:     0,
-
-			// 300s matches jBallerina's minEvictableIdleTime so the pool never holds a
-			// connection the backend has already closed → eliminates "connection reset" errors.
-			IdleConnTimeout: 300 * time.Second,
-			// ResponseHeaderTimeout disabled: a hard deadline here fires under backend load
-			// and turns latency spikes into 502 errors. Let the upstream client's own timeout
-			// govern end-to-end deadline instead.
-
-			// 32KB buffers fit a full 10KB payload in a single bufio flush/read,
-			// cutting write+read syscalls per request from ~6 (default 4KB) to ~2.
-			WriteBufferSize: 32 * 1024,
-			ReadBufferSize:  32 * 1024,
-		},
-	}
-
-	// Hop-by-hop headers per RFC 7230 §6.1 + RFC 2616 §13.5.1.
-	// Must NOT be forwarded by a proxy; forwarding Connection/Keep-Alive verbatim
-	// causes Netty's keep-alive state machine to desync under load → connection resets.
-	hopHeaders = [...]string{
-		"Connection",
-		"Keep-Alive",
-		"Proxy-Authenticate",
-		"Proxy-Authorization",
-		"Proxy-Connection",
-		"Te",
-		"Trailer",
-		"Transfer-Encoding",
-		"Upgrade",
-	}
-
-	// headerPool avoids make(http.Header) on every request (~18K allocs/sec at peak).
-	// The map is cleared on Get and returned on Put; slice values point into r.Header
-	// strings which are valid for the handler's lifetime.
-	headerPool = sync.Pool{
-		New: func() any { return make(http.Header, 8) },
-	}
-)
-
-// removeHopByHop removes hop-by-hop headers from h in place.
-// It also honors the Connection header's own list per RFC 7230 §6.1.
-func removeHopByHop(h http.Header) {
-	for _, f := range h["Connection"] {
-		h.Del(f)
-	}
-	for _, k := range hopHeaders {
-		h.Del(k)
-	}
-}
-
-func passthroughHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Value copy of the pre-parsed URL — no url.Parse, no heap allocation for
-	// the url.URL struct itself (string fields are shared/interned).
-	u := backendBaseURL
-
-	// Acquire a pooled header map; clear it for reuse.
-	outHeader := headerPool.Get().(http.Header)
-	for k := range outHeader {
-		delete(outHeader, k)
-	}
-
-	// Direct map assignment bypasses textproto.CanonicalMIMEHeaderKey per key.
-	// Safe because Go's http.Server delivers headers in canonical form already.
-	for k, vv := range r.Header {
-		outHeader[k] = vv
-	}
-	removeHopByHop(outHeader)
-
-	// Construct the request manually to avoid NewRequestWithContext's url.Parse
-	// and make(Header) allocations.
-	req := &http.Request{
-		Method:        http.MethodPost,
-		URL:           &u,
-		Header:        outHeader,
-		Body:          r.Body,
-		ContentLength: r.ContentLength,
-		Host:          backendHost,
-		Proto:         "HTTP/1.1",
-		ProtoMajor:    1,
-		ProtoMinor:    1,
-	}
-	// Decouple from the client connection's context: the backend request must not
-	// be cancelled when the upstream client disconnects or wrk resets the connection.
-	req = req.WithContext(context.Background())
-
-	resp, err := backendClient.Do(req)
-	// Transport has finished reading req.Header inside Do(); safe to return the map.
-	headerPool.Put(outHeader)
+func newProxy() *httputil.ReverseProxy {
+	backend, err := url.Parse(backendURL)
 	if err != nil {
-		log.Printf("Error at h1_h1_passthrough: %v", err)
-		http.Error(w, err.Error(), http.StatusBadGateway)
-		return
+		log.Fatalf("parse backend URL: %v", err)
 	}
-	defer resp.Body.Close()
 
-	// Direct map copy for response headers (same canonicalization argument as above).
-	respHeader := w.Header()
-	for k, vv := range resp.Header {
-		respHeader[k] = vv
+	// Shared networking baseline (see performance/README.md): keep-alive pool
+	// sized to 512 (above the suite's 500-user peak so connections are reused,
+	// not evicted), 300s idle timeout, 15s connect timeout, OS TCP keep-alive
+	// off (matches jBallerina's socketConfig.keepAlive=false), no request
+	// decompression (don't inject Accept-Encoding: gzip; Netty echoes it back).
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   15 * time.Second,
+			KeepAlive: -1,
+		}).DialContext,
+		MaxIdleConns:        512,
+		MaxIdleConnsPerHost: 512,
+		IdleConnTimeout:     300 * time.Second,
+		DisableCompression:  true,
+		WriteBufferSize:     32 * 1024,
+		ReadBufferSize:      32 * 1024,
 	}
-	removeHopByHop(respHeader)
 
-	w.WriteHeader(resp.StatusCode)
-
-	// io.Copy(w, resp.Body) resolves to w.ReadFrom(resp.Body) via the http.ResponseWriter
-	// interface. The server's ReadFrom uses getCopyBuf() — a package-level sync.Pool of
-	// 32KB arrays — so no user-level copy-buffer pool is needed here.
-	if _, err := io.Copy(w, resp.Body); err != nil {
-		log.Printf("Error at h1_h1_passthrough (copy): %v", err)
+	// httputil.ReverseProxy is Go's idiomatic reverse proxy: it streams the
+	// request and response bodies, strips hop-by-hop headers per RFC 7230, and
+	// reuses pooled keep-alive connections through the transport above.
+	return &httputil.ReverseProxy{
+		Transport: transport,
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetURL(backend)
+			r.Out.URL.Path = "/"
+			r.Out.Host = backend.Host
+		},
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			log.Printf("Error at h1_h1_passthrough: %v", err)
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		},
 	}
 }
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/passthrough", passthroughHandler)
+	mux.Handle("POST /passthrough", newProxy())
 
 	server := &http.Server{
 		Addr:    ":9090",

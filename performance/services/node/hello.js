@@ -17,18 +17,36 @@
 'use strict';
 
 const http = require('http');
+const cluster = require('cluster');
+const os = require('os');
 
-const BODY = Buffer.from('Hello, World!');
+// Node's event loop is single-threaded, so scale across cores with the cluster
+// module — one worker per core, all sharing the :9090 listen socket. This is
+// the production-standard way to use every core, matching the multi-core parity
+// of the other runtimes (see performance/README.md).
+const WORKERS = os.availableParallelism ? os.availableParallelism() : os.cpus().length;
 
-const server = http.createServer((req, res) => {
-  if (req.method === 'GET' && req.url === '/hello') {
-    res.writeHead(200, { 'Content-Type': 'text/plain', 'Content-Length': BODY.length });
-    res.end(BODY);
-    return;
-  }
-  res.writeHead(404);
-  res.end();
-});
+function serve() {
+  const BODY = Buffer.from('Hello, World!');
 
-server.keepAliveTimeout = 300000;
-server.listen(9090, () => console.log('Hello service listening on :9090 (HTTP/1.1)'));
+  const server = http.createServer((req, res) => {
+    if (req.method === 'GET' && req.url === '/hello') {
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Content-Length': BODY.length });
+      res.end(BODY);
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  server.keepAliveTimeout = 300000;
+  server.listen(9090);
+}
+
+if (cluster.isPrimary && WORKERS > 1) {
+  for (let i = 0; i < WORKERS; i++) cluster.fork();
+  console.log(`Hello service listening on :9090 (HTTP/1.1), ${WORKERS} workers`);
+} else {
+  serve();
+  if (WORKERS <= 1) console.log('Hello service listening on :9090 (HTTP/1.1)');
+}

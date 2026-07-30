@@ -12,9 +12,9 @@ This suite compares **Ballerina Nutcracker** (the Go-native interpreter in this 
 | `swanlake-graalvm` | Ballerina Swan Lake, GraalVM native image | `bal build --graalvm` binary |
 | `go` | Go (`net/http`) | compiled binary |
 | `rust` | Rust (axum + tokio) | compiled binary |
-| `node` | Node.js (`http`) | `node` |
-| `node-express` | Node.js + Express | `node` |
-| `bun` | Bun (`Bun.serve`) | `bun` |
+| `node` | Node.js (`http`) | `node` (`cluster`, one worker per core) |
+| `node-express` | Node.js + Express | `node` (`cluster`, one worker per core) |
+| `bun` | Bun (`Bun.serve`) | `bun` (one process per core, `reusePort`) |
 | `python` | Python (`http.server`) | `python3` |
 | `python-flask` | Python + Flask | `waitress-serve` (WSGI) |
 | `python-fastapi` | Python + FastAPI | `uvicorn` (ASGI, uvloop + httptools, one worker per core) |
@@ -55,7 +55,7 @@ How each runtime maps onto it:
 | Runtime | Pool / connection config |
 |---|---|
 | `nutcracker`, `nutcracker-run`, `swanlake`, `swanlake-graalvm` | `http:Client` `poolConfig` set explicitly to `maxActiveConnections = -1`, `maxIdleConnections = 512`. |
-| `go` | `http.Transport`: `MaxIdleConnsPerHost = 512`, `MaxConnsPerHost = 0`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
+| `go` | `httputil.ReverseProxy` over an `http.Transport`: `MaxIdleConnsPerHost = 512`, `IdleConnTimeout = 300s`, dial `KeepAlive = -1`, 32 KB buffers, `DisableCompression`. |
 | `rust` | `reqwest` client: `pool_max_idle_per_host = 512`, `pool_idle_timeout = 300s`, 15s connect timeout, `TCP_NODELAY` on, no compression features enabled. |
 | `bun` | Bun's built-in `fetch`: upstream keep-alive on by default; no user-facing pool configuration. |
 | `node`, `node-express` | `http.Agent`: `keepAlive`, `maxSockets = 0`, `maxFreeSockets = 512`, `timeout = 300000`. |
@@ -66,7 +66,20 @@ How each runtime maps onto it:
 | `java-spring` | Reactor Netty `ConnectionProvider`: `maxConnections = 10000` (effectively unlimited), `maxIdleTime = 300s`, 15s connect timeout, compression off. |
 | `dotnet` | `SocketsHttpHandler`: `MaxConnectionsPerServer` unlimited, `PooledConnectionIdleTimeout = 300s`, 15s connect timeout, no decompression. |
 
-The honest deviations, imposed by what each stack can express: the plain-`python` runtime has no central pool (per-thread connection); several pools have no fixed *idle*-connection cap and instead reuse all released connections (Netty's `SimpleChannelPool`, Reactor Netty, aiohttp, .NET's `SocketsHttpHandler`); each uvicorn worker process holds its own aiohttp pool (Python's multi-process scaling model); and Bun's built-in `fetch` keeps connections alive but exposes no pool knobs at all. Everything else is aligned.
+The honest deviations, imposed by what each stack can express: the plain-`python` runtime has no central pool (per-thread connection); several pools have no fixed *idle*-connection cap and instead reuse all released connections (Netty's `SimpleChannelPool`, Reactor Netty, aiohttp, .NET's `SocketsHttpHandler`); each per-core worker process holds its own pool (the multi-process scaling model — see below); and Bun's built-in `fetch` keeps connections alive but exposes no pool knobs at all. Everything else is aligned.
+
+## Process model (multi-core parity)
+
+Every runtime is given every core, so the comparison measures the stack rather than an accidental core cap. The compiled and JVM runtimes (`go`, `rust`, `dotnet`, `dotnet-aot`, `java-netty`, `graalvm-netty`, `java-spring`) and both Ballerina runtimes use all cores natively through their own async/worker schedulers. The single-threaded-per-process runtimes are scaled to **one worker per core**, matching how they are deployed in production:
+
+| Runtime | Multi-core strategy |
+|---|---|
+| `python-fastapi` | `uvicorn --workers <cores>` (forked worker processes) |
+| `python-flask` | `waitress` with `<cores> × 4` threads |
+| `node`, `node-express` | Node `cluster` module — one forked worker per core, sharing the listen socket |
+| `bun` | one process per core, all binding with `reusePort: true` (kernel load-balances) |
+
+Each such worker keeps its own backend connection pool, so effective pool capacity scales with worker count exactly as it does in a real multi-process deployment. `java-netty` and `graalvm-netty` select Netty's native **epoll** transport on Linux (falling back to NIO elsewhere); `go`'s passthrough uses the idiomatic `httputil.ReverseProxy`; and `dotnet`'s passthrough streams request and response bodies (`StreamContent` + `ResponseHeadersRead`) rather than buffering them — so each proxy sits at its ecosystem's standard high-performance abstraction.
 
 ## Metrics
 

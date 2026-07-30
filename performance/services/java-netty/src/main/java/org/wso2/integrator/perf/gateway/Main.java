@@ -23,9 +23,15 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.ServerChannel;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollServerSocketChannel;
+import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 
@@ -59,15 +65,25 @@ public final class Main {
 
     private void run() throws Exception {
         boolean passthrough = "passthrough".equals(scenario);
-        EventLoopGroup boss = new NioEventLoopGroup(1);
-        EventLoopGroup worker = new NioEventLoopGroup();
+
+        // On Linux, Netty's native epoll transport outperforms the portable NIO
+        // selector; fall back to NIO where epoll's native library is
+        // unavailable (non-Linux, or a native image without the bundled .so).
+        final boolean useEpoll = Epoll.isAvailable();
+        EventLoopGroup boss = useEpoll ? new EpollEventLoopGroup(1) : new NioEventLoopGroup(1);
+        EventLoopGroup worker = useEpoll ? new EpollEventLoopGroup() : new NioEventLoopGroup();
+        Class<? extends ServerChannel> serverChannelType =
+                useEpoll ? EpollServerSocketChannel.class : NioServerSocketChannel.class;
+        Class<? extends Channel> clientChannelType =
+                useEpoll ? EpollSocketChannel.class : NioSocketChannel.class;
+
         final BackendPool pool = passthrough
-                ? new BackendPool(worker, backendHost, backendPort)
+                ? new BackendPool(worker, clientChannelType, backendHost, backendPort)
                 : null;
         try {
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(boss, worker)
-                    .channel(NioServerSocketChannel.class)
+                    .channel(serverChannelType)
                     .option(ChannelOption.SO_BACKLOG, 1024)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true)

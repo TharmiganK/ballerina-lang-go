@@ -25,7 +25,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.channel.pool.SimpleChannelPool;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.util.AttributeKey;
@@ -45,14 +44,16 @@ public class BackendPool {
 
     private final SimpleChannelPool pool;
 
-    public BackendPool(EventLoopGroup group, String host, int port) {
+    public BackendPool(EventLoopGroup group, Class<? extends Channel> channelType, String host, int port) {
         // Shared networking baseline (see performance/README.md): connection
         // reuse via the pool (unlimited active), TCP_NODELAY on, OS-level TCP
         // keep-alive off (matches Go/jBallerina clients), 15s connect timeout.
-        // SimpleChannelPool keeps all released connections for reuse.
+        // SimpleChannelPool keeps all released connections for reuse. The
+        // channel type (epoll or NIO) is chosen by Main and passed in so the
+        // client transport matches the server's.
         Bootstrap bootstrap = new Bootstrap()
                 .group(group)
-                .channel(NioSocketChannel.class)
+                .channel(channelType)
                 .option(ChannelOption.SO_KEEPALIVE, false)
                 .option(ChannelOption.TCP_NODELAY, true)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 15000)

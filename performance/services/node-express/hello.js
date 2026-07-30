@@ -17,15 +17,30 @@
 'use strict';
 
 const express = require('express');
+const cluster = require('cluster');
+const os = require('os');
 
-const app = express();
-const BODY = 'Hello, World!';
+// One worker per core via the cluster module (see performance/README.md), all
+// sharing the :9090 listen socket — the production-standard way to use every
+// core, matching the multi-core parity of the other runtimes.
+const WORKERS = os.availableParallelism ? os.availableParallelism() : os.cpus().length;
 
-app.get('/hello', (req, res) => {
-  res.type('text/plain').send(BODY);
-});
+function serve() {
+  const app = express();
+  const BODY = 'Hello, World!';
 
-const server = app.listen(9090, () =>
-  console.log('Hello service (express) listening on :9090 (HTTP/1.1)')
-);
-server.keepAliveTimeout = 300000;
+  app.get('/hello', (req, res) => {
+    res.type('text/plain').send(BODY);
+  });
+
+  const server = app.listen(9090);
+  server.keepAliveTimeout = 300000;
+}
+
+if (cluster.isPrimary && WORKERS > 1) {
+  for (let i = 0; i < WORKERS; i++) cluster.fork();
+  console.log(`Hello service (express) listening on :9090 (HTTP/1.1), ${WORKERS} workers`);
+} else {
+  serve();
+  if (WORKERS <= 1) console.log('Hello service (express) listening on :9090 (HTTP/1.1)');
+}

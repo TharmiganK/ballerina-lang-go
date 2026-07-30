@@ -99,19 +99,16 @@ func (ctx *Context) TypeEnv() semtypes.Env {
 	return ctx.Env.TypeEnv
 }
 
-// ResetForReuse clears a context's per-request mutable state — a fresh strand
-// ID, an empty held-lock stack, and (if one was ever built) a cleared TypeCtx
-// — while retaining the constant Env. Clearing TypeCtx rather than keeping its
-// memo caches warm bounds its memory across the pooled context's lifetime;
-// combined with TypeCtx's lazy construction, an invocation that never
-// type-checks pays nothing here either. Safe only under exclusive ownership
-// (e.g. via sync.Pool).
+// ResetForReuse clears a context's per-request mutable state for pooling: a
+// fresh strand ID, an empty held-lock stack, and (if one was ever built) a
+// dropped TypeCtx — the next caller that needs one lazily rebuilds it via
+// TypeCtx's lazy construction, so a strand that never type-checks pays
+// nothing here either. Safe only under exclusive ownership (e.g. via
+// sync.Pool).
 func (ctx *Context) ResetForReuse() {
 	ctx.StrandID = ctx.Env.AllocateStrandID()
 	ctx.heldLocks = ctx.heldLocks[:0]
-	if ctx.typeCtx != nil {
-		ctx.typeCtx.Reset()
-	}
+	ctx.typeCtx = nil
 }
 
 // AcquireLock acquires the global re-entrant mutex for the given lock key on

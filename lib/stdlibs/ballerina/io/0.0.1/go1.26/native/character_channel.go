@@ -746,18 +746,18 @@ func initCharacterChannelModule(rt *runtime.Runtime) {
 	jmd := semtypes.NewMappingDefinition()
 	jld := semtypes.NewListDefinition()
 	types := characterChannelTypes{
-		strArrTy:   sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING),
-		strMapTy:   smd.DefineMappingTypeWrapped(env, nil, semtypes.STRING),
+		strArrTy:   sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.String),
+		strMapTy:   smd.DefineMappingTypeWrapped(env, nil, semtypes.String),
 		jsonMapTy:  jmd.DefineMappingTypeWrapped(env, nil, jsonTy),
 		jsonListTy: jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy),
 	}
 	types.strMapAtom = semtypes.ToMappingAtomicType(typCtx, types.strMapTy)
 
-	streamCompletionTy := semtypes.Union(semtypes.ERROR, semtypes.NIL)
+	streamCompletionTy := semtypes.Union(semtypes.Error, semtypes.Nil)
 	lsd := semtypes.NewStreamDefinition()
-	types.lineRecordTy = closedNextRecordType(env, semtypes.STRING)
+	types.lineRecordTy = closedNextRecordType(env, semtypes.String)
 	types.lineRecordAtom = semtypes.ToMappingAtomicType(typCtx, types.lineRecordTy)
-	types.lineStreamTy = lsd.Define(env, semtypes.STRING, streamCompletionTy)
+	types.lineStreamTy = lsd.Define(env, semtypes.String, streamCompletionTy)
 
 	e := &characterChannelExterns{rt: rt, types: types}
 	registerReadableCharacterChannelExterns(rt, e)

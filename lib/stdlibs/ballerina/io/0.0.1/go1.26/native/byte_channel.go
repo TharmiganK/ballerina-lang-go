@@ -367,16 +367,16 @@ func initByteChannelModule(rt *runtime.Runtime) {
 
 	bld := semtypes.NewListDefinition()
 	types := byteChannelTypes{
-		byteArrTy: bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE),
+		byteArrTy: bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.Byte),
 	}
 	types.byteArrAtom = semtypes.ToListAtomicType(env, types.byteArrTy)
 	// io:Block is `readonly & byte[]`; a CELL_MUT_NONE list definition is the
 	// atom-backed equivalent of that intersection.
 	robld := semtypes.NewListDefinition()
-	types.roByteArrTy = robld.DefineListTypeWrappedWithEnvSemTypeCellMutability(env, semtypes.BYTE, semtypes.CellMutability_CELL_MUT_NONE)
+	types.roByteArrTy = robld.DefineListTypeWrappedWithEnvSemTypeCellMutability(env, semtypes.Byte, semtypes.CellMutabilityNone)
 	types.roByteArrAtom = semtypes.ToListAtomicType(env, types.roByteArrTy)
 
-	streamCompletionTy := semtypes.Union(semtypes.ERROR, semtypes.NIL)
+	streamCompletionTy := semtypes.Union(semtypes.Error, semtypes.Nil)
 	bsd := semtypes.NewStreamDefinition()
 	types.blockRecordTy = closedNextRecordType(env, types.roByteArrTy)
 	types.blockRecordAtm = semtypes.ToMappingAtomicType(typCtx, types.blockRecordTy)

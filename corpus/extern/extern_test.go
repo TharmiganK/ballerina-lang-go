@@ -153,7 +153,7 @@ func TestDependentlyTyped(t *testing.T) {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[0])
 			}
 			// return an error to verify the inferred typedesc was widened to include error
-			if semtypes.IsSubtype(ctx.TypeCtx, semtypes.ERROR, td.Type) {
+			if semtypes.IsSubtype(ctx.TypeCtx(), semtypes.ERROR, td.Type) {
 				return values.NewErrorWithMessage("error"), nil
 			}
 			panic(values.NewErrorWithMessage("inferredMaybeError: expected error to be in typedesc"))
@@ -163,7 +163,7 @@ func TestDependentlyTyped(t *testing.T) {
 			if !ok {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[1])
 			}
-			if !semtypes.IsSubtype(ctx.TypeCtx, semtypes.STRING, td.Type) {
+			if !semtypes.IsSubtype(ctx.TypeCtx(), semtypes.STRING, td.Type) {
 				panic(values.NewErrorWithMessage("Getter.get: expected string-compatible typedesc"))
 			}
 			return "immutable", nil

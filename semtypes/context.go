@@ -191,8 +191,6 @@ func (c *context) Reset() {
 	clear(c._conjunctions[:cap(c._conjunctions)])
 	c._conjunctions = c._conjunctions[:0]
 
-	c._jsonMemo = SemType{}
-	c._anydataMemo = SemType{}
 	c._cloneableMemo = SemType{}
 	c._orderedMemo = SemType{}
 	c._isolatedObjectMemo = SemType{}

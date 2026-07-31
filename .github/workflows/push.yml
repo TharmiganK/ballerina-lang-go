@@ -15,6 +15,8 @@ jobs:
   build:
     name: Build the Ballerina CLI for all platforms
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -65,7 +67,7 @@ jobs:
             src_dir="dist/${GOOS}-${GOARCH}"
             ext=""
             [[ "$GOOS" == "windows" ]] && ext=".exe"
-            artifact_dir="artifacts/nutcracker-${GOOS}-${GOARCH}/ballerina-${VERSION}"
+            artifact_dir="artifacts/ballerina-nutcracker-${GOOS}-${GOARCH}/ballerina-${VERSION}"
             mkdir -p "$artifact_dir"
             cp "$src_dir/bal${ext}" "$artifact_dir/bal${ext}"
           done
@@ -73,29 +75,29 @@ jobs:
       - name: Upload linux-amd64
         uses: actions/upload-artifact@v7
         with:
-          name: nutcracker-linux-amd64
-          path: artifacts/nutcracker-linux-amd64
+          name: ballerina-nutcracker-linux-amd64
+          path: artifacts/ballerina-nutcracker-linux-amd64
 
       - name: Upload linux-arm64
         uses: actions/upload-artifact@v7
         with:
-          name: nutcracker-linux-arm64
-          path: artifacts/nutcracker-linux-arm64
+          name: ballerina-nutcracker-linux-arm64
+          path: artifacts/ballerina-nutcracker-linux-arm64
 
       - name: Upload darwin-amd64
         uses: actions/upload-artifact@v7
         with:
-          name: nutcracker-darwin-amd64
-          path: artifacts/nutcracker-darwin-amd64
+          name: ballerina-nutcracker-darwin-amd64
+          path: artifacts/ballerina-nutcracker-darwin-amd64
 
       - name: Upload darwin-arm64
         uses: actions/upload-artifact@v7
         with:
-          name: nutcracker-darwin-arm64
-          path: artifacts/nutcracker-darwin-arm64
+          name: ballerina-nutcracker-darwin-arm64
+          path: artifacts/ballerina-nutcracker-darwin-arm64
 
       - name: Upload windows-amd64
         uses: actions/upload-artifact@v7
         with:
-          name: nutcracker-windows-amd64
-          path: artifacts/nutcracker-windows-amd64
+          name: ballerina-nutcracker-windows-amd64
+          path: artifacts/ballerina-nutcracker-windows-amd64

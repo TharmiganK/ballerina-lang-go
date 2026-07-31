@@ -38,7 +38,12 @@ public function main() returns error? {
     }
 
     byte[]|io:Error r3 = channel.read(10);
-    io:println(r3 is io:Error); // @output true
+    if r3 is byte[] {
+        io:println(r3.length()); // @output 0
+    }
+
+    byte[]|io:Error r4 = channel.read(10);
+    io:println(r4 is io:Error); // @output true
 
     check channel.close();
 }

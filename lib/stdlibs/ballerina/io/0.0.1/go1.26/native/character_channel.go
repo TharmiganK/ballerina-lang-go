@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf16"
@@ -118,7 +119,7 @@ func closeUnderlyingByteChannel(self *values.Object) error {
 	}
 	markClosed(byteCh)
 	if closer, ok := closerOf(byteCh); ok {
-		return closer.Close()
+		return closer.closeOnce()
 	}
 	if writer, ok := writerOf(byteCh); ok {
 		return writer.Close()
@@ -208,11 +209,11 @@ func peekSurrogateEscape(s string, i int) (uint16, bool) {
 	if i+5 >= len(s) || s[i] != '\\' || s[i+1] != 'u' {
 		return 0, false
 	}
-	var code uint16
-	if _, err := fmt.Sscanf(s[i+2:i+6], "%04x", &code); err != nil {
+	code, err := strconv.ParseUint(s[i+2:i+6], 16, 16)
+	if err != nil {
 		return 0, false
 	}
-	return code, true
+	return uint16(code), true
 }
 
 func unescapeProperty(s string) string {
@@ -235,8 +236,7 @@ func unescapeProperty(s string) string {
 			sb.WriteByte('\r')
 		case 'u':
 			if i+4 < len(s) {
-				var code uint16
-				if _, err := fmt.Sscanf(s[i+1:i+5], "%04x", &code); err == nil {
+				if code, err := strconv.ParseUint(s[i+1:i+5], 16, 16); err == nil {
 					i += 4
 					if utf16.IsSurrogate(rune(code)) {
 						if low, ok := peekSurrogateEscape(s, i+1); ok {
@@ -538,11 +538,14 @@ func registerReadableCharacterChannelExterns(rt *runtime.Runtime, types characte
 			next := func() values.BalValue {
 				line, ok, readErr := readLineCRLF(r)
 				if readErr != nil {
+					_ = closeUnderlyingByteChannel(self)
 					return fileIOError("error occurred while reading characters from the channel. " + readErr.Error())
 				}
 				if !ok {
 					self.Put("$eof", true)
-					_ = closeUnderlyingByteChannel(self)
+					if closeErr := closeUnderlyingByteChannel(self); closeErr != nil {
+						return fileIOError("error occurred while closing the channel. " + closeErr.Error())
+					}
 					return nil
 				}
 				return values.NewMap(types.lineRecordTy, types.lineRecordAtom, false,

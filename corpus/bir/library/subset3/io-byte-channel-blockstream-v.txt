@@ -178,7 +178,14 @@ main() -> nil|error{
     GOTO bb29;
   }
   bb29 {
-    PushScopeFrame 0
+    PushScopeFrame 3
+    %0 = close((1, channel)) -> bb30;
+  }
+  bb30 {
+    closeResult = %0;
+    %2 = println(closeResult) -> bb31;
+  }
+  bb31 {
     PopScopeFrame
     return;
   }

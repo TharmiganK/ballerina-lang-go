@@ -115,34 +115,59 @@ main() -> nil|error{
     GOTO bb21;
   }
   bb21 {
-    PushScopeFrame 10
+    PushScopeFrame 5
     %0 = ConstantLoad 10
     %1 = %0;
     %2 = read((2, channel),%1) -> bb22;
   }
   bb22 {
     r3 = %2;
-    %4 = r3 is error
-    %5 = %4;
-    %6 = println(%5) -> bb23;
+    %4 = r3 is [int:Unsigned8...]
+    %4 ? bb23 : bb26;
   }
   bb23 {
-    %7 = close((2, channel)) -> bb24;
+    PushScopeFrame 3
+    %0 = length((1, r3)) -> bb24;
   }
   bb24 {
-    $desugar$5 = %7;
-    %9 = $desugar$5 is error
-    %9 ? bb25 : bb26;
+    %1 = %0;
+    %2 = println(%1) -> bb25;
   }
   bb25 {
+    PopScopeFrame
+    GOTO bb26;
+  }
+  bb26 {
+    PushScopeFrame 10
+    %0 = ConstantLoad 10
+    %1 = %0;
+    %2 = read((3, channel),%1) -> bb27;
+  }
+  bb27 {
+    r4 = %2;
+    %4 = r4 is error
+    %5 = %4;
+    %6 = println(%5) -> bb28;
+  }
+  bb28 {
+    %7 = close((3, channel)) -> bb29;
+  }
+  bb29 {
+    $desugar$5 = %7;
+    %9 = $desugar$5 is error
+    %9 ? bb30 : bb31;
+  }
+  bb30 {
     PushScopeFrame 0
-    (3, %0) = (1, $desugar$5);
+    (4, %0) = (1, $desugar$5);
+    PopScopeFrame
     PopScopeFrame
     PopScopeFrame
     PopScopeFrame
     return;
   }
-  bb26 {
+  bb31 {
+    PopScopeFrame
     PopScopeFrame
     PopScopeFrame
     return;

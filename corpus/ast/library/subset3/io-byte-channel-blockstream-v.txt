@@ -157,4 +157,14 @@
                     (checked-expr
                       (invocation close expr:
                         (simple-var-ref s) ())))))))) ())
-      (block-stmt))))
+      (block-stmt
+        (var-def
+          (variable closeResult (type
+            (union-type
+              (user-defined-type io Error)
+              (value-type null))) (expr
+            (invocation close expr:
+              (simple-var-ref channel) ()))))
+        (expression-stmt
+          (invocation io println (
+            (simple-var-ref closeResult))))))))

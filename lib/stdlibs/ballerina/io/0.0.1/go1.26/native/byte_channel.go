@@ -42,12 +42,12 @@ func readerOf(self *values.Object) (io.Reader, bool) {
 	return r, ok
 }
 
-func closerOf(self *values.Object) (io.Closer, bool) {
+func closerOf(self *values.Object) (*closableHandle, bool) {
 	v, ok := self.Get("$closer")
 	if !ok {
 		return nil, false
 	}
-	c, ok := v.(io.Closer)
+	c, ok := v.(*closableHandle)
 	return c, ok
 }
 
@@ -122,7 +122,7 @@ func initByteChannelModule(rt *runtime.Runtime) {
 				return fileIOError("error while opening file '" + path + "': " + err.Error()), nil
 			}
 			self.Put("$reader", f)
-			self.Put("$closer", f)
+			self.Put("$closer", &closableHandle{handle: f})
 			return nil, nil
 		})
 
@@ -141,6 +141,11 @@ func initByteChannelModule(rt *runtime.Runtime) {
 
 			if isClosed(self) {
 				return byteChannelClosedError(), nil
+			}
+			// jBallerina's read() returns an empty byte[] the first time the
+			// channel is exhausted, and only errors on a subsequent call.
+			if eofReached(self) {
+				return byteChannelEofError(), nil
 			}
 			reader, ok := readerOf(self)
 			if !ok {
@@ -168,10 +173,10 @@ func initByteChannelModule(rt *runtime.Runtime) {
 				}
 			}
 			if len(result) == 0 {
-				if readErr == io.EOF || readErr == nil {
-					return byteChannelEofError(), nil
+				if readErr != nil && readErr != io.EOF {
+					return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error()), nil
 				}
-				return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error()), nil
+				self.Put("$eof", true)
 			}
 			return values.NewList(types.byteArrTy, types.byteArrAtom, false, nil, 0, bytesToItems(result)), nil
 		})
@@ -210,35 +215,35 @@ func initByteChannelModule(rt *runtime.Runtime) {
 				return fileIOError("invalid block size"), nil
 			}
 			size := int(blockSize)
-			closeByteChannel := func() error {
-				markClosed(self)
+			// Reaching the end of the stream (or closing it explicitly) only
+			// releases the underlying OS handle; it must not mark the parent
+			// ReadableByteChannel itself closed, since jBallerina still allows
+			// a later channel.close() to succeed after the stream is done.
+			closeUnderlyingHandle := func() error {
 				if closer, ok := closerOf(self); ok {
-					return closer.Close()
+					return closer.closeOnce()
 				}
 				return nil
 			}
 			next := func() values.BalValue {
 				buf := make([]byte, size)
 				n, err := reader.Read(buf)
-				if n > 0 {
+				if n > 0 && (err == nil || err == io.EOF) {
 					block := values.NewList(types.roByteArrTy, types.roByteArrAtom, true, nil, 0, bytesToItems(buf[:n]))
 					return values.NewMap(types.blockRecordTy, types.blockRecordAtm, false,
 						[]values.MapEntry{{Key: "value", Value: block}})
 				}
 				if err == io.EOF || err == nil {
-					if closeErr := closeByteChannel(); closeErr != nil {
+					if closeErr := closeUnderlyingHandle(); closeErr != nil {
 						return fileIOError("error occurred while closing the channel. " + closeErr.Error())
 					}
 					return nil
 				}
-				_ = closeByteChannel()
+				_ = closeUnderlyingHandle()
 				return fileIOError("error occurred while reading bytes from the channel. " + err.Error())
 			}
 			closeFn := func() values.BalValue {
-				if isClosed(self) {
-					return nil
-				}
-				if err := closeByteChannel(); err != nil {
+				if err := closeUnderlyingHandle(); err != nil {
 					return fileIOError("error occurred while closing the channel. " + err.Error())
 				}
 				return nil
@@ -299,7 +304,7 @@ func initByteChannelModule(rt *runtime.Runtime) {
 			}
 			markClosed(self)
 			if closer, ok := closerOf(self); ok {
-				if err := closer.Close(); err != nil {
+				if err := closer.closeOnce(); err != nil {
 					return fileIOError("error occurred while closing the channel. " + err.Error()), nil
 				}
 			}

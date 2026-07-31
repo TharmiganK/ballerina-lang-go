@@ -44,4 +44,7 @@ public function main() returns error? {
         }
         check s.close();
     }
+
+    io:Error? closeResult = channel.close();
+    io:println(closeResult); // @output
 }

@@ -125,20 +125,40 @@
               (invocation read expr:
                 (simple-var-ref channel) (
                 (literal 10))))))
-          (expression-stmt
-            (invocation io println (
-              (type-test-expr is
-                (simple-var-ref r3)
-                (user-defined-type io Error)))))
-          (var-def
-            (variable $desugar$5 (expr
-              (invocation close expr:
-                (simple-var-ref channel) ()))))
           (if
             (type-test-expr is
-              (simple-var-ref $desugar$5))
+              (simple-var-ref r3)
+              (array-type
+                (value-type byte) dimensions: 1 ([])))
             (block-stmt
-              (return
-                (simple-var-ref $desugar$5))) ())
-          (expression-stmt
-            (simple-var-ref $desugar$5)))))))
+              (expression-stmt
+                (invocation io println (
+                  (invocation lang.array length (
+                    (simple-var-ref r3))))))) ())
+          (block-stmt
+            (var-def
+              (variable r4 (type
+                (union-type
+                  (array-type
+                    (value-type byte) dimensions: 1 ([]))
+                  (user-defined-type io Error))) (expr
+                (invocation read expr:
+                  (simple-var-ref channel) (
+                  (literal 10))))))
+            (expression-stmt
+              (invocation io println (
+                (type-test-expr is
+                  (simple-var-ref r4)
+                  (user-defined-type io Error)))))
+            (var-def
+              (variable $desugar$5 (expr
+                (invocation close expr:
+                  (simple-var-ref channel) ()))))
+            (if
+              (type-test-expr is
+                (simple-var-ref $desugar$5))
+              (block-stmt
+                (return
+                  (simple-var-ref $desugar$5))) ())
+            (expression-stmt
+              (simple-var-ref $desugar$5))))))))

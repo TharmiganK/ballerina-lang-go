@@ -198,4 +198,14 @@
                         (simple-var-ref $desugar$5))) ())
                   (expression-stmt
                     (simple-var-ref $desugar$5))))))) ())
-      (block-stmt))))
+      (block-stmt
+        (var-def
+          (variable closeResult (type
+            (union-type
+              (user-defined-type io Error)
+              (value-type null))) (expr
+            (invocation close expr:
+              (simple-var-ref channel) ()))))
+        (expression-stmt
+          (invocation io println (
+            (simple-var-ref closeResult))))))))

@@ -156,5 +156,16 @@
         (invocation close expr:
           (simple-var-ref s) ())))
   )
-  (bb10 (bb9 bb0) ())
+  (bb10 (bb9 bb0) ()
+    (var-def
+      (variable closeResult (type
+        (union-type
+          (user-defined-type io Error)
+          (value-type null))) (expr
+        (invocation close expr:
+          (simple-var-ref channel) ()))))
+    (expression-stmt
+      (invocation io println (
+        (simple-var-ref closeResult))))
+  )
 )

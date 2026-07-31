@@ -678,7 +678,7 @@ func registerWritableCharacterChannelExterns(rt *runtime.Runtime, types characte
 			}
 			var sb strings.Builder
 			sb.WriteString("#" + comment + "\n")
-			sb.WriteString("#" + rt.Platform().Time.Now().Format("Mon Jan 2 15:04:05 MST 2006") + "\n")
+			sb.WriteString("#" + rt.Platform().Time.Now().Format("Mon Jan 02 15:04:05 MST 2006") + "\n")
 			for _, key := range properties.Keys() {
 				value, _ := properties.Get(key)
 				valueStr, _ := value.(string)

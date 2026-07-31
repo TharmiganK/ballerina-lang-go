@@ -135,7 +135,7 @@ public isolated function fileReadBytes(string path) returns readonly & byte[]|Er
 # stream<io:Block, io:Error?>|io:Error content = io:fileReadBlocksAsStream("./resources/myfile.txt", 1000);
 # ```
 # + path - The file path
-# + blockSize - An optional size of the byte block. The default size is 4KB
+# + blockSize - An optional size of the byte block. This must be a positive integer. The default size is 4KB
 # + return - A byte block stream or an `io:Error`
 public isolated function fileReadBlocksAsStream(string path, int blockSize = 4096) returns stream<Block, Error?>|Error {
     return externFileReadBlocksAsStream(path, blockSize);
@@ -461,7 +461,7 @@ public class ReadableCharacterChannel {
 
     # Returns a stream of lines that can be used to read all the lines in a file as a stream.
     # ```ballerina
-    # stream<string, io:Error>|io:Error? result = readableCharChannel.lineStream();
+    # stream<string, io:Error?>|io:Error result = readableCharChannel.lineStream();
     # ```
     #
     # + return - A stream of strings (lines) or an `io:Error`

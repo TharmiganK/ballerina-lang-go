@@ -124,7 +124,8 @@ func registerStreamIOExterns(rt *runtime.Runtime, types fileIOTypes) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileReadBlocksAsStream",
 		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			path, _ := args[0].(string)
-			blockSize := int(args[1].(int64))
+			blockSize64, _ := args[1].(int64)
+			blockSize := int(blockSize64)
 			if blockSize <= 0 {
 				return fileIOError(fmt.Sprintf("invalid block size: %d", blockSize)), nil
 			}
@@ -136,12 +137,12 @@ func registerStreamIOExterns(rt *runtime.Runtime, types fileIOTypes) {
 			next := func() values.BalValue {
 				buf := make([]byte, blockSize)
 				n, readErr := io.ReadFull(file, buf)
-				if n > 0 {
+				if n > 0 && (readErr == nil || readErr == io.ErrUnexpectedEOF) {
 					block := bytesToBlockList(types.roByteArrTy, types.roByteArrAtom, buf[:n])
 					return values.NewMap(types.blockRecordTy, types.blockRecordAtom, false,
 						[]values.MapEntry{{Key: "value", Value: block}})
 				}
-				if readErr == io.EOF {
+				if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
 					if closeErr := handle.closeOnce(); closeErr != nil {
 						return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, closeErr.Error()))
 					}

@@ -104,7 +104,9 @@ func registerStreamIOExterns(rt *runtime.Runtime, types fileIOTypes) {
 					return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, readErr.Error()))
 				}
 				if !ok {
-					_ = handle.closeOnce()
+					if closeErr := handle.closeOnce(); closeErr != nil {
+						return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, closeErr.Error()))
+					}
 					return nil
 				}
 				return values.NewMap(types.lineRecordTy, types.lineRecordAtom, false,
@@ -140,7 +142,9 @@ func registerStreamIOExterns(rt *runtime.Runtime, types fileIOTypes) {
 						[]values.MapEntry{{Key: "value", Value: block}})
 				}
 				if readErr == io.EOF {
-					_ = handle.closeOnce()
+					if closeErr := handle.closeOnce(); closeErr != nil {
+						return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, closeErr.Error()))
+					}
 					return nil
 				}
 				_ = handle.closeOnce()

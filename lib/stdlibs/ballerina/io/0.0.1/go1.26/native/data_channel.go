@@ -222,6 +222,9 @@ func initDataChannelModule(rt *runtime.Runtime) {
 			if eofReached(self) {
 				return byteChannelEofError(), nil
 			}
+			if nBytes < 0 {
+				return fileIOError(fmt.Sprintf("invalid number of bytes: %d", nBytes)), nil
+			}
 			enc, err := lookupCharset(charset)
 			if err != nil {
 				return fileIOError("Error occurred while reading string: " + err.Error()), nil
@@ -231,16 +234,22 @@ func initDataChannelModule(rt *runtime.Runtime) {
 			if !ok {
 				return nil, fmt.Errorf("byte channel is not initialized")
 			}
-			buf := make([]byte, nBytes)
-			n, readErr := io.ReadFull(reader, buf)
-			if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
-				self.Put("$eof", true)
-				readErr = nil
+			result := make([]byte, 0, min(int(nBytes), channelBufferSize))
+			remaining := int(nBytes)
+			for remaining > 0 {
+				chunk := make([]byte, min(remaining, channelBufferSize))
+				n, readErr := io.ReadFull(reader, chunk)
+				result = append(result, chunk[:n]...)
+				remaining -= n
+				if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+					self.Put("$eof", true)
+					break
+				}
+				if readErr != nil {
+					return fileIOError("Error occurred while reading string: " + readErr.Error()), nil
+				}
 			}
-			if readErr != nil {
-				return fileIOError("Error occurred while reading string: " + readErr.Error()), nil
-			}
-			decoded, decErr := enc.NewDecoder().Bytes(buf[:n])
+			decoded, decErr := enc.NewDecoder().Bytes(result)
 			if decErr != nil {
 				return fileIOError("Error occurred while reading string: " + decErr.Error()), nil
 			}
@@ -265,8 +274,11 @@ func initDataChannelModule(rt *runtime.Runtime) {
 					return nil, fmt.Errorf("variable-length integer is longer than 10 bytes")
 				}
 				if _, err := io.ReadFull(reader, one); err != nil {
-					self.Put("$eof", true)
-					return nil, fmt.Errorf("no bytes available to read from the channel")
+					if err == io.EOF || err == io.ErrUnexpectedEOF {
+						self.Put("$eof", true)
+						return nil, fmt.Errorf("no bytes available to read from the channel")
+					}
+					return nil, fmt.Errorf("error occurred while reading from the channel: %s", err.Error())
 				}
 				groups = append(groups, one[0]&0x7F)
 				if one[0]&0x80 == 0 {

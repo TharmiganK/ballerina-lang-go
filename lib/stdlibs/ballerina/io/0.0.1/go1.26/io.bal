@@ -276,9 +276,9 @@ public class ReadableByteChannel {
     isolated function init() {
     }
 
-    private isolated function attachFile(string path) returns Error? = external;
+    isolated function attachFile(string path) returns Error? = external;
 
-    private isolated function attachBytes(byte[] content) returns Error? = external;
+    isolated function attachBytes(byte[] content) returns Error? = external;
 
     # Reads bytes from a given input resource.
     # This operation returns however many bytes were available at the time of the call, which may be fewer than
@@ -357,7 +357,7 @@ public class WritableByteChannel {
     isolated function init() {
     }
 
-    private isolated function attachFile(string path, FileWriteOption option) returns Error? = external;
+    isolated function attachFile(string path, FileWriteOption option) returns Error? = external;
 
     # Sinks bytes from a given input/output resource.
     # ```ballerina

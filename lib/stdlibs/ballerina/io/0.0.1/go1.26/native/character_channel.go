@@ -23,7 +23,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
+	"unicode"
+	"unicode/utf16"
 
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/ianaindex"
@@ -201,6 +202,19 @@ func splitPropertyLine(line string) (string, string) {
 	return key, rest
 }
 
+// peekSurrogateEscape parses a `\uXXXX` escape starting at s[i] and reports
+// whether it is present, for recombining a `\uXXXX\uXXXX` surrogate pair.
+func peekSurrogateEscape(s string, i int) (uint16, bool) {
+	if i+5 >= len(s) || s[i] != '\\' || s[i+1] != 'u' {
+		return 0, false
+	}
+	var code uint16
+	if _, err := fmt.Sscanf(s[i+2:i+6], "%04x", &code); err != nil {
+		return 0, false
+	}
+	return code, true
+}
+
 func unescapeProperty(s string) string {
 	var sb strings.Builder
 	for i := 0; i < len(s); i++ {
@@ -221,10 +235,19 @@ func unescapeProperty(s string) string {
 			sb.WriteByte('\r')
 		case 'u':
 			if i+4 < len(s) {
-				var code rune
+				var code uint16
 				if _, err := fmt.Sscanf(s[i+1:i+5], "%04x", &code); err == nil {
-					sb.WriteRune(code)
 					i += 4
+					if utf16.IsSurrogate(rune(code)) {
+						if low, ok := peekSurrogateEscape(s, i+1); ok {
+							if r := utf16.DecodeRune(rune(code), rune(low)); r != unicode.ReplacementChar {
+								sb.WriteRune(r)
+								i += 6
+								continue
+							}
+						}
+					}
+					sb.WriteRune(rune(code))
 					continue
 				}
 			}
@@ -260,10 +283,15 @@ func escapeProperty(s string, escapeAllSpaces bool) string {
 		case '\f':
 			sb.WriteString(`\f`)
 		default:
-			if r < 0x20 || r > 0x7e {
-				fmt.Fprintf(&sb, `\u%04X`, r)
-			} else {
+			switch {
+			case r >= 0x20 && r <= 0x7e:
 				sb.WriteRune(r)
+			case r <= 0xFFFF:
+				fmt.Fprintf(&sb, `\u%04X`, r)
+			default:
+				for _, u := range utf16.Encode([]rune{r}) {
+					fmt.Fprintf(&sb, `\u%04X`, u)
+				}
 			}
 		}
 	}
@@ -474,9 +502,9 @@ func registerReadableCharacterChannelExterns(rt *runtime.Runtime, types characte
 			if err != nil {
 				return fileIOError("error occurred while reading characters from the channel. " + err.Error()), nil
 			}
-			for _, entry := range props {
-				if entry.key == key {
-					return entry.value, nil
+			for i := len(props) - 1; i >= 0; i-- {
+				if props[i].key == key {
+					return props[i].value, nil
 				}
 			}
 			return defaultValue, nil
@@ -544,21 +572,21 @@ func registerReadableCharacterChannelExterns(rt *runtime.Runtime, types characte
 }
 
 func registerWritableCharacterChannelExterns(rt *runtime.Runtime, types characterChannelTypes) {
-	writeEncoded := func(self *values.Object, content string) values.BalValue {
+	writeEncoded := func(self *values.Object, content string) (int, values.BalValue) {
 		enc, _ := charsetOf(self)
 		byteCh, _ := byteChannelOf(self)
 		writer, ok := writerOf(byteCh)
 		if !ok {
-			return fileIOError("Byte channel is not initialized")
+			return 0, fileIOError("Byte channel is not initialized")
 		}
 		data, err := enc.NewEncoder().Bytes([]byte(content))
 		if err != nil {
-			return fileIOError("error occurred while writing characters to the channel. " + err.Error())
+			return 0, fileIOError("error occurred while writing characters to the channel. " + err.Error())
 		}
 		if _, err := writer.Write(data); err != nil {
-			return fileIOError("error occurred while writing characters to the channel. " + err.Error())
+			return 0, fileIOError("error occurred while writing characters to the channel. " + err.Error())
 		}
-		return nil
+		return len(data), nil
 	}
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableCharacterChannel.initChannel",
@@ -591,20 +619,11 @@ func registerWritableCharacterChannelExterns(rt *runtime.Runtime, types characte
 				// IllegalArgumentException for an out-of-range offset.
 				return nil, fmt.Errorf("invalid start offset %d for content of %d characters", startOffset, len(runes))
 			}
-			enc, _ := charsetOf(self)
-			byteCh, _ := byteChannelOf(self)
-			writer, ok := writerOf(byteCh)
-			if !ok {
-				return fileIOError("Byte channel is not initialized"), nil
+			n, errVal := writeEncoded(self, string(runes[startOffset:]))
+			if errVal != nil {
+				return errVal, nil
 			}
-			data, err := enc.NewEncoder().Bytes([]byte(string(runes[startOffset:])))
-			if err != nil {
-				return fileIOError("error occurred while writing characters to the channel. " + err.Error()), nil
-			}
-			if _, err := writer.Write(data); err != nil {
-				return fileIOError("error occurred while writing characters to the channel. " + err.Error()), nil
-			}
-			return int64(len(data)), nil
+			return int64(n), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableCharacterChannel.writeJson",
@@ -617,7 +636,8 @@ func registerWritableCharacterChannelExterns(rt *runtime.Runtime, types characte
 			if err != nil {
 				return fileIOError("error occurred while serializing json. " + err.Error()), nil
 			}
-			return writeEncoded(self, string(data)), nil
+			_, errVal := writeEncoded(self, string(data))
+			return errVal, nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableCharacterChannel.writeXmlExtern",
@@ -639,7 +659,8 @@ func registerWritableCharacterChannelExterns(rt *runtime.Runtime, types characte
 					writeContent = doctypeStr + "\n" + writeContent
 				}
 			}
-			return writeEncoded(self, writeContent), nil
+			_, errVal := writeEncoded(self, writeContent)
+			return errVal, nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableCharacterChannel.writeProperties",
@@ -657,7 +678,7 @@ func registerWritableCharacterChannelExterns(rt *runtime.Runtime, types characte
 			}
 			var sb strings.Builder
 			sb.WriteString("#" + comment + "\n")
-			sb.WriteString("#" + time.Now().Format("Mon Jan 2 15:04:05 MST 2006") + "\n")
+			sb.WriteString("#" + rt.Platform().Time.Now().Format("Mon Jan 2 15:04:05 MST 2006") + "\n")
 			for _, key := range properties.Keys() {
 				value, _ := properties.Get(key)
 				valueStr, _ := value.(string)

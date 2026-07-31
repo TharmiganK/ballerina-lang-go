@@ -151,15 +151,29 @@ func initByteChannelModule(rt *runtime.Runtime) {
 			if size <= 0 {
 				size = channelBufferSize
 			}
-			buf := make([]byte, size)
-			n, err := reader.Read(buf)
-			if n == 0 {
-				if err == io.EOF || err == nil {
+			result := make([]byte, 0, min(size, channelBufferSize))
+			var readErr error
+			for len(result) < size {
+				chunk := make([]byte, min(size-len(result), channelBufferSize))
+				n, err := reader.Read(chunk)
+				if n > 0 {
+					result = append(result, chunk[:n]...)
+				}
+				if err != nil {
+					readErr = err
+					break
+				}
+				if n == 0 {
+					break
+				}
+			}
+			if len(result) == 0 {
+				if readErr == io.EOF || readErr == nil {
 					return byteChannelEofError(), nil
 				}
-				return fileIOError("error occurred while reading bytes from the channel. " + err.Error()), nil
+				return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error()), nil
 			}
-			return values.NewList(types.byteArrTy, types.byteArrAtom, false, nil, 0, bytesToItems(buf[:n])), nil
+			return values.NewList(types.byteArrTy, types.byteArrAtom, false, nil, 0, bytesToItems(result)), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.readAll",
@@ -196,6 +210,13 @@ func initByteChannelModule(rt *runtime.Runtime) {
 				return fileIOError("invalid block size"), nil
 			}
 			size := int(blockSize)
+			closeByteChannel := func() error {
+				markClosed(self)
+				if closer, ok := closerOf(self); ok {
+					return closer.Close()
+				}
+				return nil
+			}
 			next := func() values.BalValue {
 				buf := make([]byte, size)
 				n, err := reader.Read(buf)
@@ -205,17 +226,21 @@ func initByteChannelModule(rt *runtime.Runtime) {
 						[]values.MapEntry{{Key: "value", Value: block}})
 				}
 				if err == io.EOF || err == nil {
-					markClosed(self)
+					if closeErr := closeByteChannel(); closeErr != nil {
+						return fileIOError("error occurred while closing the channel. " + closeErr.Error())
+					}
 					return nil
 				}
-				markClosed(self)
+				_ = closeByteChannel()
 				return fileIOError("error occurred while reading bytes from the channel. " + err.Error())
 			}
 			closeFn := func() values.BalValue {
 				if isClosed(self) {
 					return nil
 				}
-				markClosed(self)
+				if err := closeByteChannel(); err != nil {
+					return fileIOError("error occurred while closing the channel. " + err.Error())
+				}
 				return nil
 			}
 			return values.NewStream(types.blockStreamTy, next, closeFn), nil

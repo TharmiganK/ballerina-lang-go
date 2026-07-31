@@ -538,7 +538,11 @@ func MappingMemberTypeInner(cx Context, t, k SemType) SemType {
 		INNER)
 }
 
-func ToListAtomicType(cx Context, t SemType) *ListAtomicType {
+// ToListAtomicType only ever needs the program-constant Env: the fast path
+// for a simple (non-BDD) type doesn't touch it at all, and the general path
+// only looks up an atom in Env's atom table — unlike ToMappingAtomicType,
+// it never needs a type-check Context's conjunction stack.
+func ToListAtomicType(env Env, t SemType) *ListAtomicType {
 	listAtomicInner := LIST_ATOMIC_INNER
 	if t.some() == 0 {
 		if t.all() == LIST.all() {
@@ -546,7 +550,6 @@ func ToListAtomicType(cx Context, t SemType) *ListAtomicType {
 		}
 		return nil
 	}
-	env := cx.Env()
 	if !IsSubtypeSimple(t, LIST) {
 		return nil
 	}

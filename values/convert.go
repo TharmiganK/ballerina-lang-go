@@ -195,7 +195,7 @@ func tryConvertMap(tc semtypes.Context, source *Map, target semtypes.SemType, vi
 }
 
 func tryConvertList(tc semtypes.Context, source *List, target semtypes.SemType, visiting map[BalValue]struct{}) (BalValue, *conversionFailure) {
-	atomic := semtypes.ToListAtomicType(tc, target)
+	atomic := semtypes.ToListAtomicType(tc.Env(), target)
 
 	fixedLen := atomic.Members.FixedLength
 	if semtypes.IsNever(atomic.Rest()) {

@@ -84,21 +84,24 @@ var supportedPlatforms = []Platform{
 	{OS: "darwin", Arch: "arm64"},
 }
 
-func isSupportedPlatform(p Platform) bool {
+// ValidatePlatform returns an error unless platform is in supportedPlatforms.
+// Shared by ResolveStub and bal build's native-dependency path
+// (buildNativeStub), so a target unsupported for the pre-built stub is
+// rejected the same way regardless of which path a package's dependencies
+// route it through — native builds don't get to target anything extra just
+// because they compile from source instead of looking up a prebuilt binary.
+func ValidatePlatform(platform Platform) error {
 	for _, sp := range supportedPlatforms {
-		if sp == p {
-			return true
+		if sp == platform {
+			return nil
 		}
 	}
-	return false
-}
-
-func supportedPlatformsList() string {
 	names := make([]string, len(supportedPlatforms))
 	for i, p := range supportedPlatforms {
 		names[i] = p.OS + "/" + p.Arch
 	}
-	return strings.Join(names, ", ")
+	return fmt.Errorf("unsupported target platform %s/%s; supported: %s",
+		platform.OS, platform.Arch, strings.Join(names, ", "))
 }
 
 // DistributionDir returns bal's own distribution root (rt/<GOOS>-<GOARCH>/
@@ -128,9 +131,8 @@ func ResolveStub(platform Platform, distDir, overridePath string) (string, error
 		return "", fmt.Errorf("ballerina runtime binary not found at %s", overridePath)
 	}
 
-	if !isSupportedPlatform(platform) {
-		return "", fmt.Errorf("unsupported target platform %s/%s; supported: %s",
-			platform.OS, platform.Arch, supportedPlatformsList())
+	if err := ValidatePlatform(platform); err != nil {
+		return "", err
 	}
 
 	name := balrtStubName

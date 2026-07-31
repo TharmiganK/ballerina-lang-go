@@ -178,7 +178,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		printRunError(err)
 		return err
 	}
-	workspaceRoot := findWorkspaceRootForRun(absBaseDir)
+	workspaceRoot := findWorkspaceRoot(absBaseDir)
 
 	fsys := os.DirFS(baseDir)
 	loadPath := path
@@ -333,25 +333,6 @@ func getBallerinaEnvPath() (string, error) {
 	}
 
 	return filepath.Join(userHome, projects.UserHomeDirName), nil
-}
-
-// findWorkspaceRootForRun walks up from startPath to find a workspace root
-// (a Ballerina.toml with [workspace]), or "" if none is found.
-func findWorkspaceRootForRun(startPath string) string {
-	current := startPath
-	for {
-		tomlPath := filepath.Join(current, projects.BallerinaTomlFile)
-		if info, err := os.Stat(tomlPath); err == nil && !info.IsDir() {
-			if isWorkspaceToml(tomlPath) {
-				return current
-			}
-		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			return ""
-		}
-		current = parent
-	}
 }
 
 // findBuildProjectByPath finds the workspace member whose absolute source

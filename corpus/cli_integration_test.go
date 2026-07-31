@@ -805,6 +805,101 @@ func TestBalBuildWorkspaceCrossDependency(t *testing.T) {
 	}
 }
 
+// TestBalBuildFromWorkspaceMemberDirectory covers running bal build with the
+// process cwd set to a workspace member's own directory (args empty, so
+// path defaults to "."), rather than passing the member's path from outside
+// the workspace. Regression test: build.go used to load straight from cwd
+// with no workspace-root detection, so workspaceRepository-based sibling
+// resolution (pkga importing pkgb by org/name) was invisible and failed
+// with "Unknown import" — bal run already handled this correctly via
+// findWorkspaceRoot.
+func TestBalBuildFromWorkspaceMemberDirectory(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balBin, repoRoot, coverDir := integrationTestBalCLI(t, false)
+	outputsRoot := filepath.Join(repoRoot, "corpus", "cli", "output", "build")
+
+	srcWorkspace := filepath.Join(repoRoot, "corpus", "cli", "testdata", "build", "workspace-cross-dependency", "project")
+	workspaceDir := t.TempDir()
+	copyDir(t, srcWorkspace, workspaceDir)
+	memberDir := filepath.Join(workspaceDir, "pkga")
+
+	env := append(os.Environ(), "BAL_ENV="+cliIntegrationBalEnv)
+	if coverDir != "" {
+		commandCoverDir := t.TempDir()
+		env = append(env, "GOCOVERDIR="+commandCoverDir)
+		defer mergeCLICoverageDir(t, commandCoverDir, coverDir)
+	}
+	stdout, stderr, exitCode := runNativeCLICommandWithEnv(t, balBin, memberDir, []string{"build"}, env)
+	if exitCode != 0 {
+		t.Fatalf("bal build from inside a workspace member directory failed: exit=%d\nstdout:\n%s\nstderr:\n%s", exitCode, stdout, stderr)
+	}
+
+	idx := strings.Index(stdout, "Created ")
+	if idx == -1 {
+		t.Fatalf("expected a 'Created' line, got stdout:\n%s", stdout)
+	}
+	rest := stdout[idx+len("Created "):]
+	line, _, _ := strings.Cut(rest, "\n")
+	binPath := strings.TrimSpace(line)
+	wantSuffix := filepath.Join("pkga", "target", "bin", hostExeSuffix("pkga"))
+	if !strings.HasSuffix(binPath, wantSuffix) {
+		t.Fatalf("expected the built member to be pkga (path ending in %q), got %q", wantSuffix, binPath)
+	}
+
+	runOut, runErr, runExit := runCLICommand(t, binPath, repoRoot, coverDir)
+	runOut = test_util.NormalizeNewlines(runOut)
+	runErr = test_util.NormalizeNewlines(runErr)
+	expectedOut, expectedErr, expectedExit, err := test_util.LoadTxtarStdoutStderrExitcode(filepath.Join(outputsRoot, "workspace-cross-dependency-pkga.txtar"))
+	if err != nil {
+		t.Fatalf("failed to parse golden txtar: %v", err)
+	}
+	if runOut != expectedOut {
+		t.Fatalf("unexpected stdout from pkga binary %s\n%s", binPath, test_util.FormatExpectedGot(expectedOut, runOut))
+	}
+	if runErr != expectedErr {
+		t.Fatalf("unexpected stderr from pkga binary %s\n%s", binPath, test_util.FormatExpectedGot(expectedErr, runErr))
+	}
+	if strconv.Itoa(runExit) != expectedExit {
+		t.Fatalf("unexpected exit code from pkga binary %s\n%s", binPath, test_util.FormatExpectedGot(expectedExit, strconv.Itoa(runExit)))
+	}
+}
+
+// TestBalPackFromWorkspaceMemberDirectory is
+// TestBalBuildFromWorkspaceMemberDirectory's counterpart for bal pack: pack
+// already rejects being pointed at a workspace root directly, but a member's
+// own directory (cwd inside it, no positional arg) must still resolve
+// sibling dependencies via the workspace root rather than failing with
+// "Unknown import".
+func TestBalPackFromWorkspaceMemberDirectory(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balBin, repoRoot, coverDir := integrationTestBalCLI(t, false)
+
+	srcWorkspace := filepath.Join(repoRoot, "corpus", "cli", "testdata", "build", "workspace-cross-dependency", "project")
+	workspaceDir := t.TempDir()
+	copyDir(t, srcWorkspace, workspaceDir)
+	memberDir := filepath.Join(workspaceDir, "pkga")
+
+	env := append(os.Environ(), "BAL_ENV="+cliIntegrationBalEnv)
+	if coverDir != "" {
+		commandCoverDir := t.TempDir()
+		env = append(env, "GOCOVERDIR="+commandCoverDir)
+		defer mergeCLICoverageDir(t, commandCoverDir, coverDir)
+	}
+	stdout, stderr, exitCode := runNativeCLICommandWithEnv(t, balBin, memberDir, []string{"pack"}, env)
+	if exitCode != 0 {
+		t.Fatalf("bal pack from inside a workspace member directory failed: exit=%d\nstdout:\n%s\nstderr:\n%s", exitCode, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "Created ") || !strings.Contains(stdout, ".bala") {
+		t.Fatalf("expected a 'Created ... .bala' line, got stdout:\n%s", stdout)
+	}
+}
+
 // TestBalBuildLoadWarning covers a plain, non-workspace package with a
 // repository = "local" dependency that's missing locally and falls back to
 // central with a warning — the same mechanism TestBalBuildWorkspace checks
@@ -1644,13 +1739,11 @@ func expectedBinaryFormat(goos string) string {
 }
 
 // TestBalBuildNativeDependencyInvalidTarget covers a bogus --target-os/
-// --target-arch combined with a native Go dependency. Unlike the
-// no-native-dep path (executable.ResolveStub, which validates against a
-// curated supportedPlatforms list before touching any toolchain), the
-// native path passes whatever's given straight to the go build subprocess's
-// GOOS/GOARCH — go build's own validation must still surface a clear error,
-// not a cryptic failure or (worse) a silently-produced host binary
-// mislabeled as the bogus target.
+// --target-arch combined with a native Go dependency. The native path
+// validates against the same curated supportedPlatforms list as the
+// no-native-dep path (executable.ResolveStub) via executable.ValidatePlatform,
+// so this is rejected before ever touching the Go toolchain, not left to
+// go build's own (less clear) validation.
 func TestBalBuildNativeDependencyInvalidTarget(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
@@ -1675,8 +1768,8 @@ func TestBalBuildNativeDependencyInvalidTarget(t *testing.T) {
 	if code == 0 {
 		t.Fatalf("expected a non-zero exit code for an invalid target platform, got 0\nstdout: %s\nstderr: %s", stdout, stderr)
 	}
-	if !strings.Contains(stderr, "unsupported GOOS/GOARCH pair") {
-		t.Errorf("expected stderr to surface the Go toolchain's own validation error, got:\n%s", stderr)
+	if !strings.Contains(stderr, "unsupported target platform bogus/amd64") {
+		t.Errorf("expected bal's own curated-platform-list error, got:\n%s", stderr)
 	}
 	if !strings.Contains(stderr, "building native interpreter stub") {
 		t.Errorf("expected stderr to show bal's own wrapping context, got:\n%s", stderr)
@@ -1685,6 +1778,46 @@ func TestBalBuildNativeDependencyInvalidTarget(t *testing.T) {
 	binPath := filepath.Join(projectDir, "target", "bin", hostExeSuffix("nativemultiorg"))
 	if _, err := os.Stat(binPath); err == nil {
 		t.Errorf("expected no output binary to be produced for a failed build, found one at %s", binPath)
+	}
+}
+
+// TestBalBuildNativeDependencyUnsupportedButBuildable covers a target that
+// Go itself can genuinely cross-compile to (linux/386 is a real, universally
+// supported GOOS/GOARCH pair) but that isn't in bal's curated
+// supportedPlatforms list. The native-dependency path must still reject it —
+// compiling the stub from source rather than looking up a prebuilt one isn't
+// license to support extra platforms bal doesn't otherwise ship for.
+func TestBalBuildNativeDependencyUnsupportedButBuildable(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM")
+	}
+
+	balBin, repoRoot, coverDir := integrationTestBalCLI(t, false)
+
+	tempHome := t.TempDir()
+	centralCache := filepath.Join(tempHome, "repositories", "central.ballerina.io", "bala")
+	srcRepo := filepath.Join(repoRoot, "projects", "testdata", "repo", "bala")
+	copyDir(t, srcRepo, centralCache)
+
+	srcProject := filepath.Join(repoRoot, "corpus", "extern", "testdata", "native-multi-org-v")
+	projectDir := t.TempDir()
+	copyDir(t, srcProject, projectDir)
+
+	extraEnv := []string{"BAL_ENV=" + tempHome, "BALLERINA_SRC=" + repoRoot}
+	stdout, stderr, code := runCLICommandWithEnv(t, balBin, repoRoot, coverDir, extraEnv,
+		"build", projectDir, "--target-os", "linux", "--target-arch", "386")
+
+	if code == 0 {
+		t.Fatalf("expected a non-zero exit code for linux/386 (buildable but not curated), got 0\nstdout: %s\nstderr: %s", stdout, stderr)
+	}
+	if !strings.Contains(stderr, "unsupported target platform linux/386") {
+		t.Errorf("expected bal's own curated-platform-list error, got:\n%s", stderr)
+	}
+
+	binPath := filepath.Join(projectDir, "target", "bin", "native", "linux-386", "balrt-native")
+	if _, err := os.Stat(binPath); err == nil {
+		t.Errorf("expected no native stub to be produced for an unsupported target, found one at %s", binPath)
 	}
 }
 
@@ -1814,6 +1947,12 @@ func TestBalBuildNativeDependencyPartialTargetOverride(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
 		t.Skip("skipping CLI integration test on WASM")
+	}
+	if runtime.GOOS == "windows" {
+		// windows only has one supported arch (amd64) in the curated
+		// supportedPlatforms list, so there's no valid arch-only override
+		// target to test with when the host OS defaults to windows.
+		t.Skip("no alternate supported architecture for windows in the curated platform list")
 	}
 
 	balBin, repoRoot, coverDir := integrationTestBalCLI(t, false)

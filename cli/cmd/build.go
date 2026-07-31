@@ -169,13 +169,28 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 		return buildError(stderr, "resolve absolute path: %w", err)
 	}
 
+	// Detect whether absBaseDir sits inside a workspace without being its
+	// root — e.g. cwd is a workspace member's own directory. If so, load
+	// from the workspace root instead so sibling member-to-member
+	// dependencies resolve, matching bal run's findWorkspaceRoot handling.
+	// Only applies to directory builds; a standalone .bal file can't be a
+	// workspace member.
+	workspaceRoot := ""
+	if info.IsDir() {
+		workspaceRoot = findWorkspaceRoot(absBaseDir)
+	}
+	effectiveBaseDir, effectiveLoadPath := absBaseDir, loadPath
+	if workspaceRoot != "" && workspaceRoot != absBaseDir {
+		effectiveBaseDir, effectiveLoadPath = workspaceRoot, "."
+	}
+
 	ballerinaEnvPath, err := getBallerinaEnvPath()
 	if err != nil {
 		return buildError(stderr, "resolve ballerina env path: %w", err)
 	}
 
-	fsys := os.DirFS(absBaseDir)
-	result, err := projects.Load(fsys, loadPath, projects.ProjectLoadConfig{
+	fsys := os.DirFS(effectiveBaseDir)
+	result, err := projects.Load(fsys, effectiveLoadPath, projects.ProjectLoadConfig{
 		BallerinaEnvFs: os.DirFS(ballerinaEnvPath),
 		BuildOptions:   &buildOpts,
 	})
@@ -192,13 +207,25 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 
 	project := result.Project()
 	if project.Kind() == projects.ProjectKindWorkspace {
+		workspace := project.(*projects.WorkspaceProject)
+
+		if workspaceRoot != "" && workspaceRoot != absBaseDir {
+			// absBaseDir names one specific member (we walked up to
+			// workspaceRoot to load it) — build just that member, matching
+			// bal run's disambiguation. -o is fine here: exactly one output.
+			memberProject := findBuildProjectByPath(workspace, workspaceRoot, absBaseDir)
+			if memberProject == nil {
+				return buildError(stderr, "no package found at path %s within workspace %s", absBaseDir, workspaceRoot)
+			}
+			return buildOneProject(cmd, opts, stderr, fsys, memberProject, absBaseDir)
+		}
+
 		// -o names a single explicit output path, which doesn't make sense
 		// when building every member of a workspace to its own executable.
 		if opts.output != "" {
 			return buildError(stderr, "-o cannot be used when building a workspace; run bal build <package-path> to build a single package with a custom output path")
 		}
 
-		workspace := project.(*projects.WorkspaceProject)
 		for _, bp := range workspace.Projects() {
 			// SourceRoot() is relative to the workspace root, not the member's
 			// own directory (same reconstruction bal run's findBuildProjectByPath uses).
@@ -216,7 +243,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 			// sibling resolution intact) while only ever compiling the one
 			// member picked out below, so no environment is shared across
 			// two actual compiles.
-			memberResult, err := projects.Load(fsys, loadPath, projects.ProjectLoadConfig{
+			memberResult, err := projects.Load(fsys, effectiveLoadPath, projects.ProjectLoadConfig{
 				BallerinaEnvFs: os.DirFS(ballerinaEnvPath),
 				BuildOptions:   &buildOpts,
 			})
@@ -334,6 +361,10 @@ func buildOneProject(cmd *cobra.Command, opts *buildOptions, stderr io.Writer, f
 // the cache path is segmented by target platform so two targets don't
 // clobber each other's cached stub.
 func buildNativeStub(stderr io.Writer, absBaseDir string, nativeBalaProjects []*projects.BalaProject, targetPlatform executable.Platform) (string, error) {
+	if err := executable.ValidatePlatform(targetPlatform); err != nil {
+		return "", err
+	}
+
 	stubName := nativeStubName
 	if targetPlatform.OS == "windows" {
 		stubName += ".exe"

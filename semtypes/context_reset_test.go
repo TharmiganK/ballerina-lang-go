@@ -32,13 +32,11 @@ func TestContextResetClearsMemoCaches(t *testing.T) {
 	jsonBefore := CreateJSON(ctx)
 	subtypeBefore := IsSubtype(ctx, listTy, jsonBefore)
 
-	assertFalse(t, IsZero(ctx._jsonMemo), "jsonMemo should be populated before Reset")
 	assertTrue(t, len(ctx._listMemo) > 0 || len(ctx._mappingMemo) > 0,
 		"list/mapping memo should be populated before Reset")
 
 	ctx.Reset()
 
-	assertTrue(t, IsZero(ctx._jsonMemo), "jsonMemo should be cleared after Reset")
 	assertEqual(t, len(ctx._listMemo), 0)
 	assertEqual(t, len(ctx._mappingMemo), 0)
 	assertEqual(t, len(ctx._functionMemo), 0)

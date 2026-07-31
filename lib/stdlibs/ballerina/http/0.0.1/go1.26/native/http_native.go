@@ -223,7 +223,17 @@ func newTypedListValue(env semtypes.Env, ty semtypes.SemType, items []values.Bal
 // case) skip building the Ballerina header Map/List value graph entirely; the
 // map is materialized on demand and cached back under "$headers".
 type lazyRequestHeaders struct {
-	raw map[string][]string
+	once sync.Once
+	raw  map[string][]string
+	m    *values.Map
+}
+
+func (h *lazyRequestHeaders) materialize(tc semtypes.Context, self *values.Object) *values.Map {
+	h.once.Do(func() {
+		h.m = materializeHeaders(tc, h.raw)
+		self.Put("$headers", h.m)
+	})
+	return h.m
 }
 
 // materializeHeaders converts a raw HTTP header map into a Ballerina header Map
@@ -253,9 +263,7 @@ func requestHeadersMap(tc semtypes.Context, self *values.Object) (*values.Map, b
 	case *values.Map:
 		return h, true
 	case *lazyRequestHeaders:
-		m := materializeHeaders(tc, h.raw)
-		self.Put("$headers", m)
-		return m, true
+		return h.materialize(tc, self), true
 	default:
 		return nil, false
 	}

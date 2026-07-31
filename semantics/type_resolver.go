@@ -1293,7 +1293,7 @@ func resolveAnnotationAttachments(
 
 	for _, key := range repeatedOrder {
 		group := repeatedValues[key]
-		atomic := semtypes.ToListAtomicType(t.typeContext(), group.listType)
+		atomic := semtypes.ToListAtomicType(t.typeEnv(), group.listType)
 		if atomic == nil {
 			t.internalError("repeated annotation type is not an atomic list", diagnostics.Location{})
 			continue
@@ -4689,7 +4689,7 @@ func resolveListConstructorInner(t typeResolver, chain *binding, expr *ast.BLang
 	listTy := ld.DefineListTypeWrapped(t.typeEnv(), memberTypes, len(memberTypes), restTy, semtypes.CellMutability_CELL_MUT_LIMITED)
 
 	setExpectedType(expr, listTy)
-	lat := semtypes.ToListAtomicType(t.typeContext(), listTy)
+	lat := semtypes.ToListAtomicType(t.typeEnv(), listTy)
 	expr.AtomicType = *lat
 
 	return listTy, defaultExpressionEffect(chain), true
@@ -4784,7 +4784,7 @@ func selectListInherentType(t typeResolver, expr *ast.BLangListConstructorExpr, 
 		t.semanticError("list type not found in expected type", expr.GetPosition())
 		return semtypes.SemType{}, semtypes.ListAtomicType{}, false
 	}
-	lat := semtypes.ToListAtomicType(tc, expectedListType)
+	lat := semtypes.ToListAtomicType(tc.Env(), expectedListType)
 	if lat != nil {
 		return expectedListType, *lat, true
 	}
@@ -4813,7 +4813,7 @@ func selectListInherentType(t typeResolver, expr *ast.BLangListConstructorExpr, 
 	}
 
 	selectedSemType := validAlts[0].SemType
-	lat = semtypes.ToListAtomicType(tc, selectedSemType)
+	lat = semtypes.ToListAtomicType(tc.Env(), selectedSemType)
 	if lat == nil {
 		t.semanticError("applicable type for list constructor is not atomic", expr.GetPosition())
 		return semtypes.SemType{}, semtypes.ListAtomicType{}, false
@@ -6299,7 +6299,18 @@ func argArray(t typeResolver, sym model.FunctionSymbol, paramTypes []semtypes.Se
 				}
 				ctx := t.typeContext()
 				T := semtypes.TypedescConstraint(ctx, paramTypes[i])
-				S := semtypes.Intersect(T, callExpectedType)
+				depSym, ok := sym.(model.DependentlyTypedFunctionSymbol)
+				if !ok {
+					t.internalError("inferred typedesc param on non-dependent function", loc)
+					return nil, chain, false
+				}
+				S := semtypes.Diff(callExpectedType, depSym.ReturnType().FixedPart())
+				if semtypes.IsEmpty(ctx, S) {
+					S = callExpectedType
+				}
+				if !semtypes.IsSubtype(ctx, S, T) {
+					S = semtypes.Intersect(T, S)
+				}
 				if semtypes.IsEmpty(ctx, S) {
 					t.semanticError(fmt.Sprintf("cannot infer maximal type such that it is a subtype of both %s and %s", semtypes.ToString(ctx, T), semtypes.ToString(ctx, callExpectedType)), loc)
 					return nil, chain, false

@@ -1115,7 +1115,7 @@ func (br *birReader) readConstValueByTag(tag typeTag) any {
 			initial[i] = br.readConstValue()
 		}
 		tyCtx := semtypes.TypeCheckContext(br.ctx.GetTypeEnv())
-		atomic := semtypes.ToListAtomicType(tyCtx, ty)
+		atomic := semtypes.ToListAtomicType(tyCtx.Env(), ty)
 		if atomic == nil {
 			panic("list constant type is not atomic")
 		}
@@ -1153,7 +1153,7 @@ func (br *birReader) restFillerFactoryForListType(ty semtypes.SemType) values.Fi
 		return nil
 	}
 	tyCx := semtypes.TypeCheckContext(br.ctx.GetTypeEnv())
-	lat := semtypes.ToListAtomicType(tyCx, ty)
+	lat := semtypes.ToListAtomicType(tyCx.Env(), ty)
 	if lat == nil {
 		return nil
 	}

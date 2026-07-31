@@ -38,7 +38,7 @@ func stringLength(_ *extern.Context, args []values.BalValue) (values.BalValue, e
 
 func stringToBytes(byteArrTy semtypes.SemType) extern.NativeFunc {
 	return func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
-		return values.ByteSliceToList(byteArrTy, ctx.TypeCtx, []byte(args[0].(string))), nil
+		return values.ByteSliceToList(byteArrTy, ctx.TypeEnv(), []byte(args[0].(string))), nil
 	}
 }
 

@@ -259,6 +259,35 @@ func unescapeProperty(s string) string {
 	return sb.String()
 }
 
+// writePropertiesComment appends a `#`-prefixed comment header to sb,
+// matching jBallerina's actual output: characters above Latin-1 (0xFF) are
+// \uXXXX-escaped per UTF-16 code unit (so surrogate pairs render as two
+// escapes), while embedded '\n'/'\r' start a new '#'-prefixed line instead
+// of corrupting the properties format, unlike escapeProperty's key/value
+// rules which escape the whole Latin-1 range.
+func writePropertiesComment(sb *strings.Builder, comment string) {
+	units := utf16.Encode([]rune(comment))
+	sb.WriteByte('#')
+	for i := 0; i < len(units); i++ {
+		c := units[i]
+		switch {
+		case c > 0xFF:
+			fmt.Fprintf(sb, `\u%04X`, c)
+		case c == '\n' || c == '\r':
+			sb.WriteByte('\n')
+			if c == '\r' && i+1 < len(units) && units[i+1] == '\n' {
+				i++
+			}
+			if i == len(units)-1 || (units[i+1] != '#' && units[i+1] != '!') {
+				sb.WriteByte('#')
+			}
+		default:
+			sb.WriteByte(byte(c))
+		}
+	}
+	sb.WriteByte('\n')
+}
+
 // escapeProperty escapes a key or value for java.util.Properties output:
 // separators and specials are backslash-escaped, spaces are escaped in keys
 // (and leading spaces in values), and chars outside 0x20..0x7E become \uXXXX.
@@ -680,7 +709,7 @@ func registerWritableCharacterChannelExterns(rt *runtime.Runtime, types characte
 				return fileIOError("Byte channel is not initialized"), nil
 			}
 			var sb strings.Builder
-			sb.WriteString("#" + comment + "\n")
+			writePropertiesComment(&sb, comment)
 			sb.WriteString("#" + rt.Platform().Time.Now().Format("Mon Jan 02 15:04:05 MST 2006") + "\n")
 			for _, key := range properties.Keys() {
 				value, _ := properties.Get(key)

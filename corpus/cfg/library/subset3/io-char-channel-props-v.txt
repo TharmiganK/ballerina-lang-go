@@ -152,11 +152,29 @@
               (literal line)
               (literal a
     b)))
-          (literal generated)))))
+          (literal first line
+    second line)))))
     (expression-stmt
       (checked-expr
         (invocation close expr:
           (simple-var-ref wc) ())))
+    (var-def
+      (variable outLines (type
+        (array-type
+          (value-type string) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation io fileReadLines (
+            (simple-var-ref wpath)))))))
+    (expression-stmt
+      (invocation io println (
+        (index-based-access
+          (simple-var-ref outLines)
+          (literal 0)))))
+    (expression-stmt
+      (invocation io println (
+        (index-based-access
+          (simple-var-ref outLines)
+          (literal 1)))))
     (var-def
       (variable vb (type
         (user-defined-type io ReadableByteChannel)) (expr

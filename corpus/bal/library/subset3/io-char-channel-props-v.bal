@@ -43,8 +43,15 @@ public function main() returns error? {
     string wpath = "/tmp/bal_io_char_props_out.properties";
     io:WritableByteChannel wb = check io:openWritableFile(wpath);
     io:WritableCharacterChannel wc = new (wb, "UTF-8");
-    check wc.writeProperties({"key one": "value=1", "plain": "text", "uni": "ü", "tab": "a\tb", "line": "a\nb"}, "generated");
+    check wc.writeProperties({"key one": "value=1", "plain": "text", "uni": "ü", "tab": "a\tb", "line": "a\nb"}, "first line\nsecond line");
     check wc.close();
+
+    // A multi-line comment must produce a "#"-prefixed line per logical line;
+    // an unprefixed continuation line would otherwise be misread as a bogus
+    // property entry by readAllProperties.
+    string[] outLines = check io:fileReadLines(wpath);
+    io:println(outLines[0]); // @output #first line
+    io:println(outLines[1]); // @output #second line
 
     io:ReadableByteChannel vb = check io:openReadableFile(wpath);
     io:ReadableCharacterChannel vc = new (vb, "UTF-8");

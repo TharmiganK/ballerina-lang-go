@@ -352,7 +352,8 @@ nl=a\nb
     %129 = ConstantLoad a
 b
     %130 = newMap {| string... |}{%120=%121, %122=%123, %124=%125, %126=%127, %128=%129}
-    %131 = ConstantLoad generated
+    %131 = ConstantLoad first line
+second line
     %132 = writeProperties(wc,%130,%131) -> bb69;
   }
   bb69 {
@@ -381,7 +382,7 @@ b
     return;
   }
   bb74 {
-    %138 = openReadableFile(wpath) -> bb75;
+    %138 = fileReadLines(wpath) -> bb75;
   }
   bb75 {
     $desugar$34 = %138;
@@ -395,93 +396,118 @@ b
     return;
   }
   bb77 {
-    vb = $desugar$34;
-    %142 = newObject ballerina/io:ReadableCharacterChannel
-    %143 = ConstantLoad UTF-8
-    %144 = init(%142,vb,%143) -> bb78;
+    outLines = $desugar$34;
+    %143 = ConstantLoad 0
+    %142 = outLines[%143];
+    %144 = println(%142) -> bb78;
   }
   bb78 {
-    %146 = %144 is nil
-    %146 ? bb79 : bb80;
+    %146 = ConstantLoad 1
+    %145 = outLines[%146];
+    %147 = println(%145) -> bb79;
   }
   bb79 {
-    %145 = %142;
-    GOTO bb81;
+    %148 = openReadableFile(wpath) -> bb80;
   }
   bb80 {
-    %145 = %144;
-    GOTO bb81;
-  }
-  bb81 {
-    vc = %145;
-    %148 = readAllProperties(vc) -> bb82;
-  }
-  bb82 {
     $desugar$35 = %148;
     %150 = $desugar$35 is error
-    %150 ? bb83 : bb84;
+    %150 ? bb81 : bb82;
   }
-  bb83 {
+  bb81 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$35);
     PopScopeFrame
     return;
   }
+  bb82 {
+    vb = $desugar$35;
+    %152 = newObject ballerina/io:ReadableCharacterChannel
+    %153 = ConstantLoad UTF-8
+    %154 = init(%152,vb,%153) -> bb83;
+  }
+  bb83 {
+    %156 = %154 is nil
+    %156 ? bb84 : bb85;
+  }
   bb84 {
-    written = $desugar$35;
-    %152 = length(written) -> bb85;
+    %155 = %152;
+    GOTO bb86;
   }
   bb85 {
-    %153 = %152;
-    %154 = println(%153) -> bb86;
+    %155 = %154;
+    GOTO bb86;
   }
   bb86 {
-    %156 = ConstantLoad key one
-    %155 = written[%156];
-    %157 = println(%155) -> bb87;
+    vc = %155;
+    %158 = readAllProperties(vc) -> bb87;
   }
   bb87 {
-    %159 = ConstantLoad plain
-    %158 = written[%159];
-    %160 = println(%158) -> bb88;
+    $desugar$36 = %158;
+    %160 = $desugar$36 is error
+    %160 ? bb88 : bb89;
   }
   bb88 {
-    %162 = ConstantLoad uni
-    %161 = written[%162];
-    %163 = println(%161) -> bb89;
-  }
-  bb89 {
-    %166 = ConstantLoad tab
-    %165 = written[%166];
-    %167 = ConstantLoad a	b
-    %164 = == %165 %167;
-    %168 = %164;
-    %169 = println(%168) -> bb90;
-  }
-  bb90 {
-    %172 = ConstantLoad line
-    %171 = written[%172];
-    %173 = ConstantLoad a
-b
-    %170 = == %171 %173;
-    %174 = %170;
-    %175 = println(%174) -> bb91;
-  }
-  bb91 {
-    %176 = close(vc) -> bb92;
-  }
-  bb92 {
-    $desugar$36 = %176;
-    %178 = $desugar$36 is error
-    %178 ? bb93 : bb94;
-  }
-  bb93 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$36);
     PopScopeFrame
     return;
   }
+  bb89 {
+    written = $desugar$36;
+    %162 = length(written) -> bb90;
+  }
+  bb90 {
+    %163 = %162;
+    %164 = println(%163) -> bb91;
+  }
+  bb91 {
+    %166 = ConstantLoad key one
+    %165 = written[%166];
+    %167 = println(%165) -> bb92;
+  }
+  bb92 {
+    %169 = ConstantLoad plain
+    %168 = written[%169];
+    %170 = println(%168) -> bb93;
+  }
+  bb93 {
+    %172 = ConstantLoad uni
+    %171 = written[%172];
+    %173 = println(%171) -> bb94;
+  }
   bb94 {
+    %176 = ConstantLoad tab
+    %175 = written[%176];
+    %177 = ConstantLoad a	b
+    %174 = == %175 %177;
+    %178 = %174;
+    %179 = println(%178) -> bb95;
+  }
+  bb95 {
+    %182 = ConstantLoad line
+    %181 = written[%182];
+    %183 = ConstantLoad a
+b
+    %180 = == %181 %183;
+    %184 = %180;
+    %185 = println(%184) -> bb96;
+  }
+  bb96 {
+    %186 = close(vc) -> bb97;
+  }
+  bb97 {
+    $desugar$37 = %186;
+    %188 = $desugar$37 is error
+    %188 ? bb98 : bb99;
+  }
+  bb98 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$37);
+    PopScopeFrame
+    return;
+  }
+  bb99 {
     return;
   }
 }

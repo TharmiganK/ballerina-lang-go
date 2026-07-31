@@ -339,7 +339,8 @@ nl=a\nb
                 (literal line)
                 (literal a
 b)))
-            (literal generated))))))
+            (literal first line
+second line))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$32))
@@ -362,7 +363,7 @@ b)))
         (simple-var-ref $desugar$33))
       (var-def
         (variable $desugar$34 (expr
-          (invocation io openReadableFile (
+          (invocation io fileReadLines (
             (simple-var-ref wpath))))))
       (if
         (type-test-expr is
@@ -371,19 +372,24 @@ b)))
           (return
             (simple-var-ref $desugar$34))) ())
       (var-def
-        (variable vb (type
-          (user-defined-type io ReadableByteChannel)) (expr
+        (variable outLines (type
+          (array-type
+            (value-type string) dimensions: 1 ([]))) (expr
           (simple-var-ref $desugar$34))))
-      (var-def
-        (variable vc (type
-          (user-defined-type io ReadableCharacterChannel)) (expr
-          (new (
-            (simple-var-ref vb)
-            (literal UTF-8))))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref outLines)
+            (literal 0)))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref outLines)
+            (literal 1)))))
       (var-def
         (variable $desugar$35 (expr
-          (invocation readAllProperties expr:
-            (simple-var-ref vc) ()))))
+          (invocation io openReadableFile (
+            (simple-var-ref wpath))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$35))
@@ -391,11 +397,31 @@ b)))
           (return
             (simple-var-ref $desugar$35))) ())
       (var-def
+        (variable vb (type
+          (user-defined-type io ReadableByteChannel)) (expr
+          (simple-var-ref $desugar$35))))
+      (var-def
+        (variable vc (type
+          (user-defined-type io ReadableCharacterChannel)) (expr
+          (new (
+            (simple-var-ref vb)
+            (literal UTF-8))))))
+      (var-def
+        (variable $desugar$36 (expr
+          (invocation readAllProperties expr:
+            (simple-var-ref vc) ()))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$36))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$36))) ())
+      (var-def
         (variable written (type
           (constrained-type
             (builtin-ref-type map)
             (value-type string))) (expr
-          (simple-var-ref $desugar$35))))
+          (simple-var-ref $desugar$36))))
       (expression-stmt
         (invocation io println (
           (invocation lang.map length (
@@ -431,14 +457,14 @@ b)))
             (literal a
 b)))))
       (var-def
-        (variable $desugar$36 (expr
+        (variable $desugar$37 (expr
           (invocation close expr:
             (simple-var-ref vc) ()))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$36))
+          (simple-var-ref $desugar$37))
         (block-stmt
           (return
-            (simple-var-ref $desugar$36))) ())
+            (simple-var-ref $desugar$37))) ())
       (expression-stmt
-        (simple-var-ref $desugar$36)))))
+        (simple-var-ref $desugar$37)))))

@@ -43,18 +43,14 @@ import (
 // services. The program stays alive while the runtime is in its listening
 // state — the runtime lifecycle owns signal handling and shutdown.
 type listenerState struct {
-	host           string
-	port           int
-	timeout        time.Duration
-	httpVersion    string
-	tlsCfg         *pal.ServerTLSConfig
-	mu             sync.RWMutex
-	services       []*serviceEntry
-	server         pal.ServerHandle
-	servingStrands map[uint64]struct{}
-	shutdownOnce   sync.Once
-	shutdownDone   chan struct{}
-	shutdownErr    error // set once before shutdownDone is closed; safe to read after
+	host        string
+	port        int
+	timeout     time.Duration
+	httpVersion string
+	tlsCfg      *pal.ServerTLSConfig
+	mu          sync.RWMutex
+	services    []*serviceEntry
+	server      pal.ServerHandle
 }
 
 type serviceEntry struct {
@@ -91,12 +87,10 @@ func registerListenerExterns(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			port := int(args[1].(int64))
 			state := &listenerState{
-				host:           "0.0.0.0",
-				port:           port,
-				timeout:        60 * time.Second,
-				httpVersion:    "2.0",
-				servingStrands: make(map[uint64]struct{}),
-				shutdownDone:   make(chan struct{}),
+				host:        "0.0.0.0",
+				port:        port,
+				timeout:     60 * time.Second,
+				httpVersion: "2.0",
 			}
 			if len(args) > 2 {
 				if cfg, ok := args[2].(*values.Map); ok {
@@ -213,58 +207,31 @@ func registerListenerExterns(rt *runtime.Runtime) {
 			return nil, nil
 		})
 
-	// Listener.gracefulStop drains in-flight requests before closing the server.
+	// Listener.gracefulStop blocks until in-flight requests drain and the server
+	// closes, per the http:Listener contract, returning () on a clean drain or an
+	// error if the shutdown fails (e.g. the timeout elapses).
 	//
-	// This extern has two callers that need opposite blocking behaviour:
-	//   - A resource function invoking ep.gracefulStop() runs inline on the
-	//     handler's own goroutine (same strand that is currently serving the
-	//     HTTP request). Blocking here on server.Shutdown would deadlock: the
-	//     connection can't go idle until the handler returns, but the handler
-	//     can't return until Shutdown does.
-	//   - The runtime's signal-triggered graceful stop (SIGINT/SIGTERM) runs on
-	//     a separate strand that never served a request. It must block until
-	//     the drain completes, because the process exits right after this call
-	//     returns.
-	//
-	// We tell the two apart via the calling strand: dispatchRequest registers
-	// its strand ID in state.servingStrands for the duration of the resource
-	// invocation, so a hit on that set means we're on the handler path.
+	// The block is unconditional by design: a resource that calls ep.gracefulStop()
+	// on the listener serving it self-deadlocks (the connection can't go idle until
+	// the handler returns, but the handler is blocked on the drain) — caller error,
+	// not a case to special-case.
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Listener.gracefulStop",
-		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			stateVal, _ := self.Get("$state")
 			state := stateVal.(*listenerState)
 			state.mu.RLock()
 			server := state.server
 			timeout := state.timeout
-			_, isServingStrand := state.servingStrands[ctx.StrandID]
 			state.mu.RUnlock()
 			if server == nil {
 				return nil, nil
 			}
 
-			state.shutdownOnce.Do(func() {
-				go func() {
-					shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
-					defer cancel()
-					state.shutdownErr = server.Shutdown(shutdownCtx)
-					close(state.shutdownDone)
-				}()
-			})
-
-			if isServingStrand {
-				select {
-				case <-state.shutdownDone:
-					if state.shutdownErr != nil {
-						return values.NewErrorWithMessage("Listener.gracefulStop: " + state.shutdownErr.Error()), nil
-					}
-				default:
-				}
-				return nil, nil
-			}
-			<-state.shutdownDone
-			if state.shutdownErr != nil {
-				return values.NewErrorWithMessage("Listener.gracefulStop: " + state.shutdownErr.Error()), nil
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			if err := server.Shutdown(shutdownCtx); err != nil {
+				return values.NewErrorWithMessage("Listener.gracefulStop: " + err.Error()), nil
 			}
 			return nil, nil
 		})
@@ -486,16 +453,7 @@ func dispatchRequest(rt *runtime.Runtime, state *listenerState, w http.ResponseW
 	// synchronously on this strand within dispatchRequest and the response is
 	// written before we return; any async work it starts gets its own context
 	// (see runStrand), so releasing here cannot race with a started strand.
-	// Registered before the servingStrands defer so it runs last (LIFO).
 	defer rt.ReleasePooledContext(ctx)
-	state.mu.Lock()
-	state.servingStrands[ctx.StrandID] = struct{}{}
-	state.mu.Unlock()
-	defer func() {
-		state.mu.Lock()
-		delete(state.servingStrands, ctx.StrandID)
-		state.mu.Unlock()
-	}()
 	httpMethod := strings.ToLower(r.Method)
 
 	// Resource-level dispatch is delegated to the language runtime: it coerces

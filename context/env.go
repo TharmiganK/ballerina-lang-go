@@ -20,10 +20,10 @@ import (
 	"strconv"
 	"sync"
 
-	"ballerina-lang-go/model"
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/tools/diagnostics"
-	"ballerina-lang-go/values"
+	"ballerina/model"
+	"ballerina/semtypes"
+	"ballerina/tools/diagnostics"
+	"ballerina/values"
 )
 
 type distinctTypeTracker struct {
@@ -226,7 +226,7 @@ func (c *CompilerEnvironment) CreateNarrowedSymbol(baseRef model.SymbolRef) mode
 }
 
 func (c *CompilerEnvironment) CreateFunctionSymbol(space *model.SymbolSpace, name string, signature model.FunctionSignature, fnTy semtypes.SemType) model.SymbolRef {
-	sym := model.NewFunctionSymbol(name, signature, false)
+	sym := model.NewFunctionSymbol(name, signature, false, diagnostics.NewBuiltinLocation())
 	sym.SetType(fnTy)
 	symbolIndex := space.AppendSymbol(sym)
 	return space.RefAt(symbolIndex)
@@ -245,6 +245,10 @@ func (c *CompilerEnvironment) SymbolName(symbol model.SymbolRef) string {
 
 func (c *CompilerEnvironment) SymbolType(symbol model.SymbolRef) semtypes.SemType {
 	return c.GetSymbol(symbol).Type()
+}
+
+func (c *CompilerEnvironment) SymbolLocation(symbol model.SymbolRef) diagnostics.Location {
+	return c.GetSymbol(symbol).Location()
 }
 
 func (c *CompilerEnvironment) SymbolKind(symbol model.SymbolRef) model.SymbolKind {

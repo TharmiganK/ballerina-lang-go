@@ -21,14 +21,38 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
-	"ballerina-lang-go/projects"
-	"ballerina-lang-go/tools/diagnostics"
+	"ballerina/projects"
+	"ballerina/tools/diagnostics"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+// findWorkspaceRoot searches for a workspace root starting from the given
+// path. Returns the workspace root path if found, or empty string if not
+// inside a workspace. Shared by new, run, build, and pack so that all four
+// resolve "am I inside a workspace member?" the same way.
+func findWorkspaceRoot(startPath string) string {
+	current := startPath
+	for {
+		tomlPath := filepath.Join(current, projects.BallerinaTomlFile)
+		if _, err := os.Stat(tomlPath); err == nil {
+			if isWorkspaceToml(tomlPath) {
+				return current
+			}
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			// Reached root
+			return ""
+		}
+		current = parent
+	}
+}
 
 // printError prints an error message in the standard Ballerina CLI format to stderr.
 func printError(err error, usage string, showHelp bool) {

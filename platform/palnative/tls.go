@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"os"
 
-	"ballerina-lang-go/platform/pal"
+	"ballerina/platform/pal"
 )
 
 // buildTLSConfig assembles a *tls.Config from a pal.TLSConfig, resolving CA
@@ -69,7 +69,7 @@ func buildTLSConfig(cfg pal.TLSConfig) *tls.Config {
 		if resolved := resolveCipherSuites(cfg.CipherSuiteNames); len(resolved) > 0 {
 			tlsConfig.CipherSuites = resolved
 		} else {
-			fmt.Fprintf(os.Stderr, "warning: no valid cipher suites resolved from cfg.TLS.CipherSuiteNames %v; keeping secure defaults\n", cfg.CipherSuiteNames)
+			_, _ = fmt.Fprintf(os.Stderr, "warning: no valid cipher suites resolved from cfg.CipherSuiteNames %v; keeping secure defaults\n", cfg.CipherSuiteNames)
 		}
 	}
 	return tlsConfig

@@ -17,7 +17,7 @@
 package semtypes
 
 import (
-	"ballerina-lang-go/decimal"
+	"ballerina/decimal"
 )
 
 // Filler is a marker interface for all filler values.
@@ -175,7 +175,7 @@ func mappingFiller(cx Context, t SemType) (Filler, bool) {
 }
 
 func listFiller(cx Context, t SemType) (Filler, bool) {
-	lat := ToListAtomicType(cx, t)
+	lat := ToListAtomicType(cx.Env(), t)
 	if lat == nil {
 		return nil, false
 	}

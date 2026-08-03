@@ -25,7 +25,7 @@ import (
 	"crypto/tls"
 	"net"
 
-	"ballerina-lang-go/platform/pal"
+	"ballerina/platform/pal"
 )
 
 // Dial is the pal.Net.Dial factory for the native-CLI platform. It opens a

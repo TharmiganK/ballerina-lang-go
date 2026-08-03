@@ -31,11 +31,42 @@
             (literal 5))))))
       (expression-stmt
         (invocation io println (
+          (invocation substring expr:
+            (invocation trim expr:
+              (simple-var-ref s) ()) (
+            (literal 6))))))
+      (expression-stmt
+        (invocation io println (
           (invocation equalsIgnoreCaseAscii expr:
             (literal HELLO) (
             (literal hello))))))
       (expression-stmt
         (invocation io println (
           (invocation equalsIgnoreCaseAscii expr:
+            (literal hello) (
+            (literal HELLO))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation equalsIgnoreCaseAscii expr:
+            (literal Hello) (
+            (literal Hello))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation equalsIgnoreCaseAscii expr:
             (literal HELLO) (
-            (literal world)))))))))
+            (literal world))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation equalsIgnoreCaseAscii expr:
+            (literal HELLO) (
+            (literal HELL))))))
+      (var-def
+        (variable nonAsciiEdges (type
+          (value-type string)) (expr
+          (literal   middle  ))))
+      (expression-stmt
+        (invocation io println (
+          (binary-expr ==
+            (invocation trim expr:
+              (simple-var-ref nonAsciiEdges) ())
+            (simple-var-ref nonAsciiEdges))))))))

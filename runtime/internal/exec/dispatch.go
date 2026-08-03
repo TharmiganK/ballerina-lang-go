@@ -20,12 +20,12 @@ import (
 	"strconv"
 	"strings"
 
-	"ballerina-lang-go/decimal"
-	"ballerina-lang-go/model"
-	"ballerina-lang-go/runtime/extern"
-	"ballerina-lang-go/runtime/internal/modules"
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/values"
+	"ballerina/decimal"
+	"ballerina/model"
+	"ballerina/runtime/extern"
+	"ballerina/runtime/internal/modules"
+	"ballerina/semtypes"
+	"ballerina/values"
 )
 
 // LookupObjectMethod resolves a regular method named methodName on obj. The
@@ -94,7 +94,7 @@ func LookupResourceMethodByPath(ctx *extern.Context, obj *values.Object, accesso
 		matchPath  []values.BalValue
 	)
 	for i := range candidates {
-		pathVals, ok := coercePathForEntry(ctx.TypeCtx, &candidates[i], segments)
+		pathVals, ok := coercePathForEntry(ctx.TypeCtx(), &candidates[i], segments)
 		if !ok {
 			continue
 		}

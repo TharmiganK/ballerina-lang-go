@@ -137,20 +137,20 @@ func applyDispatchResult(ctx *extern.Context, svcObj *values.Object, pc net.Pack
 // data)) or with a trailing Caller, in either parameter order, matching
 // jBallerina exactly.
 func remoteMethodArgs(ctx *extern.Context, svcObj *values.Object, methodName string, dataValue values.BalValue, callerObj *values.Object) []values.BalValue {
-	methodTy := semtypes.ObjectMemberType(ctx.TypeCtx, semtypes.StringConst(model.RemoteMethodName(methodName)), svcObj.Type)
-	if semtypes.IsZero(methodTy) || !semtypes.IsSubtype(ctx.TypeCtx, methodTy, semtypes.FUNCTION) {
+	methodTy := semtypes.ObjectMemberType(ctx.TypeCtx(), semtypes.StringConst(model.RemoteMethodName(methodName)), svcObj.Type)
+	if semtypes.IsZero(methodTy) || !semtypes.IsSubtype(ctx.TypeCtx(), methodTy, semtypes.FUNCTION) {
 		// Shouldn't happen — LookupRemoteMethod already confirmed the
 		// method exists — but fall back to the common two-param form.
 		return []values.BalValue{svcObj, dataValue, callerObj}
 	}
-	paramListTy := semtypes.FunctionParamListType(ctx.TypeCtx, methodTy)
+	paramListTy := semtypes.FunctionParamListType(ctx.TypeCtx(), methodTy)
 	args := []values.BalValue{svcObj}
 	for i := 0; ; i++ {
-		paramTy := semtypes.ListMemberTypeInnerVal(ctx.TypeCtx, paramListTy, semtypes.IntConst(int64(i)))
+		paramTy := semtypes.ListMemberTypeInnerVal(ctx.TypeCtx(), paramListTy, semtypes.IntConst(int64(i)))
 		if semtypes.IsNever(paramTy) {
 			break
 		}
-		if semtypes.IsSubtype(ctx.TypeCtx, paramTy, semtypes.OBJECT) {
+		if semtypes.IsSubtype(ctx.TypeCtx(), paramTy, semtypes.OBJECT) {
 			args = append(args, callerObj)
 		} else {
 			args = append(args, dataValue)
@@ -164,7 +164,8 @@ func remoteMethodArgs(ctx *extern.Context, svcObj *values.Object, methodName str
 // both if both are present. Each may be declared with or without a trailing
 // Caller parameter, in either order; see remoteMethodArgs.
 func dispatchDatagram(rt *runtime.Runtime, types udpTypes, svcObj *values.Object, pc net.PacketConn, remoteHost string, remotePort int64, data []byte) {
-	ctx := rt.NewExternContext()
+	ctx := rt.AcquirePooledContext()
+	defer rt.ReleasePooledContext(ctx)
 	senderAddr, err := resolveUDPAddr(remoteHost, remotePort)
 	if err != nil {
 		return

@@ -76,12 +76,12 @@ func bytesToList(types udpTypes, ctx *extern.Context, data []byte, readonly bool
 	for i, b := range data {
 		vals[i] = int64(b)
 	}
-	atomic := semtypes.ToListAtomicType(ctx.TypeCtx, types.byteArrTy)
+	atomic := semtypes.ToListAtomicType(ctx.TypeEnv(), types.byteArrTy)
 	return values.NewList(types.byteArrTy, atomic, readonly, nil, len(vals), vals)
 }
 
 func newDatagram(types udpTypes, ctx *extern.Context, remoteHost string, remotePort int64, data []byte, readonly bool) *values.Map {
-	atomic := semtypes.ToMappingAtomicType(ctx.TypeCtx, types.datagramTy)
+	atomic := semtypes.ToMappingAtomicType(ctx.TypeCtx(), types.datagramTy)
 	return values.NewMap(types.datagramTy, atomic, readonly, []values.MapEntry{
 		{Key: "remoteHost", Value: remoteHost},
 		{Key: "remotePort", Value: remotePort},

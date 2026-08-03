@@ -175,7 +175,9 @@ func readLoop(rt *runtime.Runtime, types udpTypes, state *listenerState, svcObj 
 		n, addr, err := state.pc.ReadFrom(buf)
 		if err != nil {
 			if !errors.Is(err, net.ErrClosed) {
-				invokeOnError(rt.NewExternContext(), svcObj, err.Error())
+				errCtx := rt.AcquirePooledContext()
+				invokeOnError(errCtx, svcObj, err.Error())
+				rt.ReleasePooledContext(errCtx)
 			}
 			return
 		}

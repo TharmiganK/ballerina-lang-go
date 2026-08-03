@@ -94,7 +94,7 @@ func LookupResourceMethodByPath(ctx *extern.Context, obj *values.Object, accesso
 		matchPath  []values.BalValue
 	)
 	for i := range candidates {
-		pathVals, ok := coercePathForEntry(ctx.TypeCtx, &candidates[i], segments)
+		pathVals, ok := coercePathForEntry(ctx.TypeCtx(), &candidates[i], segments)
 		if !ok {
 			continue
 		}

@@ -1064,7 +1064,7 @@ func buildAttachPointExpression(pkgCtx *packageContext, svc *ast.BLangService) a
 	}
 	ld := semtypes.NewListDefinition()
 	listTy := ld.DefineListTypeWrapped(pkgCtx.typeEnv(), tupleMembers, len(tupleMembers), semtypes.NEVER, semtypes.CellMutability_CELL_MUT_LIMITED)
-	lat := semtypes.ToListAtomicType(pkgCtx.typeCtx(), listTy)
+	lat := semtypes.ToListAtomicType(pkgCtx.typeEnv(), listTy)
 	arr := &ast.BLangListConstructorExpr{Exprs: elements, AtomicType: *lat}
 	arr.SetDeterminedType(listTy)
 	arr.SetPosition(svc.GetPosition())

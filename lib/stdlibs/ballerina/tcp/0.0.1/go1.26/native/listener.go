@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"ballerina-lang-go/bir"
-	"ballerina-lang-go/platform/pal"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/runtime/extern"
-	"ballerina-lang-go/values"
+	"ballerina/bir"
+	"ballerina/platform/pal"
+	"ballerina/runtime"
+	"ballerina/runtime/extern"
+	"ballerina/values"
 )
 
 // gracefulStopDrainTimeout bounds how long gracefulStop waits for

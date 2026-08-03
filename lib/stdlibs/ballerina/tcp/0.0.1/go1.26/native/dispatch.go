@@ -27,12 +27,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"ballerina-lang-go/bir"
-	"ballerina-lang-go/model"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/runtime/extern"
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/values"
+	"ballerina/bir"
+	"ballerina/model"
+	"ballerina/runtime"
+	"ballerina/runtime/extern"
+	"ballerina/semtypes"
+	"ballerina/values"
 )
 
 var callerIDCounter atomic.Uint64
@@ -169,20 +169,20 @@ func dispatchOnError(ctx *extern.Context, connSvcObj *values.Object, tcpErr *val
 // onBytes(readonly & byte[] data) or onBytes(Caller caller, readonly &
 // byte[] data), in either parameter order, matching jBallerina exactly.
 func onBytesArgs(ctx *extern.Context, connSvcObj, callerObj *values.Object, dataList *values.List) []values.BalValue {
-	methodTy := semtypes.ObjectMemberType(ctx.TypeCtx, semtypes.StringConst(model.RemoteMethodName("onBytes")), connSvcObj.Type)
-	if semtypes.IsZero(methodTy) || !semtypes.IsSubtype(ctx.TypeCtx, methodTy, semtypes.FUNCTION) {
+	methodTy := semtypes.ObjectMemberType(ctx.TypeCtx(), semtypes.StringConst(model.RemoteMethodName("onBytes")), connSvcObj.Type)
+	if semtypes.IsZero(methodTy) || !semtypes.IsSubtype(ctx.TypeCtx(), methodTy, semtypes.FUNCTION) {
 		// Shouldn't happen — LookupRemoteMethod already confirmed the
 		// method exists — but fall back to the common two-param form.
 		return []values.BalValue{connSvcObj, callerObj, dataList}
 	}
-	paramListTy := semtypes.FunctionParamListType(ctx.TypeCtx, methodTy)
+	paramListTy := semtypes.FunctionParamListType(ctx.TypeCtx(), methodTy)
 	args := []values.BalValue{connSvcObj}
 	for i := 0; ; i++ {
-		paramTy := semtypes.ListMemberTypeInnerVal(ctx.TypeCtx, paramListTy, semtypes.IntConst(int64(i)))
+		paramTy := semtypes.ListMemberTypeInnerVal(ctx.TypeCtx(), paramListTy, semtypes.IntConst(int64(i)))
 		if semtypes.IsNever(paramTy) {
 			break
 		}
-		if semtypes.IsSubtype(ctx.TypeCtx, paramTy, semtypes.OBJECT) {
+		if semtypes.IsSubtype(ctx.TypeCtx(), paramTy, semtypes.OBJECT) {
 			args = append(args, callerObj)
 		} else {
 			args = append(args, dataList)
@@ -223,7 +223,8 @@ func handleConnection(rt *runtime.Runtime, types tcpTypes, svcObj *values.Object
 	cs := &connState{conn: conn}
 	callerObj := newCallerObject(conn, cs)
 
-	ctx := rt.NewExternContext()
+	ctx := rt.AcquirePooledContext()
+	defer rt.ReleasePooledContext(ctx)
 	handle, ok := ctx.LookupRemoteMethod(svcObj, "onConnect")
 	if !ok {
 		_ = conn.Close()

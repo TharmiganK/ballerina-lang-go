@@ -25,11 +25,11 @@ import (
 	"net"
 	"time"
 
-	"ballerina-lang-go/bir"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/runtime/extern"
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/values"
+	"ballerina/bir"
+	"ballerina/runtime"
+	"ballerina/runtime/extern"
+	"ballerina/semtypes"
+	"ballerina/values"
 )
 
 const defaultTcpTimeout = 300 * time.Second
@@ -86,7 +86,7 @@ func bytesToList(types tcpTypes, ctx *extern.Context, data []byte) *values.List 
 	for i, b := range data {
 		vals[i] = int64(b)
 	}
-	atomic := semtypes.ToListAtomicType(ctx.TypeCtx, types.byteArrTy)
+	atomic := semtypes.ToListAtomicType(ctx.TypeEnv(), types.byteArrTy)
 	return values.NewList(types.byteArrTy, atomic, true, nil, len(vals), vals)
 }
 

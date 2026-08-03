@@ -20,10 +20,10 @@ package native
 import (
 	"time"
 
-	"ballerina-lang-go/decimal"
-	"ballerina-lang-go/platform/pal"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/values"
+	"ballerina/decimal"
+	"ballerina/platform/pal"
+	"ballerina/runtime"
+	"ballerina/values"
 )
 
 func decimalToDuration(d *decimal.Decimal) time.Duration {

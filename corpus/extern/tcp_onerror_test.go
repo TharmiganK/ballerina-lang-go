@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"ballerina-lang-go/runtime/extern"
-	"ballerina-lang-go/test_util/testharness"
-	"ballerina-lang-go/values"
+	"ballerina/runtime/extern"
+	"ballerina/test_util/testharness"
+	"ballerina/values"
 )
 
 // TestTcpServiceOnError exercises the connection-service onError dispatch

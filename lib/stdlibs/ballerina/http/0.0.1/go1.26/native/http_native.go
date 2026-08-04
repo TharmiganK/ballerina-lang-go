@@ -370,11 +370,11 @@ func initHttpModule(rt *runtime.Runtime) {
 	jsonListLd := semtypes.NewListDefinition()
 	strMapMd := semtypes.NewMappingDefinition()
 	types := httpTypes{
-		byteArrTy:   byteArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.Byte),
-		strArrTy:    strArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.String),
-		jsonMapTy:   jsonMapMd.DefineMappingTypeWrapped(env, nil, jsonTy),
-		jsonListTy:  jsonListLd.DefineListTypeWrappedWithEnvSemType(env, jsonTy),
-		mapStringTy: strMapMd.DefineMappingTypeWrapped(env, nil, semtypes.String),
+		byteArrTy:   byteArrLd.Define(env, nil, semtypes.ListRest(semtypes.Byte)),
+		strArrTy:    strArrLd.Define(env, nil, semtypes.ListRest(semtypes.String)),
+		jsonMapTy:   jsonMapMd.Define(env, nil, jsonTy),
+		jsonListTy:  jsonListLd.Define(env, nil, semtypes.ListRest(jsonTy)),
+		mapStringTy: strMapMd.Define(env, nil, semtypes.String),
 	}
 
 	// msgToBody converts a Ballerina RequestMessage value to (io.Reader, contentLength, contentType).

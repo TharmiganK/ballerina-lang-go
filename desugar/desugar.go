@@ -691,7 +691,7 @@ func createLifeCycleHooks(pkgCtx *packageContext, pkg *ast.BLangPackage, moduleL
 			return nil
 		}
 		ld := semtypes.NewListDefinition()
-		paramList := ld.DefineListTypeWrapped(pkgCtx.typeEnv(), nil, 0, semtypes.Never, semtypes.CellMutabilityNone)
+		paramList := ld.Define(pkgCtx.typeEnv(), nil, semtypes.ListMutability(semtypes.CellMutabilityNone))
 		retTy := semtypes.FunctionReturnType(tyCtx, fnTy, paramList)
 
 		fnSymName := "$" + methodName + "Method"
@@ -904,13 +904,13 @@ func addModuleListenersGlobal(pkgCtx *packageContext, pkg *ast.BLangPackage, pos
 	var listnerTop semtypes.SemType
 	{
 		listDefn := semtypes.NewListDefinition()
-		stringArr := listDefn.DefineListTypeWrapped(env, nil, 0, semtypes.String, semtypes.CellMutabilityLimited)
+		stringArr := listDefn.Define(env, nil, semtypes.ListRest(semtypes.String))
 		listnerTop = semtypes.Union(semtypes.ListenerTy(tyCtx, semtypes.Never, stringArr), semtypes.Union(semtypes.ListenerTy(tyCtx, semtypes.Never, semtypes.String), semtypes.ListenerTy(tyCtx, semtypes.Never, semtypes.Nil)))
 	}
 	var arrTy semtypes.SemType
 	{
 		listDefn := semtypes.NewListDefinition()
-		arrTy = listDefn.DefineListTypeWrapped(env, nil, 0, listnerTop, semtypes.CellMutabilityLimited)
+		arrTy = listDefn.Define(env, nil, semtypes.ListRest(listnerTop))
 	}
 
 	sym := model.NewVariableSymbol(moduleListenersGlobalName, false, false, false, pos)
@@ -1088,7 +1088,7 @@ func buildListenerStartInvocation(pkgCtx *packageContext, listenerExpr ast.BLang
 	inv.Name = newIdentifier("start")
 	inv.Expr = listenerExpr
 	argListDefn := semtypes.NewListDefinition()
-	argListTy := argListDefn.DefineListTypeWrapped(pkgCtx.typeEnv(), []semtypes.SemType{}, 0, semtypes.Never, semtypes.CellMutabilityNone)
+	argListTy := argListDefn.Define(pkgCtx.typeEnv(), nil, semtypes.ListMutability(semtypes.CellMutabilityNone))
 	inv.SetDeterminedType(semtypes.FunctionReturnType(pkgCtx.typeCtx(), startFnTy, argListTy))
 	inv.SetPosition(listenerExpr.GetPosition())
 	return inv
@@ -1120,7 +1120,9 @@ func buildListenerAttachInvocation(pkgCtx *packageContext, svc *ast.BLangService
 	inv.Expr = listenerExpr
 	inv.ArgExprs = []ast.BLangExpression{svcRef, attachPointExpr}
 	argListDefn := semtypes.NewListDefinition()
-	argListTy := argListDefn.DefineListTypeWrapped(pkgCtx.typeEnv(), []semtypes.SemType{svcRef.GetDeterminedType(), attachPointExpr.GetDeterminedType()}, 2, semtypes.Never, semtypes.CellMutabilityNone)
+	argListTy := argListDefn.Define(pkgCtx.typeEnv(),
+		[]semtypes.SemType{svcRef.GetDeterminedType(), attachPointExpr.GetDeterminedType()},
+		semtypes.ListMutability(semtypes.CellMutabilityNone))
 	if !semtypes.IsSubtype(tyCtx, argListTy, paramListTy) {
 		pkgCtx.internalError("desugared listener attach arguments do not match the listener parameter types")
 		return nil

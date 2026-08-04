@@ -51,7 +51,7 @@ type fileIOTypes struct {
 // per-element value yielded by a stream's `next()` method.
 func closedNextRecordType(env semtypes.Env, valueTy semtypes.SemType) semtypes.SemType {
 	md := semtypes.NewMappingDefinition()
-	return md.DefineMappingTypeWrapped(env, []semtypes.Field{semtypes.FieldFrom("value", valueTy, false, false)}, semtypes.Never)
+	return md.Define(env, []semtypes.Field{semtypes.FieldFrom("value", valueTy, false, false)}, semtypes.Never)
 }
 
 func fileIOError(msg string) values.BalValue {
@@ -241,17 +241,18 @@ func initFileIOModule(rt *runtime.Runtime) {
 	jmd := semtypes.NewMappingDefinition()
 	jld := semtypes.NewListDefinition()
 	types := fileIOTypes{
-		strArrTy:   sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.String),
-		byteArrTy:  bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.Byte),
-		jsonMapTy:  jmd.DefineMappingTypeWrapped(env, nil, jsonTy),
-		jsonListTy: jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy),
+		strArrTy:   sld.Define(env, nil, semtypes.ListRest(semtypes.String)),
+		byteArrTy:  bld.Define(env, nil, semtypes.ListRest(semtypes.Byte)),
+		jsonMapTy:  jmd.Define(env, nil, jsonTy),
+		jsonListTy: jld.Define(env, nil, semtypes.ListRest(jsonTy)),
 	}
 
 	types.byteArrAtom = semtypes.ToListAtomicType(env, types.byteArrTy)
 	// io:Block is `readonly & byte[]`; a CELL_MUT_NONE list definition is the
 	// atom-backed equivalent of that intersection.
 	robld := semtypes.NewListDefinition()
-	types.roByteArrTy = robld.DefineListTypeWrappedWithEnvSemTypeCellMutability(env, semtypes.Byte, semtypes.CellMutabilityNone)
+	types.roByteArrTy = robld.Define(env, nil, semtypes.ListRest(semtypes.Byte),
+		semtypes.ListMutability(semtypes.CellMutabilityNone))
 	types.roByteArrAtom = semtypes.ToListAtomicType(env, types.roByteArrTy)
 
 	streamCompletionTy := semtypes.Union(semtypes.Error, semtypes.Nil)

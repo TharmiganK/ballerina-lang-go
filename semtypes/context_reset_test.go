@@ -27,7 +27,7 @@ func TestContextResetClearsMemoCaches(t *testing.T) {
 	ctx := ContextFrom(env)
 
 	ld := &ListDefinition{}
-	listTy := ld.DefineListTypeWrapped(env, []SemType{Int}, 1, Never, CellMutabilityNone)
+	listTy := ld.Define(env, []SemType{Int}, ListMutability(CellMutabilityNone))
 
 	jsonBefore := CreateJSON(ctx)
 	subtypeBefore := IsSubtype(ctx, listTy, jsonBefore)

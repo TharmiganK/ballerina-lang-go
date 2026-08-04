@@ -746,10 +746,10 @@ func initCharacterChannelModule(rt *runtime.Runtime) {
 	jmd := semtypes.NewMappingDefinition()
 	jld := semtypes.NewListDefinition()
 	types := characterChannelTypes{
-		strArrTy:   sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.String),
-		strMapTy:   smd.DefineMappingTypeWrapped(env, nil, semtypes.String),
-		jsonMapTy:  jmd.DefineMappingTypeWrapped(env, nil, jsonTy),
-		jsonListTy: jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy),
+		strArrTy:   sld.Define(env, nil, semtypes.ListRest(semtypes.String)),
+		strMapTy:   smd.Define(env, nil, semtypes.String),
+		jsonMapTy:  jmd.Define(env, nil, jsonTy),
+		jsonListTy: jld.Define(env, nil, semtypes.ListRest(jsonTy)),
 	}
 	types.strMapAtom = semtypes.ToMappingAtomicType(typCtx, types.strMapTy)
 

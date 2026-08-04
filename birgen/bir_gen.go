@@ -133,7 +133,7 @@ func newBlockContext(parent context) blockContext {
 func (c *packageContext) stringMapType() semtypes.SemType {
 	if semtypes.IsZero(c.stringMapTy) {
 		md := semtypes.NewMappingDefinition()
-		c.stringMapTy = md.DefineMappingTypeWrapped(c.CompilerContext.GetTypeEnv(), nil, semtypes.String)
+		c.stringMapTy = md.Define(c.CompilerContext.GetTypeEnv(), nil, semtypes.String)
 	}
 	return c.stringMapTy
 }

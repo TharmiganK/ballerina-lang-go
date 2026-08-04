@@ -112,7 +112,7 @@ var p = check c->get("/person", targetType = Person);
 | Feature | Notes |
 |---|---|
 | `http:Response` target | Returned untouched, including for 4xx and 5xx responses. Any union containing `http:Response` behaves the same way |
-| Status code mapping | With any other target, a 4xx or 5xx response returns an `error` whose message is the status code's reason phrase; 1xx, 2xx, and 3xx responses are bound normally |
+| Status code mapping | With any other target, a 4xx or 5xx response returns an `error` whose message is the status code's reason phrase, or `status code <code>` when the code has no registered phrase; 1xx, 2xx, and 3xx responses are bound normally |
 | `()` target | The payload is read and discarded |
 | Nilable targets | An absent (empty) payload binds to `()` |
 
@@ -131,6 +131,27 @@ alone selects the builder.
 A target that does not fit the response media type returns an `error` — for
 example a record target for a `text/plain` response. JSON conversion uses the
 same routine as `lang.value:fromJsonWithType`.
+
+A target may also be strictly narrower than the type its builder produces — an
+enum or a singleton where the builder yields `string`, a closed all-string record
+where it yields `map<string>`, a tuple or a fixed-length array where it yields
+`byte[]`. The built payload is converted to that target with the same routine, so
+a body outside the narrower type returns an `error` rather than a value outside
+its declared type:
+
+```ballerina
+enum Colour { RED = "red", GREEN = "green" }
+
+Colour c1 = check c->get("/colour");   // text/plain "red" — binds
+Colour|error c2 = c->get("/text");     // text/plain "hello" — error
+Colour? c3 = check c->get("/empty");   // text/plain "" — ()
+```
+
+The nilable form of such a target binds the same way: an absent body gives `()`,
+and a body that is present but does not fit the target is an `error`. Only the nilable
+form turns an absent body into `()` — a narrow target that is not nilable is handed the
+builder's empty value (`""`, `[]`, or `{}`), and rejects it unless the narrow type happens
+to admit it.
 
 Not covered in this subset: `xml` targets and `application/xml` responses (the
 runtime has no `xml` type), `stream<http:SseEvent, error?>` targets, status code

@@ -32,6 +32,21 @@ type Employee record {|
     Address address;
 |};
 
+// A closed all-string record is a subtype of map<string>, so the form builder is selected
+// and must convert its map to the record type rather than hand back a plain map<string>.
+type Form record {|
+    string a;
+    string b;
+|};
+
+// A tuple is a subtype of byte[], so the blob builder is selected for it.
+type Pair [byte, byte];
+
+enum Colour {
+    RED = "red",
+    GREEN = "green"
+}
+
 public function main() returns error? {
     http:Client c = check new http:Client("http://testserver", {});
 
@@ -112,6 +127,51 @@ public function main() returns error? {
 
     byte[] untypedBytes = check c->get("/no-type");
     io:println(untypedBytes.length()); // @output 12
+
+    // A target that is a proper subtype of the builder's own type is converted to that
+    // target, not left at the builder's type.
+    Form formRecord = check c->get("/form");
+    io:println(formRecord.a, " ", formRecord.b); // @output 1 two
+    io:println(<any>formRecord is Form); // @output true
+
+    Colour colour = check c->get("/colour");
+    io:println(colour, " ", <any>colour is Colour); // @output red true
+
+    Pair pair = check c->get("/blob2");
+    io:println(pair.length(), " ", <any>pair is Pair); // @output 2 true
+
+    // The same conversion applies on the fallback path, where no Content-Type is present.
+    Colour fallbackColour = check c->get("/no-type-colour");
+    io:println(fallbackColour, " ", <any>fallbackColour is Colour); // @output red true
+
+    // The nilable form of a narrow target reaches the same builder: a body that fits is
+    // converted to the target, and an absent body binds to ().
+    Colour? optColour = check c->get("/colour");
+    io:println(optColour, " ", <any>optColour is Colour); // @output red true
+    Colour? noColour = check c->get("/empty");
+    io:println(noColour is ()); // @output true
+
+    Form? optFormRecord = check c->get("/form");
+    io:println(optFormRecord?.a, " ", <any>optFormRecord is Form); // @output 1 true
+    Form? noFormRecord = check c->get("/empty-form");
+    io:println(noFormRecord is ()); // @output true
+
+    Pair? optPair = check c->get("/blob2");
+    io:println(<any>optPair is Pair); // @output true
+    Pair? noPair = check c->get("/empty-blob");
+    io:println(noPair is ()); // @output true
+
+    Colour? optFallbackColour = check c->get("/no-type-colour");
+    io:println(optFallbackColour, " ", <any>optFallbackColour is Colour); // @output red true
+    Colour? noFallbackColour = check c->get("/no-type-empty");
+    io:println(noFallbackColour is ()); // @output true
+
+    // `var` provides no contextually expected type, so the target is passed explicitly.
+    var explicitPerson = check c->get("/person", targetType = Person);
+    io:println(explicitPerson.name); // @output Alice
+
+    var explicitResponse = check c->get("/person", targetType = http:Response);
+    io:println(explicitResponse.statusCode); // @output 200
 
     return;
 }

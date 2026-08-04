@@ -45,9 +45,9 @@ var (
 	urlEncodedContentType  = regexp.MustCompile(`^(application)/(.*[.+-]|)x-www-form-urlencoded$`)
 )
 
-// argAt returns the argument at index i, or nil when the caller supplied fewer arguments.
-// Defaulted parameters are filled in by desugar, but the client handlers have always been
-// tolerant of short argument lists.
+// argAt returns the argument at index i, or nil when the caller supplied fewer arguments,
+// so that a mismatch between a remote method's declared parameters and the index its handler
+// reads is reported by bindResponse instead of panicking on the slice access.
 func argAt(args []values.BalValue, i int) values.BalValue {
 	if i >= len(args) {
 		return nil
@@ -62,7 +62,10 @@ func argAt(args []values.BalValue, i int) values.BalValue {
 func bindResponse(ctx *extern.Context, types *httpTypes, resp *values.Object, targetArg values.BalValue) values.BalValue {
 	td, ok := targetArg.(*values.TypeDesc)
 	if !ok {
-		return resp
+		// Every remote method that binds declares `TargetType targetType = <>`, so desugar
+		// always supplies the typedesc. Returning the response here instead would hand back
+		// a value outside the declared return type.
+		return payloadBindingError("the targetType argument is missing", nil)
 	}
 	tc := ctx.TypeCtx()
 	target := td.Type
@@ -121,6 +124,13 @@ func statusErrorPayload(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	if err != nil {
 		return nil, values.NewErrorWithMessage(err.Error())
 	}
+	// An absent body carries no payload to extract. Handing it to the builder chosen by the
+	// Content-Type would fail — a JSON decoder rejects an empty document — and the resulting
+	// extraction error would replace the reason phrase in the error message. A 401 or 404 sent
+	// with a JSON content type and no body is common enough that the status must survive.
+	if len(body) == 0 {
+		return nil, nil
+	}
 	contentType := baseContentType(resp)
 	switch {
 	case jsonContentType.MatchString(contentType):
@@ -133,9 +143,15 @@ func statusErrorPayload(ctx *extern.Context, types *httpTypes, resp *values.Obje
 }
 
 // reasonPhrase returns the registered phrase for the status code. The PAL transport reports
-// only the status code, so the phrase actually sent on the wire is not available.
+// only the status code, so the phrase actually sent on the wire is not available. Codes
+// outside the IANA registry — 499, which nginx sends for a client-closed request, among
+// others — have no registered phrase, and naming the code keeps the error message from
+// coming out empty.
 func reasonPhrase(statusCode int) string {
-	return http.StatusText(statusCode)
+	if phrase := http.StatusText(statusCode); phrase != "" {
+		return phrase
+	}
+	return "status code " + strconv.Itoa(statusCode)
 }
 
 func copyResponseHeaders(tc semtypes.Context, resp *values.Object) *values.Map {
@@ -181,16 +197,12 @@ func performDataBinding(ctx *extern.Context, types *httpTypes, resp *values.Obje
 func builderFromType(ctx *extern.Context, types *httpTypes, resp *values.Object, target semtypes.SemType) values.BalValue {
 	tc := ctx.TypeCtx()
 	switch {
-	case semtypes.IsSubtype(tc, target, semtypes.STRING):
-		return textValue(resp)
-	case semtypes.IsSubtype(tc, target, semtypes.Union(semtypes.STRING, semtypes.NIL)):
-		return nilOnEmptyBody(tc, target, textValue(resp))
+	case narrowsTo(tc, target, semtypes.STRING):
+		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
 	case semtypes.IsSubtype(tc, target, semtypes.Union(semtypes.XML, semtypes.NIL)):
 		return unsupportedXMLTarget("")
-	case semtypes.IsSubtype(tc, target, types.byteArrTy):
-		return binaryValue(ctx, types, resp)
-	case semtypes.IsSubtype(tc, target, semtypes.Union(types.byteArrTy, semtypes.NIL)):
-		return nilOnEmptyBody(tc, target, binaryValue(ctx, types, resp))
+	case narrowsTo(tc, target, types.byteArrTy):
+		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
 	default:
 		return jsonPayloadBuilder(ctx, types, resp, target)
 	}
@@ -200,14 +212,10 @@ func textPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	target semtypes.SemType, contentType string) values.BalValue {
 	tc := ctx.TypeCtx()
 	switch {
-	case semtypes.IsSubtype(tc, target, semtypes.STRING):
-		return textValue(resp)
-	case admits(tc, target, semtypes.STRING):
-		return nilOnEmptyBody(tc, target, textValue(resp))
-	case semtypes.IsSubtype(tc, target, types.byteArrTy):
-		return binaryValue(ctx, types, resp)
-	case admits(tc, target, types.byteArrTy):
-		return nilOnEmptyBody(tc, target, binaryValue(ctx, types, resp))
+	case narrowsTo(tc, target, semtypes.STRING), admits(tc, target, semtypes.STRING):
+		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
+	case narrowsTo(tc, target, types.byteArrTy), admits(tc, target, types.byteArrTy):
+		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
 	default:
 		return incompatibleTargetError(tc, target, contentType)
 	}
@@ -217,14 +225,10 @@ func formPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	target semtypes.SemType, contentType string) values.BalValue {
 	tc := ctx.TypeCtx()
 	switch {
-	case semtypes.IsSubtype(tc, target, types.mapStringTy):
-		return formDataValue(ctx, types, resp)
-	case admits(tc, target, types.mapStringTy):
-		return nilOnEmptyBody(tc, target, formDataValue(ctx, types, resp))
-	case semtypes.IsSubtype(tc, target, semtypes.STRING):
-		return textValue(resp)
-	case admits(tc, target, semtypes.STRING):
-		return nilOnEmptyBody(tc, target, textValue(resp))
+	case narrowsTo(tc, target, types.mapStringTy), admits(tc, target, types.mapStringTy):
+		return bindAtTarget(tc, formDataValue(ctx, types, resp), types.mapStringTy, target)
+	case narrowsTo(tc, target, semtypes.STRING), admits(tc, target, semtypes.STRING):
+		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
 	default:
 		return incompatibleTargetError(tc, target, contentType)
 	}
@@ -234,13 +238,44 @@ func blobPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	target semtypes.SemType, contentType string) values.BalValue {
 	tc := ctx.TypeCtx()
 	switch {
-	case semtypes.IsSubtype(tc, target, types.byteArrTy):
-		return binaryValue(ctx, types, resp)
-	case admits(tc, target, types.byteArrTy):
-		return nilOnEmptyBody(tc, target, binaryValue(ctx, types, resp))
+	case narrowsTo(tc, target, types.byteArrTy), admits(tc, target, types.byteArrTy):
+		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
 	default:
 		return incompatibleTargetError(tc, target, contentType)
 	}
+}
+
+// narrowsTo reports whether target, setting aside a nil member it may have, is a subtype of
+// builderTy — the type a payload builder produces. Such a target selects that builder even
+// though it may be strictly narrower than what the builder yields: an enum or a singleton
+// against `string`, a closed all-string record against `map<string>`, a tuple or a
+// fixed-length array against `byte[]`. Ignoring the nil member is what lets the nilable form
+// of each of those (`Colour?`, `Form?`) reach the builder; `()` alone does not, and is handled
+// before any builder is chosen.
+func narrowsTo(tc semtypes.Context, target, builderTy semtypes.SemType) bool {
+	bare := semtypes.Diff(target, semtypes.NIL)
+	return !semtypes.IsEmpty(tc, bare) && semtypes.IsSubtype(tc, bare, builderTy)
+}
+
+// bindAtTarget turns a payload built at the builder's own type — `string`, `map<string>` or
+// `byte[]` — into the value the target asks for: an empty body becomes `()` when the target is
+// nilable, and a target narrower than builderTy is converted with the routine the json builder
+// uses, so a body that does not fit it fails instead of reaching the call site as a value
+// outside its declared type. A target that builderTy already fits needs no conversion, which
+// keeps the common case free of a clone.
+func bindAtTarget(tc semtypes.Context, payload values.BalValue, builderTy, target semtypes.SemType) values.BalValue {
+	payload = nilOnEmptyBody(tc, target, payload)
+	if payload == nil || admits(tc, target, builderTy) {
+		return payload
+	}
+	if _, failed := payload.(*values.Error); failed {
+		return payload
+	}
+	bound, convErr := values.CloneWithType(tc, payload, target)
+	if convErr != nil {
+		return payloadBindingError(convErr.Message, convErr)
+	}
+	return bound
 }
 
 // jsonPayloadBuilder parses the body as JSON and converts it to the target type with the
@@ -266,20 +301,27 @@ func jsonPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	}
 	bound, convErr := values.CloneWithType(tc, payload, target)
 	if convErr != nil {
-		return values.NewError(semtypes.ERROR, "Payload binding failed: "+convErr.Message, convErr,
-			"PayloadBindingClientError", nil)
+		return payloadBindingError(convErr.Message, convErr)
 	}
 	return bound
+}
+
+// payloadBindingError builds a binding failure. The message prefix and the error type name
+// match jBallerina's PayloadBindingClientError, though the distinct type itself is not declared
+// in this implementation.
+func payloadBindingError(message string, cause *values.Error) *values.Error {
+	return values.NewError(semtypes.ERROR, "Payload binding failed: "+message, cause,
+		"PayloadBindingClientError", nil)
 }
 
 // unsupportedXMLTarget reports that xml binding is unavailable. The runtime has no xml type,
 // so neither an xml target nor an xml response body can be bound.
 func unsupportedXMLTarget(contentType string) *values.Error {
 	if contentType == "" {
-		return values.NewErrorWithMessage("payload binding failed: xml target types are not supported")
+		return payloadBindingError("xml target types are not supported", nil)
 	}
-	return values.NewErrorWithMessage("payload binding failed: '" + contentType +
-		"' responses are not supported because the xml type is not available")
+	return payloadBindingError("'"+contentType+
+		"' responses are not supported because the xml type is not available", nil)
 }
 
 func incompatibleTargetError(tc semtypes.Context, target semtypes.SemType, contentType string) *values.Error {
@@ -388,8 +430,7 @@ func formDataValue(ctx *extern.Context, types *httpTypes, resp *values.Object) v
 	}
 	parsed, parseErr := url.ParseQuery(string(body))
 	if parseErr != nil {
-		return values.NewError(semtypes.ERROR, "Payload binding failed: "+parseErr.Error(), nil,
-			"PayloadBindingClientError", nil)
+		return payloadBindingError(parseErr.Error(), nil)
 	}
 	tc := ctx.TypeCtx()
 	out := values.NewMap(types.mapStringTy, semtypes.ToMappingAtomicType(tc, types.mapStringTy), false, nil)

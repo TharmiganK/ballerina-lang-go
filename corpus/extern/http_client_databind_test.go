@@ -53,6 +53,16 @@ func databindServer() *httptest.Server {
 		"/missing":     {404, "application/json", `{"error": "gone"}`},
 		"/gone-blob":   {410, "application/octet-stream", "\x09"},
 		"/boom":        {500, "text/plain", "kaboom"},
+		// A valid enum member, for a target that is a proper subtype of string.
+		"/colour": {200, "text/plain", "red"},
+		// The same, with no Content-Type, so the builder comes from the target type.
+		"/no-type-colour": {200, "", "red"},
+		// Two bytes, the length a [byte, byte] tuple target accepts.
+		"/blob2": {200, "application/octet-stream", "\x01\x02"},
+		// 499 is nginx's client-closed-request code and has no registered reason phrase.
+		"/nginx-499": {499, "text/plain", "closed"},
+		// A status error carrying a JSON content type but no body at all.
+		"/empty-json-401": {401, "application/json", ""},
 		// An absent Content-Type sends the target type to builderFromType.
 		"/no-type":       {200, "", "untyped body"},
 		"/no-type-empty": {200, "", ""},

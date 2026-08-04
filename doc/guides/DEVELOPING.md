@@ -78,7 +78,7 @@ Run the root module's tests:
 go test ./...
 ```
 
-The repository has three Go modules (root, `compiler-tools/tree-gen`, `compiler-tools/benchmark`). To test all of them the way CI does — including coverage and the race detector:
+The repository has four Go modules (root, `compiler-tools/tree-gen`, `compiler-tools/benchmark`, `compiler-tools/benchmark-http`). To test all of them the way CI does — including coverage and the race detector:
 
 ```bash
 python3 .github/scripts/run_native_tests.py --with-coverage
@@ -101,10 +101,10 @@ Prefer adding a corpus test over a unit test when validating interpreter behavio
 Refresh golden output after an intentional change:
 
 ```bash
-go test ./ast/... ./bir/... ./parser/... ./semantics/... ./desugar/... ./corpus/... -update
+go test ./ast/... ./bir/... ./parser/... ./semantics/... ./desugar/... ./corpus ./corpus/extern/... -update
 ```
 
-Only those packages register the `-update` flag; running it against `./...` makes the remaining test binaries fail with `flag provided but not defined: -update`.
+These are the packages that register the `-update` flag for refreshing golden output. `corpus/package-resolution` is deliberately left out of the command above: its tests check fixed fixtures rather than golden output, so it doesn't register `-update` — folding it in via a recursive `./corpus/...` would fail with `flag provided but not defined: -update`. Running `-update` against `./...` fails the same way for every other package that doesn't register it (a few unrelated packages, like `projects/centralclient`, do register their own `-update` flag for different fixtures, but that doesn't change which packages participate in golden-output refresh).
 
 ### Benchmarks
 

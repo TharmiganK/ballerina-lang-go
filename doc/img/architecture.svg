@@ -115,7 +115,7 @@
   <rect class="pill" x="272" y="424" width="98" height="18" rx="5"/>
   <text class="pilltx" x="282" y="436">TYPE SYSTEM</text>
   <rect class="card" x="378" y="422" width="80" height="22" rx="6"/><text class="cmono" x="418" y="437" text-anchor="middle">semtypes/</text>
-  <text class="cap" x="466" y="437">cross-cuts analysis onward and the runtime</text>
+  <text class="cap" x="466" y="437">cross-cuts ast/ onward and the runtime</text>
 
   <line class="ln" x1="726" y1="250" x2="748" y2="250" marker-end="url(#a)"/>
   <text class="alab" x="729" y="242">BIR</text>
@@ -180,9 +180,9 @@
   <rect class="card" x="1322" y="276" width="46" height="26" rx="6"/><text class="cmono" x="1345" y="293" text-anchor="middle">time</text>
   <rect class="card" x="1376" y="276" width="46" height="26" rx="6"/><text class="cmono" x="1399" y="293" text-anchor="middle">http</text>
   <rect class="card" x="1430" y="276" width="62" height="26" rx="6"/><text class="cmono" x="1461" y="293" text-anchor="middle">signals</text>
-  <text class="cap" x="1178" y="330">The six fields of pal.Platform. Only palnative</text>
-  <text class="cap" x="1178" y="346">exists today; the seam is what would let a</text>
-  <text class="cap" x="1178" y="362">non-native host be swapped in.</text>
+  <text class="cap" x="1178" y="330">The six fields of pal.Platform. palnative is the</text>
+  <text class="cap" x="1178" y="346">only implementation here; the Ballerina Playground</text>
+  <text class="cap" x="1178" y="362">implements one for the browser (pal_wasm.go).</text>
 
   <!-- ============================================================ E. Ballerina Central -->
   <rect class="p-grey" x="28" y="522" width="200" height="130" rx="14"/>

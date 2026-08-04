@@ -62,7 +62,7 @@
   <text class="sub" x="28" y="68">Coloured boxes are Go packages inside the single static bal binary; grey boxes sit outside it. Solid arrows are in-process calls, the dashed arrow is a network call.</text>
 
   <!-- ============================================================ A. Developer interface -->
-  <rect class="p-grey" x="28" y="110" width="200" height="310" rx="14"/>
+  <rect class="p-grey" x="28" y="110" width="200" height="344" rx="14"/>
   <g class="ic s-grey" transform="translate(44,124) scale(.78)">
     <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
   </g>
@@ -75,8 +75,9 @@
   <rect class="card" x="44" y="246" width="168" height="28" rx="6"/><text class="cmono" x="58" y="264">bal new</text>
   <rect class="card" x="44" y="280" width="168" height="28" rx="6"/><text class="cmono" x="58" y="298">bal run</text>
   <rect class="card" x="44" y="314" width="168" height="28" rx="6"/><text class="cmono" x="58" y="332">bal pack</text>
-  <rect class="card" x="44" y="348" width="168" height="28" rx="6"/><text class="cmono" x="58" y="366">bal version</text>
-  <text class="cap" x="44" y="396">The only entry point.</text>
+  <rect class="card" x="44" y="348" width="168" height="28" rx="6"/><text class="cmono" x="58" y="366">bal build</text>
+  <rect class="card" x="44" y="382" width="168" height="28" rx="6"/><text class="cmono" x="58" y="400">bal version</text>
+  <text class="cap" x="44" y="430">The only entry point.</text>
 
   <line class="ln" x1="228" y1="250" x2="250" y2="250" marker-end="url(#a)"/>
 
@@ -192,9 +193,9 @@
   <rect class="card" x="44" y="574" width="152" height="24" rx="6"/><text class="cmono" x="120" y="590" text-anchor="middle">.bala registry</text>
   <text class="cap" x="44" y="622">Remote. The only host the</text>
   <text class="cap" x="44" y="636">toolchain itself talks to.</text>
-  <line class="dash" x1="128" y1="518" x2="128" y2="426" marker-end="url(#a)"/>
-  <text class="alab" x="136" y="466">fetch deps</text>
-  <text class="pd" x="136" y="480">projects/centralclient</text>
+  <line class="dash" x1="128" y1="518" x2="128" y2="460" marker-end="url(#a)"/>
+  <text class="alab" x="136" y="484">fetch deps</text>
+  <text class="pd" x="136" y="498">projects/centralclient</text>
 
   <!-- ============================================================ F. Library -->
   <rect class="p-amb" x="256" y="522" width="878" height="162" rx="14"/>

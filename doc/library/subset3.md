@@ -2,7 +2,8 @@
 
 Subset 3 extends the released [subset 2](subset2.md) with stream-based file
 read/write additions and byte channels in the `io` module, building on the
-language's new `stream` type.
+language's new `stream` type, and with client-side response data binding for
+the `http` module.
 
 ## [io](https://github.com/ballerina-platform/module-ballerina-io/blob/master/docs/spec/spec.md)
 
@@ -74,3 +75,70 @@ CSV/record channels are out of scope for this subset and remain
 
 The `LineStream` and `BlockStream` public helper classes are not declared;
 `lineStream()` and `blockStream()` return plain stream values instead.
+
+## [http](https://github.com/ballerina-platform/module-ballerina-http/blob/master/docs/spec/spec.md)
+
+The client remote methods now bind the response payload directly to the
+contextually expected type instead of only returning an `http:Response`.
+
+### Client — response data binding
+
+Every remote method except `head` takes a trailing `targetType` parameter with an
+inferred typedesc default:
+
+```ballerina
+remote isolated function get(string path, map<string|string[]>? headers = (),
+        TargetType targetType = <>) returns targetType|error;
+```
+
+`TargetType` is `typedesc<http:Response|anydata>`. The target is normally inferred
+from the contextually expected type, so a plain assignment is enough:
+
+```ballerina
+http:Client c = check new ("https://example.com");
+
+Person p = check c->get("/person");        // binds the JSON body to a record
+string text = check c->get("/greeting");   // binds a text/plain body
+http:Response r = check c->get("/raw");    // no binding — the raw response
+```
+
+`var` provides no contextually expected type, so the target must be passed
+explicitly in that position:
+
+```ballerina
+var p = check c->get("/person", targetType = Person);
+```
+
+| Feature | Notes |
+|---|---|
+| `http:Response` target | Returned untouched, including for 4xx and 5xx responses. Any union containing `http:Response` behaves the same way |
+| Status code mapping | With any other target, a 4xx or 5xx response returns an `error` whose message is the status code's reason phrase; 1xx, 2xx, and 3xx responses are bound normally |
+| `()` target | The payload is read and discarded |
+| Nilable targets | An absent (empty) payload binds to `()` |
+
+The builder is selected from the response `Content-Type`, matching jBallerina's
+media-type patterns. When the header is absent or unrecognised, the target type
+alone selects the builder.
+
+| Content-Type | Supported target types |
+|---|---|
+| `application/json`, `text/json`, and `+json` / `.json` / `-json` suffixes | `json`, `map<json>`, records, record arrays, arrays, maps, and scalars (`int`, `float`, `decimal`, `boolean`, `string`), plus their nilable forms |
+| `text/plain` | `string`, `byte[]`, and their nilable forms |
+| `application/octet-stream` | `byte[]` and `byte[]?` |
+| `application/x-www-form-urlencoded` | `map<string>`, `string`, and their nilable forms; repeated keys keep the last value |
+| absent or unrecognised | `string`, `byte[]`, and their nilable forms are read directly; every other target is parsed as JSON |
+
+A target that does not fit the response media type returns an `error` — for
+example a record target for a `text/plain` response. JSON conversion uses the
+same routine as `lang.value:fromJsonWithType`.
+
+Not covered in this subset: `xml` targets and `application/xml` responses (the
+runtime has no `xml` type), `stream<http:SseEvent, error?>` targets, status code
+response records (`http:StatusCodeClient`, `getStatusCodeRecord()`), and the
+`validation` / `laxDataBinding` client configuration flags.
+
+### Response
+
+| Feature | Notes |
+|---|---|
+| `getTextPayload` | Now returns `string\|error`, matching jBallerina's signature; extraction failures (for example exceeding `responseLimits.maxEntityBodySize`) surface as an `error` instead of being returned through a `string` signature |

@@ -1,0 +1,21 @@
+-- stdout --
+4xx: Not Found
+5xx: Internal Server Error
+404
+moved body
+Payload binding failed: '7' value cannot be converted to '{| age: int, name: string, never... |}'
+failed to parse JSON payload: invalid character 'o' in literal null (expecting 'u')
+incompatible '{| age: int, name: string, never... |}' found for 'text/plain' mime type
+payload binding failed: 'application/xml' responses are not supported because the xml type is not available
+incompatible 'string' found for 'application/octet-stream' mime type
+incompatible 'int' found for 'application/x-www-form-urlencoded' mime type
+Payload binding failed: invalid URL escape "%zz"
+Gone
+true
+true
+true
+true
+true
+failed to parse JSON payload: EOF
+true
+-- stderr --

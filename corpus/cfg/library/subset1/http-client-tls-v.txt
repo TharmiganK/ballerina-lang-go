@@ -14,7 +14,8 @@
                     (literal enable)
                     (literal false)))))))))))
     (var-def
-      (variable r1 (expr
+      (variable r1 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c1) (
@@ -53,7 +54,8 @@
                     (literal handshakeTimeout)
                     (literal 10)))))))))))
     (var-def
-      (variable r2 (expr
+      (variable r2 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c2) (
@@ -87,7 +89,8 @@
                           (literal TLSv1.2)
                           (literal TLSv1.3))))))))))))))
     (var-def
-      (variable r3 (expr
+      (variable r3 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c3) (

@@ -52,7 +52,8 @@
             (simple-var-ref $desugar$3)
             (simple-var-ref $desugar$4)
             (simple-var-ref $desugar$5)
-            (simple-var-ref $desugar$6))))))
+            (simple-var-ref $desugar$6)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$7))
@@ -60,7 +61,8 @@
           (return
             (simple-var-ref $desugar$7))) ())
       (var-def
-        (variable r (expr
+        (variable r (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$7))))
       (expression-stmt
         (invocation io println (
@@ -74,7 +76,8 @@
             (literal /post)
             (literal {"key":"value"})
             (literal <nil>)
-            (literal application/json))))))
+            (literal application/json)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$8))
@@ -82,7 +85,8 @@
           (return
             (simple-var-ref $desugar$8))) ())
       (var-def
-        (variable r2 (expr
+        (variable r2 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$8))))
       (expression-stmt
         (invocation io println (
@@ -119,7 +123,8 @@
             (simple-var-ref $desugar$9)
             (simple-var-ref $desugar$10)
             (simple-var-ref $desugar$11)
-            (simple-var-ref $desugar$12))))))
+            (simple-var-ref $desugar$12)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$13))
@@ -127,7 +132,8 @@
           (return
             (simple-var-ref $desugar$13))) ())
       (var-def
-        (variable r3 (expr
+        (variable r3 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$13))))
       (expression-stmt
         (invocation io println (

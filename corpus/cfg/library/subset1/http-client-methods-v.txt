@@ -7,7 +7,8 @@
           (new (
             (literal https://example.com) <default>))))))
     (var-def
-      (variable r1 (expr
+      (variable r1 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call put expr:
             (simple-var-ref c) (
@@ -18,7 +19,8 @@
         (field-based-access statusCode
           (simple-var-ref r1)))))
     (var-def
-      (variable r2 (expr
+      (variable r2 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call patch expr:
             (simple-var-ref c) (
@@ -32,7 +34,8 @@
         (field-based-access statusCode
           (simple-var-ref r2)))))
     (var-def
-      (variable r3 (expr
+      (variable r3 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call delete expr:
             (simple-var-ref c) (
@@ -42,7 +45,8 @@
         (field-based-access statusCode
           (simple-var-ref r3)))))
     (var-def
-      (variable r4 (expr
+      (variable r4 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call head expr:
             (simple-var-ref c) (
@@ -52,7 +56,8 @@
         (field-based-access statusCode
           (simple-var-ref r4)))))
     (var-def
-      (variable r5 (expr
+      (variable r5 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call options expr:
             (simple-var-ref c) (
@@ -62,7 +67,8 @@
         (field-based-access statusCode
           (simple-var-ref r5)))))
     (var-def
-      (variable r6 (expr
+      (variable r6 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call execute expr:
             (simple-var-ref c) (

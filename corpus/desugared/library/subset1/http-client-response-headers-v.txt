@@ -41,7 +41,8 @@
           (remote-method-call get expr:
             (simple-var-ref c) (
             (simple-var-ref $desugar$3)
-            (simple-var-ref $desugar$4))))))
+            (simple-var-ref $desugar$4)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$5))

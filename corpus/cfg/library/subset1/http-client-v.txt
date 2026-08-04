@@ -8,7 +8,8 @@
             (literal https://example.com)
             (mapping-constructor-expr)))))))
     (var-def
-      (variable r1 (expr
+      (variable r1 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c1) (
@@ -34,7 +35,8 @@
                     (literal enabled)
                     (literal false)))))))))))
     (var-def
-      (variable r2 (expr
+      (variable r2 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c2) (
@@ -45,8 +47,9 @@
           (simple-var-ref r2)))))
     (expression-stmt
       (invocation io println (
-        (invocation getTextPayload expr:
-          (simple-var-ref r2) ()))))
+        (checked-expr
+          (invocation getTextPayload expr:
+            (simple-var-ref r2) ())))))
     (var-def
       (variable c3 (type
         (user-defined-type http Client)) (expr
@@ -54,7 +57,8 @@
           (new (
             (literal https://example.com) <default>))))))
     (var-def
-      (variable r3 (expr
+      (variable r3 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c3) (
@@ -70,7 +74,8 @@
           (new (
             (literal https://example.com) <default>))))))
     (var-def
-      (variable r4 (expr
+      (variable r4 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c4) (
@@ -94,7 +99,8 @@
                 (literal httpVersion)
                 (literal 1.1)))))))))
     (var-def
-      (variable r5 (expr
+      (variable r5 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c5) (
@@ -114,7 +120,8 @@
                 (literal httpVersion)
                 (literal 2.0)))))))))
     (var-def
-      (variable r6 (expr
+      (variable r6 (type
+        (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c6) (

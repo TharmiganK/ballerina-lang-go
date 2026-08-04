@@ -52,7 +52,8 @@
             (simple-var-ref $desugar$3)
             (simple-var-ref $desugar$4)
             (simple-var-ref $desugar$5)
-            (simple-var-ref $desugar$6))))))
+            (simple-var-ref $desugar$6)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$7))
@@ -60,7 +61,8 @@
           (return
             (simple-var-ref $desugar$7))) ())
       (var-def
-        (variable r1 (expr
+        (variable r1 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$7))))
       (expression-stmt
         (invocation io println (
@@ -94,7 +96,8 @@
             (simple-var-ref $desugar$8)
             (simple-var-ref $desugar$9)
             (simple-var-ref $desugar$10)
-            (simple-var-ref $desugar$11))))))
+            (simple-var-ref $desugar$11)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$12))
@@ -102,7 +105,8 @@
           (return
             (simple-var-ref $desugar$12))) ())
       (var-def
-        (variable r2 (expr
+        (variable r2 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$12))))
       (expression-stmt
         (invocation io println (
@@ -134,7 +138,8 @@
             (simple-var-ref $desugar$13)
             (simple-var-ref $desugar$14)
             (simple-var-ref $desugar$15)
-            (simple-var-ref $desugar$16))))))
+            (simple-var-ref $desugar$16)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$17))
@@ -142,7 +147,8 @@
           (return
             (simple-var-ref $desugar$17))) ())
       (var-def
-        (variable r3 (expr
+        (variable r3 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$17))))
       (expression-stmt
         (invocation io println (
@@ -169,7 +175,8 @@
           (return
             (simple-var-ref $desugar$20))) ())
       (var-def
-        (variable r4 (expr
+        (variable r4 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$20))))
       (expression-stmt
         (invocation io println (
@@ -188,7 +195,8 @@
           (remote-method-call options expr:
             (simple-var-ref c) (
             (simple-var-ref $desugar$21)
-            (simple-var-ref $desugar$22))))))
+            (simple-var-ref $desugar$22)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$23))
@@ -196,7 +204,8 @@
           (return
             (simple-var-ref $desugar$23))) ())
       (var-def
-        (variable r5 (expr
+        (variable r5 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$23))))
       (expression-stmt
         (invocation io println (
@@ -233,7 +242,8 @@
             (simple-var-ref $desugar$25)
             (simple-var-ref $desugar$26)
             (simple-var-ref $desugar$27)
-            (simple-var-ref $desugar$28))))))
+            (simple-var-ref $desugar$28)
+            (typedesc-expr))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$29))
@@ -241,7 +251,8 @@
           (return
             (simple-var-ref $desugar$29))) ())
       (var-def
-        (variable r6 (expr
+        (variable r6 (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$29))))
       (expression-stmt
         (invocation io println (

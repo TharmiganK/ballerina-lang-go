@@ -207,7 +207,7 @@ func runPack(cmd *cobra.Command, args []string, opts *packOptions) error {
 		// to load it) — pack just that member.
 		memberProject := findBuildProjectByPath(workspace, workspaceRoot, absPath)
 		if memberProject == nil {
-			return packError(stderr, "no package found at path %s within workspace %s", absPath, workspaceRoot)
+			return packError("no package found at path %s within workspace %s", absPath, workspaceRoot)
 		}
 		project = memberProject
 	}

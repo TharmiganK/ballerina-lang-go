@@ -127,12 +127,24 @@ func runPush(cmd *cobra.Command, args []string, opts *pushOptions) error {
 		return pushError("%w", err)
 	}
 
-	if err := os.RemoveAll(destDir); err != nil {
-		return pushError("remove existing destination %q: %w", destDir, err)
+	// Move any existing destination aside instead of deleting it outright:
+	// if the rename below fails, the backup is restored, so a failure never
+	// loses both the old destDir and the newly-extracted stagingDir.
+	backupDir := stagingDir + ".bak"
+	if _, err := os.Stat(destDir); err == nil {
+		if err := os.Rename(destDir, backupDir); err != nil {
+			return pushError("back up existing destination %q: %w", destDir, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return pushError("stat destination %q: %w", destDir, err)
 	}
 	if err := os.Rename(stagingDir, destDir); err != nil {
+		if _, statErr := os.Stat(backupDir); statErr == nil {
+			_ = os.Rename(backupDir, destDir)
+		}
 		return pushError("finalize destination %q: %w", destDir, err)
 	}
+	_ = os.RemoveAll(backupDir)
 
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Pushed %s to %s\n", balaPath, destDir)
 	return nil

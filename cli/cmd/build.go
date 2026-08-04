@@ -99,10 +99,8 @@ func createBuildCmd() *cobra.Command {
 	return cmd
 }
 
-func buildError(w io.Writer, format string, args ...any) error {
-	err := fmt.Errorf(format, args...)
-	printErrorTo(w, err, "build [<package-dir>]", false)
-	return err
+func buildError(format string, args ...any) error {
+	return usageError("build [<package-dir>]", format, args...)
 }
 
 func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
@@ -133,7 +131,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 		if opts.logFile != "" {
 			logWriter, err := os.Create(opts.logFile)
 			if err != nil {
-				return buildError(stderr, "error creating log file %s: %w", opts.logFile, err)
+				return buildError("error creating log file %s: %w", opts.logFile, err)
 			}
 			defer func() { _ = logWriter.Close() }()
 			debugcommon.InitDebug(debugFlags, logWriter)
@@ -149,7 +147,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return buildError(stderr, "invalid project path %q: %w", path, err)
+		return buildError("invalid project path %q: %w", path, err)
 	}
 
 	// A single .bal file loads like bal run loads one: fsys rooted at the
@@ -158,7 +156,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 	loadPath := "."
 	if !info.IsDir() {
 		if filepath.Ext(path) != ".bal" {
-			return buildError(stderr, "%q is not a package directory or a .bal file", path)
+			return buildError("%q is not a package directory or a .bal file", path)
 		}
 		baseDir = filepath.Dir(path)
 		loadPath = filepath.Base(path)
@@ -166,7 +164,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 
 	absBaseDir, err := filepath.Abs(baseDir)
 	if err != nil {
-		return buildError(stderr, "resolve absolute path: %w", err)
+		return buildError("resolve absolute path: %w", err)
 	}
 
 	// Detect whether absBaseDir sits inside a workspace without being its
@@ -186,7 +184,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 
 	ballerinaEnvPath, err := getBallerinaEnvPath()
 	if err != nil {
-		return buildError(stderr, "resolve ballerina env path: %w", err)
+		return buildError("resolve ballerina env path: %w", err)
 	}
 
 	fsys := os.DirFS(effectiveBaseDir)
@@ -195,13 +193,13 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 		BuildOptions:   &buildOpts,
 	})
 	if err != nil {
-		return buildError(stderr, "failed to load package: %w", err)
+		return buildError("failed to load package: %w", err)
 	}
 
 	if diagResult := result.Diagnostics(); diagResult.HasErrors() || diagResult.HasWarnings() {
 		printDiagnostics(fsys, stderr, diagResult, !isTerminal(), diagnostics.NewDiagnosticEnv())
 		if diagResult.HasErrors() {
-			return buildError(stderr, "package loading reported errors")
+			return buildError("package loading reported errors")
 		}
 	}
 
@@ -215,7 +213,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 			// bal run's disambiguation. -o is fine here: exactly one output.
 			memberProject := findBuildProjectByPath(workspace, workspaceRoot, absBaseDir)
 			if memberProject == nil {
-				return buildError(stderr, "no package found at path %s within workspace %s", absBaseDir, workspaceRoot)
+				return buildError("no package found at path %s within workspace %s", absBaseDir, workspaceRoot)
 			}
 			return buildOneProject(cmd, opts, stderr, fsys, memberProject, absBaseDir)
 		}
@@ -223,7 +221,7 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 		// -o names a single explicit output path, which doesn't make sense
 		// when building every member of a workspace to its own executable.
 		if opts.output != "" {
-			return buildError(stderr, "-o cannot be used when building a workspace; run bal build <package-path> to build a single package with a custom output path")
+			return buildError("-o cannot be used when building a workspace; run bal build <package-path> to build a single package with a custom output path")
 		}
 
 		for _, bp := range workspace.Projects() {
@@ -248,13 +246,13 @@ func runBuild(cmd *cobra.Command, args []string, opts *buildOptions) error {
 				BuildOptions:   &buildOpts,
 			})
 			if err != nil {
-				return buildError(stderr, "failed to load package: %w", err)
+				return buildError("failed to load package: %w", err)
 			}
 
 			memberWorkspace := memberResult.Project().(*projects.WorkspaceProject)
 			memberProject := findBuildProjectByPath(memberWorkspace, absBaseDir, memberDir)
 			if memberProject == nil {
-				return buildError(stderr, "no package found at path %s within workspace %s", memberDir, absBaseDir)
+				return buildError("no package found at path %s within workspace %s", memberDir, absBaseDir)
 			}
 
 			// Stop at the first member that fails, matching jballerina
@@ -280,7 +278,7 @@ func buildOneProject(cmd *cobra.Command, opts *buildOptions, stderr io.Writer, f
 	if cd := compilation.DiagnosticResult(); cd.HasErrors() || cd.HasWarnings() {
 		printDiagnostics(fsys, stderr, cd, !isTerminal(), compilation.DiagnosticEnv())
 		if cd.HasErrors() {
-			return buildError(stderr, "compilation failed; executable not produced")
+			return buildError("compilation failed; executable not produced")
 		}
 	}
 
@@ -293,7 +291,7 @@ func buildOneProject(cmd *cobra.Command, opts *buildOptions, stderr io.Writer, f
 	backend := projects.NewBallerinaBackend(compilation)
 	birPkgs := backend.BIRPackages()
 	if len(birPkgs) == 0 {
-		return buildError(stderr, "BIR generation failed: no BIR package produced")
+		return buildError("BIR generation failed: no BIR package produced")
 	}
 
 	tyEnv := project.Environment().TypeEnv()
@@ -321,30 +319,30 @@ func buildOneProject(cmd *cobra.Command, opts *buildOptions, stderr io.Writer, f
 		// RuntimeStubPath is a host-platform binary; reject it when cross-compiling.
 		if RuntimeStubPath != "" {
 			if host := executable.HostPlatform(); targetPlatform != host {
-				return buildError(stderr,
+				return buildError(
 					"runtime stub override cannot be used when cross-compiling to %s/%s",
 					targetPlatform.OS, targetPlatform.Arch)
 			}
 		}
 		distDir, dErr := executable.DistributionDir()
 		if dErr != nil {
-			return buildError(stderr, "resolve bal distribution directory: %w", dErr)
+			return buildError("resolve bal distribution directory: %w", dErr)
 		}
 		sp, rErr := executable.ResolveStub(targetPlatform, distDir, RuntimeStubPath)
 		if rErr != nil {
-			return buildError(stderr, "%w", rErr)
+			return buildError("%w", rErr)
 		}
 		stubPath = sp
 	} else {
 		sp, bErr := buildNativeStub(stderr, projectDir, nativeBalaProjects, targetPlatform)
 		if bErr != nil {
-			return buildError(stderr, "building native interpreter stub: %w", bErr)
+			return buildError("building native interpreter stub: %w", bErr)
 		}
 		stubPath = sp
 	}
 
 	if err := executable.Pack(stubPath, birPkgs, tyEnv, outPath); err != nil {
-		return buildError(stderr, "write executable: %w", err)
+		return buildError("write executable: %w", err)
 	}
 
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", outPath)

@@ -17,9 +17,9 @@
 package extern_test
 
 import (
-	"bufio"
 	"fmt"
-	"net"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -104,41 +104,47 @@ func TestHttpClientDataBindErrorsLocal(t *testing.T) {
 	runExtern(t, fileCase("http-client-databind-errors-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
 }
 
-// truncatingServer promises a Content-Length it never delivers, then resets the connection,
-// so reading the response body fails.
-func truncatingServer(t *testing.T) *httptest.Server {
-	t.Helper()
-	contentTypes := map[string]string{
-		"/trunc-json": "application/json",
-		"/trunc-text": "text/plain",
-		"/trunc-blob": "application/octet-stream",
-		"/trunc-form": "application/x-www-form-urlencoded",
-		"/trunc-404":  "application/json",
+// truncatingServer declares a Content-Length it does not deliver, so the transport closes the
+// connection early and reading the response body fails with an unexpected EOF.
+//
+// Every body is a complete, valid payload for the target it is read into, and shorter than the
+// declared length. Were the read to succeed, each one would bind cleanly, so the errors the
+// test asserts can only come from the read failure — not from a parser or conversion error
+// standing in for it.
+func truncatingServer() *httptest.Server {
+	type canned struct {
+		status      int
+		contentType string
+		body        string
 	}
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, _, err := w.(http.Hijacker).Hijack()
-		if err != nil {
-			t.Error(err)
+	routes := map[string]canned{
+		"/trunc-json": {200, "application/json", `{"name": "Alice"}`},
+		"/trunc-text": {200, "text/plain", "red"},
+		"/trunc-blob": {200, "application/octet-stream", "\x01\x02"},
+		"/trunc-form": {200, "application/x-www-form-urlencoded", "a=1"},
+		"/trunc-404":  {404, "application/json", `{"error": "gone"}`},
+	}
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		route, ok := routes[r.URL.Path]
+		if !ok {
+			w.WriteHeader(404)
 			return
 		}
-		status := "200 OK"
-		if r.URL.Path == "/trunc-404" {
-			status = "404 Not Found"
-		}
-		bw := bufio.NewWriter(conn)
-		_, _ = fmt.Fprintf(bw, "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: 100\r\n\r\n",
-			status, contentTypes[r.URL.Path])
-		_, _ = bw.WriteString("short")
-		_ = bw.Flush()
-		_ = conn.(*net.TCPConn).SetLinger(0)
-		_ = conn.Close()
+		w.Header().Set("Content-Type", route.contentType)
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(route.status)
+		_, _ = fmt.Fprint(w, route.body)
 	}))
+	// The short write is deliberate; keep the transport's complaint out of the test output.
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	server.Start()
+	return server
 }
 
 // TestHttpClientDataBindReadFailureLocal covers the read-failure path through each builder,
 // a narrow target (where the failure must survive the conversion step), and a status error.
 func TestHttpClientDataBindReadFailureLocal(t *testing.T) {
-	server := truncatingServer(t)
+	server := truncatingServer()
 	defer server.Close()
 	runExtern(t, fileCase("http-client-databind-read-failure-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
 }

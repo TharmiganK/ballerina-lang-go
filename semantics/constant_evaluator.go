@@ -22,11 +22,11 @@ import (
 	"math"
 	"strings"
 
-	"ballerina-lang-go/ast"
-	"ballerina-lang-go/decimal"
-	"ballerina-lang-go/model"
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/values"
+	"ballerina/ast"
+	"ballerina/decimal"
+	"ballerina/model"
+	"ballerina/semtypes"
+	"ballerina/values"
 )
 
 var errNotConstantExpression = errors.New("not a constant expression")
@@ -145,7 +145,7 @@ func constantMappingKey(key *ast.BLangMappingKey) (string, bool) {
 		value, ok := expr.Value.(string)
 		return value, ok
 	case *ast.BLangSimpleVarRef:
-		return expr.VariableName.Value, true
+		return expr.VariableName.GetValue(), true
 	default:
 		return "", false
 	}

@@ -24,33 +24,34 @@ import (
 	goruntime "runtime"
 	"strings"
 
-	interpsrc "ballerina-lang-go"
-	"ballerina-lang-go/bir"
-	"ballerina-lang-go/cli/internal/nativeexec"
-	"ballerina-lang-go/cli/internal/nativerunner"
-	debugcommon "ballerina-lang-go/common"
-	_ "ballerina-lang-go/lib/rt"
-	"ballerina-lang-go/lib/stdlibs"
-	"ballerina-lang-go/platform/palnative"
-	"ballerina-lang-go/projects"
-	"ballerina-lang-go/runtime"
-	"ballerina-lang-go/semtypes"
-	"ballerina-lang-go/tools/diagnostics"
+	interpsrc "ballerina"
+	"ballerina/bir"
+	"ballerina/cli/internal/nativeexec"
+	"ballerina/cli/internal/nativerunner"
+	debugcommon "ballerina/common"
+	_ "ballerina/lib/rt"
+	"ballerina/lib/stdlibs"
+	"ballerina/platform/palnative"
+	"ballerina/projects"
+	"ballerina/runtime"
+	"ballerina/semtypes"
+	"ballerina/tools/diagnostics"
 
 	"github.com/spf13/cobra"
 )
 
 var runOpts struct {
-	dumpTokens    bool
-	dumpST        bool
-	dumpAST       bool
-	dumpCFG       bool
-	dumpBIR       bool
-	traceRecovery bool
-	stats         bool
-	statsOneline  bool
-	logFile       string
-	format        string // Output format (dot, etc.)
+	dumpTokens       bool
+	dumpST           bool
+	dumpAST          bool
+	dumpRecoveredAST bool
+	dumpCFG          bool
+	dumpBIR          bool
+	traceRecovery    bool
+	stats            bool
+	statsOneline     bool
+	logFile          string
+	format           string // Output format (dot, etc.)
 }
 
 var runCmd = &cobra.Command{
@@ -89,6 +90,7 @@ func init() {
 	runCmd.Flags().BoolVar(&runOpts.dumpTokens, "dump-tokens", false, "Dump lexer tokens")
 	runCmd.Flags().BoolVar(&runOpts.dumpST, "dump-st", false, "Dump syntax tree")
 	runCmd.Flags().BoolVar(&runOpts.dumpAST, "dump-ast", false, "Dump abstract syntax tree")
+	runCmd.Flags().BoolVar(&runOpts.dumpRecoveredAST, "dump-recovered-ast", false, "Dump recovered abstract syntax tree")
 	runCmd.Flags().BoolVar(&runOpts.dumpCFG, "dump-cfg", false, "Dump control flow graph")
 	runCmd.Flags().BoolVar(&runOpts.dumpBIR, "dump-bir", false, "Dump Ballerina Intermediate Representation")
 	runCmd.Flags().BoolVar(&runOpts.traceRecovery, "trace-recovery", false, "Enable error recovery tracing")
@@ -104,6 +106,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	// buildOpts can be the single source of truth for all flag reads.
 	buildOpts := projects.NewBuildOptionsBuilder().
 		WithDumpAST(runOpts.dumpAST).
+		WithDumpRecoveredAST(runOpts.dumpRecoveredAST).
 		WithDumpBIR(runOpts.dumpBIR).
 		WithDumpCFG(runOpts.dumpCFG).
 		WithDumpCFGFormat(projects.ParseCFGFormat(runOpts.format)).
@@ -175,7 +178,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		printRunError(err)
 		return err
 	}
-	workspaceRoot := findWorkspaceRootForRun(absBaseDir)
+	workspaceRoot := findWorkspaceRoot(absBaseDir)
 
 	fsys := os.DirFS(baseDir)
 	loadPath := path
@@ -239,10 +242,10 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 
 	pkg := project.CurrentPackage()
 
-	// Detect native Go packages and re-execute via a custom interpreter if needed.
 	// Skipped when already running as a native interpreter (BAL_NATIVE=1).
 	if !nativeexec.InNativeMode() {
 		if err := execWithNativeRunner(pkg, project, absBaseDir); err != nil {
+			printRunError(err)
 			return err
 		}
 	}
@@ -275,9 +278,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		fmt.Fprint(os.Stderr, compilation.StatsReport())
 	}
 
-	// Dump BIR if requested — only include packages belonging to the root package
-	// (same org + package name), so all sub-modules are covered while external
-	// imports are excluded.
+	// Only dump BIR for packages belonging to the root package (same org+name).
 	tyEnv := project.Environment().TypeEnv()
 	if buildOpts.DumpBIR() {
 		prettyPrinter := bir.PrettyPrinter{}
@@ -334,33 +335,11 @@ func getBallerinaEnvPath() (string, error) {
 	return filepath.Join(userHome, projects.UserHomeDirName), nil
 }
 
-// findWorkspaceRootForRun walks up the directory tree from the given absolute path
-// to find a workspace root (a directory with Ballerina.toml containing [workspace]).
-// Returns empty string if not inside a workspace.
-func findWorkspaceRootForRun(startPath string) string {
-	current := startPath
-	for {
-		tomlPath := filepath.Join(current, projects.BallerinaTomlFile)
-		if info, err := os.Stat(tomlPath); err == nil && !info.IsDir() {
-			if isWorkspaceToml(tomlPath) {
-				return current
-			}
-		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			return ""
-		}
-		current = parent
-	}
-}
-
-// findBuildProjectByPath finds the BuildProject in a workspace whose source root
-// matches the given absolute path. The workspaceAbsRoot is the absolute path to
-// the workspace root on the local filesystem.
+// findBuildProjectByPath finds the workspace member whose absolute source
+// root matches absPath.
 func findBuildProjectByPath(workspace *projects.WorkspaceProject, workspaceAbsRoot, absPath string) *projects.BuildProject {
 	for _, bp := range workspace.Projects() {
-		// BuildProject.SourceRoot() is relative to the workspace fs.FS root.
-		// Join with the absolute workspace root to get the absolute path.
+		// SourceRoot() is relative to the workspace fs.FS root.
 		bpAbs := filepath.Join(workspaceAbsRoot, bp.SourceRoot())
 		if bpAbs == absPath {
 			return bp
@@ -369,10 +348,8 @@ func findBuildProjectByPath(workspace *projects.WorkspaceProject, workspaceAbsRo
 	return nil
 }
 
-// execWithNativeRunner checks whether any resolved dependency has Go-native
-// sources. If so, it builds a custom interpreter that embeds those sources and
-// re-executes the current command via that binary. On success this function never
-// returns — it calls os.Exit after the child process finishes.
+// execWithNativeRunner builds a custom interpreter embedding any native Go
+// dependencies and re-execs into it. On success it never returns (os.Exit).
 func execWithNativeRunner(pkg *projects.Package, project projects.Project, absBaseDir string) error {
 	resolution := pkg.Resolution()
 	nativeBalaProjects := findNativeGoBalaProjects(resolution, project.Environment())
@@ -384,7 +361,7 @@ func execWithNativeRunner(pkg *projects.Package, project projects.Project, absBa
 	if goruntime.GOOS == "windows" {
 		outBin += ".exe"
 	}
-	executor, err := chooseNativeExecutor(outBin)
+	executor, err := chooseNativeExecutor(outBin, "cli/cmd")
 	if err != nil {
 		return err
 	}
@@ -440,32 +417,29 @@ func findNativeGoBalaProjects(resolution *projects.PackageResolution, env *proje
 	return result
 }
 
-// isEmbeddedPackage reports whether the bala project is present in the
-// interpreter's bundled stdlib FS. Embedded packages have their Go native
-// code already compiled into the binary via lib/rt and do not require a
-// native interpreter rebuild.
+// isEmbeddedPackage reports whether bp is in the bundled stdlib FS — its
+// native code is already compiled in via lib/rt, so no rebuild is needed.
 func isEmbeddedPackage(bp *projects.BalaProject) bool {
 	desc := bp.CurrentPackage().Descriptor()
 	return stdlibs.Contains(desc.Org().Value(), desc.Name().Value(), desc.Version().String())
 }
 
-// chooseNativeExecutor returns a LocalExecutor when the Go toolchain and
-// interpreter source are available. Returns an error if Go is not installed or
-// the interpreter source cannot be located — native packages are not supported
-// without a local Go toolchain. Remote build support is reserved for WASM.
-func chooseNativeExecutor(outBin string) (nativeexec.NativeExecutor, error) {
+// chooseNativeExecutor returns a LocalExecutor targeting targetPackage
+// (e.g. "cli/cmd" for run's re-exec, "cli/internal/balrt" for build's slim stub),
+// erroring if Go isn't installed or the interpreter source can't be found.
+func chooseNativeExecutor(outBin, targetPackage string) (nativeexec.NativeExecutor, error) {
 	root, err := findInterpreterRoot()
 	if err != nil {
 		return nil, fmt.Errorf("native Go packages require the interpreter source: %w", err)
 	}
-	local := nativerunner.New(root, outBin)
+	local := nativerunner.NewForTarget(root, outBin, targetPackage)
 	if !local.Available() {
 		return nil, fmt.Errorf("native Go packages require Go %s or later to be installed", nativerunner.MinGoVersion)
 	}
 	return local, nil
 }
 
-// findInterpreterRoot returns the absolute path to the ballerina-lang-go source tree.
+// findInterpreterRoot returns the absolute path to the ballerina source tree.
 // It checks BALLERINA_SRC first, then falls back to the source tree embedded
 // in the binary (extracted to a cache directory on first use).
 func findInterpreterRoot() (string, error) {
@@ -473,9 +447,8 @@ func findInterpreterRoot() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Must be canonical: nativerunner's -overlay matches paths against go
-	// build -C's resolved form, so a symlinked root (e.g. os.TempDir() on
-	// macOS) silently breaks native package injection otherwise.
+	// Must be canonical: a symlinked root (e.g. macOS os.TempDir()) silently
+	// breaks nativerunner's -overlay path matching otherwise.
 	resolved, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return "", fmt.Errorf("resolving interpreter root %q: %w", root, err)
@@ -483,7 +456,7 @@ func findInterpreterRoot() (string, error) {
 	return resolved, nil
 }
 
-// locateInterpreterRoot finds the ballerina-lang-go source tree without
+// locateInterpreterRoot finds the ballerina source tree without
 // resolving symlinks; see findInterpreterRoot for why that resolution matters.
 func locateInterpreterRoot() (string, error) {
 	if src := os.Getenv("BALLERINA_SRC"); src != "" {
@@ -492,7 +465,7 @@ func locateInterpreterRoot() (string, error) {
 
 	cacheRoot, err := getBallerinaEnvPath()
 	if err != nil {
-		return "", fmt.Errorf("interpreter source not found; set BALLERINA_SRC to the ballerina-lang-go directory")
+		return "", fmt.Errorf("interpreter source not found; set BALLERINA_SRC to the ballerina directory")
 	}
 	return interpsrc.ExtractTo(cacheRoot, Version)
 }

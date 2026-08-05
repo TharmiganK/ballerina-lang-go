@@ -22,9 +22,9 @@ import (
 	"os"
 	"path/filepath"
 
-	debugcommon "ballerina-lang-go/common"
-	"ballerina-lang-go/projects"
-	"ballerina-lang-go/tools/diagnostics"
+	debugcommon "ballerina/common"
+	"ballerina/projects"
+	"ballerina/tools/diagnostics"
 
 	"github.com/spf13/cobra"
 )
@@ -36,16 +36,17 @@ const balaSubdir = "bala"
 // packOptions holds CLI flag values for `bal pack`. Kept structurally identical
 // to runOpts so the two commands share the same compile-observability surface.
 type packOptions struct {
-	dumpTokens    bool
-	dumpST        bool
-	dumpAST       bool
-	dumpCFG       bool
-	dumpBIR       bool
-	traceRecovery bool
-	stats         bool
-	statsOneline  bool
-	logFile       string
-	format        string
+	dumpTokens       bool
+	dumpST           bool
+	dumpAST          bool
+	dumpRecoveredAST bool
+	dumpCFG          bool
+	dumpBIR          bool
+	traceRecovery    bool
+	stats            bool
+	statsOneline     bool
+	logFile          string
+	format           string
 }
 
 var packCmd = createPackCmd()
@@ -76,6 +77,7 @@ func createPackCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.dumpTokens, "dump-tokens", false, "Dump lexer tokens")
 	cmd.Flags().BoolVar(&opts.dumpST, "dump-st", false, "Dump syntax tree")
 	cmd.Flags().BoolVar(&opts.dumpAST, "dump-ast", false, "Dump abstract syntax tree")
+	cmd.Flags().BoolVar(&opts.dumpRecoveredAST, "dump-recovered-ast", false, "Dump recovered abstract syntax tree")
 	cmd.Flags().BoolVar(&opts.dumpCFG, "dump-cfg", false, "Dump control flow graph")
 	cmd.Flags().BoolVar(&opts.dumpBIR, "dump-bir", false, "Dump Ballerina Intermediate Representation")
 	cmd.Flags().BoolVar(&opts.traceRecovery, "trace-recovery", false, "Enable error recovery tracing")
@@ -104,6 +106,7 @@ func runPack(cmd *cobra.Command, args []string, opts *packOptions) error {
 	// buildOpts is the single source of truth for all flag reads.
 	buildOpts := projects.NewBuildOptionsBuilder().
 		WithDumpAST(opts.dumpAST).
+		WithDumpRecoveredAST(opts.dumpRecoveredAST).
 		WithDumpBIR(opts.dumpBIR).
 		WithDumpCFG(opts.dumpCFG).
 		WithDumpCFGFormat(projects.ParseCFGFormat(opts.format)).
@@ -170,7 +173,17 @@ func runPack(cmd *cobra.Command, args []string, opts *packOptions) error {
 		return packError(stderr, "resolve absolute path: %w", err)
 	}
 
-	fsys := os.DirFS(absPath)
+	// Detect whether absPath sits inside a workspace without being its
+	// root — e.g. cwd is a workspace member's own directory. If so, load
+	// from the workspace root instead so sibling member-to-member
+	// dependencies resolve, matching bal run's findWorkspaceRoot handling.
+	workspaceRoot := findWorkspaceRoot(absPath)
+	effectiveBaseDir := absPath
+	if workspaceRoot != "" && workspaceRoot != absPath {
+		effectiveBaseDir = workspaceRoot
+	}
+
+	fsys := os.DirFS(effectiveBaseDir)
 	ballerinaEnvPath, err := getBallerinaEnvPath()
 	if err != nil {
 		return packError(stderr, "resolve ballerina env path: %w", err)
@@ -191,7 +204,17 @@ func runPack(cmd *cobra.Command, args []string, opts *packOptions) error {
 
 	project := result.Project()
 	if project.Kind() == projects.ProjectKindWorkspace {
-		return packError(stderr, "provided path %q is a workspace; expected a package directory", path)
+		workspace := project.(*projects.WorkspaceProject)
+		if workspaceRoot == "" || workspaceRoot == absPath {
+			return packError(stderr, "%q is a workspace; run bal pack <package-path> to pack a specific package within it", path)
+		}
+		// absPath names one specific member (we walked up to workspaceRoot
+		// to load it) — pack just that member.
+		memberProject := findBuildProjectByPath(workspace, workspaceRoot, absPath)
+		if memberProject == nil {
+			return packError(stderr, "no package found at path %s within workspace %s", absPath, workspaceRoot)
+		}
+		project = memberProject
 	}
 
 	pkg := project.CurrentPackage()

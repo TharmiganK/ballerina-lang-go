@@ -1,9 +1,16 @@
 (FirstListener
   (attach
     (bb0 () ()
-      (var-def
-        (variable _ (expr
-          (simple-var-ref svc))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref svc)
+            (user-defined-type FirstService)))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref svc)
+            (user-defined-type SecondService)))))
       (var-def
         (variable _ (expr
           (simple-var-ref attachPoint))))
@@ -29,9 +36,16 @@
 (SecondListener
   (attach
     (bb0 () ()
-      (var-def
-        (variable _ (expr
-          (simple-var-ref svc))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref svc)
+            (user-defined-type FirstService)))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref svc)
+            (user-defined-type SecondService)))))
       (var-def
         (variable _ (expr
           (simple-var-ref attachPoint))))

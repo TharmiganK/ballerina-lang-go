@@ -13,6 +13,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerina/io;
+
 type FirstService distinct service object {
     // Structurally compatible with SecondService but nominally unrelated.
 };
@@ -22,7 +24,8 @@ type SecondService distinct service object {
 
 class FirstListener {
     public function attach(FirstService svc, () attachPoint = ()) returns error? {
-        var _ = svc;
+        io:println(svc is FirstService); // @output true
+        io:println(svc is SecondService); // @output true
         var _ = attachPoint;
     }
 
@@ -37,7 +40,8 @@ class FirstListener {
 
 class SecondListener {
     public function attach(SecondService svc, () attachPoint = ()) returns error? {
-        var _ = svc;
+        io:println(svc is FirstService); // @output true
+        io:println(svc is SecondService); // @output true
         var _ = attachPoint;
     }
 

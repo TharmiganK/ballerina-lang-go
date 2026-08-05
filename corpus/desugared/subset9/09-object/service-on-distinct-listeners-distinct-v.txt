@@ -1,4 +1,5 @@
 (package
+  (import-package ballerina io (as io))
   (import-package ballerina lang array (as lang.array))
   (variable first (type
     (user-defined-type FirstListener)))
@@ -22,9 +23,16 @@
         (error-type)
         (value-type null)))
       (block-function-body
-        (var-def
-          (variable _ (expr
-            (simple-var-ref svc))))
+        (expression-stmt
+          (invocation io println (
+            (type-test-expr is
+              (simple-var-ref svc)
+              (user-defined-type FirstService)))))
+        (expression-stmt
+          (invocation io println (
+            (type-test-expr is
+              (simple-var-ref svc)
+              (user-defined-type SecondService)))))
         (var-def
           (variable _ (expr
             (simple-var-ref attachPoint))))))
@@ -66,9 +74,16 @@
         (error-type)
         (value-type null)))
       (block-function-body
-        (var-def
-          (variable _ (expr
-            (simple-var-ref svc))))
+        (expression-stmt
+          (invocation io println (
+            (type-test-expr is
+              (simple-var-ref svc)
+              (user-defined-type FirstService)))))
+        (expression-stmt
+          (invocation io println (
+            (type-test-expr is
+              (simple-var-ref svc)
+              (user-defined-type SecondService)))))
         (var-def
           (variable _ (expr
             (simple-var-ref attachPoint))))))

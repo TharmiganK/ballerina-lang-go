@@ -2724,6 +2724,10 @@ func resolveServiceType(t typeResolver, svc *ast.BLangService, depth int, attach
 		t.semanticError("service type must be a subtype of service object {}", svc.GetPosition())
 		return false
 	}
+	if !semtypes.IsAtomicObjectType(t.typeContext(), serviceTy) {
+		t.semanticError("service type must be atomic", svc.GetPosition())
+		return false
+	}
 
 	svc.AttachPointType = serviceAttachPointType(t, svc)
 	if semtypes.IsNever(svc.AttachPointType) {

@@ -6,7 +6,16 @@ class FirstListener {
 
   attach(object&service object,nil) -> nil|error{
     bb0 {
-      _ = svc;
+      %4 = svc is object&service object
+      %5 = %4;
+      %6 = println(%5) -> bb1;
+    }
+    bb1 {
+      %7 = svc is object&service object
+      %8 = %7;
+      %9 = println(%8) -> bb2;
+    }
+    bb2 {
       _ = attachPoint;
       return;
     }
@@ -47,7 +56,16 @@ class SecondListener {
 
   attach(object&service object,nil) -> nil|error{
     bb0 {
-      _ = svc;
+      %4 = svc is object&service object
+      %5 = %4;
+      %6 = println(%5) -> bb1;
+    }
+    bb1 {
+      %7 = svc is object&service object
+      %8 = %7;
+      %9 = println(%8) -> bb2;
+    }
+    bb2 {
       _ = attachPoint;
       return;
     }

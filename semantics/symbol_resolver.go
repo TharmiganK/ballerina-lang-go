@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -881,34 +880,51 @@ func fillinOpaqueSymbol(sym model.Symbol, space *model.SymbolSpace) {
 // a container type, plus any extra keys a monomorphizer needs to disambiguate
 // call sites that share a container type but resolve differently, such as by
 // arity). Each key is interned independently and the handles are joined into
-// a single composite cache key.
+// a trie path, so lookups for different key counts never collide.
 func newMonomorphizationCache() (func(...semtypes.SemType) (model.SymbolRef, bool), func(model.SymbolRef, ...semtypes.SemType)) {
+	type cacheNode struct {
+		children map[semtypes.InternHandle]*cacheNode
+		ref      model.SymbolRef
+		stored   bool
+	}
+
 	var mu sync.Mutex
 	interner := semtypes.NewSemtypeInterner()
-	cache := make(map[string]model.SymbolRef)
-	keyOf := func(keys []semtypes.SemType) string {
-		if len(keys) == 1 {
-			return strconv.FormatInt(int64(interner.Intern(keys[0])), 10)
+	root := cacheNode{children: make(map[semtypes.InternHandle]*cacheNode)}
+	nodeFor := func(keys []semtypes.SemType, create bool) *cacheNode {
+		if len(keys) == 0 {
+			panic("monomorphization cache requires at least one key type")
 		}
-		var b strings.Builder
-		for i, k := range keys {
-			if i > 0 {
-				b.WriteByte(',')
+		node := &root
+		for _, key := range keys {
+			handle := interner.Intern(key)
+			next := node.children[handle]
+			if next == nil {
+				if !create {
+					return nil
+				}
+				next = &cacheNode{children: make(map[semtypes.InternHandle]*cacheNode)}
+				node.children[handle] = next
 			}
-			b.WriteString(strconv.FormatInt(int64(interner.Intern(k)), 10))
+			node = next
 		}
-		return b.String()
+		return node
 	}
 	lookup := func(keys ...semtypes.SemType) (model.SymbolRef, bool) {
 		mu.Lock()
 		defer mu.Unlock()
-		ref, ok := cache[keyOf(keys)]
-		return ref, ok
+		node := nodeFor(keys, false)
+		if node == nil || !node.stored {
+			return model.SymbolRef{}, false
+		}
+		return node.ref, true
 	}
 	store := func(ref model.SymbolRef, keys ...semtypes.SemType) {
 		mu.Lock()
 		defer mu.Unlock()
-		cache[keyOf(keys)] = ref
+		node := nodeFor(keys, true)
+		node.ref = ref
+		node.stored = true
 	}
 	return lookup, store
 }

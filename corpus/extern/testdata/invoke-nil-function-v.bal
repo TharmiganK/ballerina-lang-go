@@ -15,21 +15,9 @@
 // under the License.
 
 import ballerina/io;
-import ballerina/lang.runtime;
-
-public function stopHandler() returns error? {
-    io:println("handler");
-}
-
-public function mappedStopHandler() returns error? {
-    io:println("mapped handler");
-}
 
 public function main() {
-    runtime:onGracefulStop(stopHandler);
-    runtime:StopHandler[] handlers = [mappedStopHandler];
-    _ = handlers.map(runtime:onGracefulStop);
-    io:println("done"); // @output done
+    io:println(invokeNilFunction()); //@output true
 }
-// @output mapped handler
-// @output handler
+
+function invokeNilFunction() returns boolean = external;

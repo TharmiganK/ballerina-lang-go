@@ -118,6 +118,37 @@ func arrayRemoveAll(_ *extern.Context, args []values.BalValue) (values.BalValue,
 	return nil, nil
 }
 
+func arrayMap(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	source := args[0].(*values.List)
+	callback := args[1].(*values.Function)
+	memberTy := semtypes.ListProj(ctx.TypeCtx(), source.Type, semtypes.INT)
+	argListDef := semtypes.NewListDefinition()
+	argListTy := argListDef.DefineListTypeWrapped(ctx.TypeEnv(), []semtypes.SemType{memberTy}, 1, semtypes.NEVER, semtypes.CellMutability_CELL_MUT_NONE)
+	var resultMemberTy semtypes.SemType
+	if semtypes.IsNever(memberTy) {
+		resultMemberTy = semtypes.FunctionReturnType(ctx.TypeCtx(), callback.Type, semtypes.FunctionParamListType(ctx.TypeCtx(), callback.Type))
+	} else {
+		resultMemberTy = semtypes.FunctionReturnType(ctx.TypeCtx(), callback.Type, argListTy)
+	}
+
+	items := make([]values.BalValue, source.Len())
+	callbackArgs := make([]values.BalValue, 1)
+	for i := range source.Len() {
+		callbackArgs[0] = source.Get(i)
+		result, err := ctx.InvokeFunctionValue(callback, callbackArgs)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = result
+	}
+
+	resultDef := semtypes.NewListDefinition()
+	resultTy := resultDef.DefineListTypeWrappedWithEnvSemType(ctx.TypeEnv(), resultMemberTy)
+	atomic := semtypes.ToListAtomicType(ctx.TypeEnv(), resultTy)
+	filler, _ := values.FillerFactoryFor(ctx.TypeCtx(), resultMemberTy)
+	return values.NewList(resultTy, atomic, false, filler, 0, items), nil
+}
+
 func initArrayModule(rt *runtime.Runtime) {
 	env := rt.GetTypeEnv()
 	ld := semtypes.NewListDefinition()
@@ -132,6 +163,7 @@ func initArrayModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "indexOf", arrayIndexOf)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "remove", arrayRemove)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "removeAll", arrayRemoveAll)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "map", arrayMap)
 }
 
 func init() {

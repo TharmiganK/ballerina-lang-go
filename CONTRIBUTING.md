@@ -18,11 +18,11 @@ We appreciate your help!
 
 ## Build the source code
 
-- Ensure you have [Go 1.24 or later](https://go.dev/dl/).
-- Production build: `go build -o bal ./cli/cmd`
+- Ensure you have [Go 1.26 or later](https://go.dev/dl/).
+- Release build: `go build -o bal ./cli/cmd`
 - Debug build (enables profiling): `go build -tags debug -o bal-debug ./cli/cmd`
 
-See the [README](README.md) for more details on building, running corpus tests, and profiling.
+See [doc/guides/DEVELOPING.md](doc/guides/DEVELOPING.md) for more details on debugging, running corpus tests, linting, and profiling, and [doc/guides/ARCHITECTURE.md](doc/guides/ARCHITECTURE.md) for how the code is organized.
 
 ## Submit your contribution
 
@@ -31,6 +31,7 @@ See the [README](README.md) for more details on building, running corpus tests, 
 3. Commit and push to your fork, then open a Pull Request (PR).
 
    **Commit message guidelines:**
+
    - Separate subject from body with a blank line
    - Limit the subject line to 50 characters
    - Capitalize the subject line
@@ -45,4 +46,4 @@ See the [README](README.md) for more details on building, running corpus tests, 
 
 ## Propose changes
 
-Start the discussion on the [Ballerina Discord](https://discord.com/invite/wAJYFbMrG2). For substantial changes, you may be asked to open a GitHub issue (e.g., labeled as a proposal) to continue the discussion.
+Start the discussion on the [Ballerina Discord](https://discord.gg/ballerinalang). For substantial changes, you may be asked to open a GitHub issue (e.g., labeled as a proposal) to continue the discussion.

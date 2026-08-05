@@ -1,7 +1,7 @@
 (package
   (import-package ballerina io (as io))
-  (import-package ballerina mime (as mime))
   (import-package ballerina lang array (as lang.array))
+  (import-package ballerina mime (as mime))
   (function main () (
     (value-type null))
     (block-function-body

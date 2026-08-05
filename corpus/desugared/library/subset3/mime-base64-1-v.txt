@@ -1,8 +1,8 @@
 (package
   (import-package ballerina io (as io))
-  (import-package ballerina mime (as mime))
   (import-package ballerina lang array (as lang.array))
   (import-package ballerina lang string (as lang.string))
+  (import-package ballerina mime (as mime))
   (function main () (
     (union-type
       (error-type)
@@ -105,17 +105,20 @@
                   (value-type byte) dimensions: 1 ([]))) (expr
                 (list-constructor-expr))))
             (var-def
-              (variable i (type
-                (value-type int)) (expr
+              (variable $desugar$4 (expr
                 (literal 0))))
             (var-def
-              (variable $desugar$4 (expr
+              (variable $desugar$5 (expr
                 (literal 100))))
             (while
               (binary-expr <
-                (simple-var-ref i)
-                (simple-var-ref $desugar$4))
+                (simple-var-ref $desugar$4)
+                (simple-var-ref $desugar$5))
               (block-stmt
+                (var-def
+                  (variable i (type
+                    (value-type int)) (expr
+                    (simple-var-ref $desugar$4))))
                 (expression-stmt
                   (invocation lang.array push (
                     (simple-var-ref longInput)
@@ -123,9 +126,9 @@
                       (simple-var-ref i)
                       (value-type byte)))))
                 (assignment
-                  (simple-var-ref i)
+                  (simple-var-ref $desugar$4)
                   (binary-expr +
-                    (simple-var-ref i)
+                    (simple-var-ref $desugar$4)
                     (numeric-literal 1)))))
             (var-def
               (variable longEnc (type
@@ -142,19 +145,19 @@
                   (value-type byte) dimensions: 1 ([])))
               (block-stmt
                 (var-def
-                  (variable $desugar$5 (expr
+                  (variable $desugar$6 (expr
                     (invocation string fromBytes (
                       (simple-var-ref longEnc))))))
                 (if
                   (type-test-expr is
-                    (simple-var-ref $desugar$5))
+                    (simple-var-ref $desugar$6))
                   (block-stmt
                     (return
-                      (simple-var-ref $desugar$5))) ())
+                      (simple-var-ref $desugar$6))) ())
                 (var-def
                   (variable encStr (type
                     (value-type string)) (expr
-                    (simple-var-ref $desugar$5))))
+                    (simple-var-ref $desugar$6))))
                 (expression-stmt
                   (invocation io println (
                     (binary-expr >
@@ -182,12 +185,12 @@
                 (block-stmt)) ())
             (block-stmt
               (var-def
-                (variable $desugar$6 (expr
+                (variable $desugar$7 (expr
                   (literal not-valid-base64!!!))))
               (var-def
-                (variable $desugar$7 (expr
+                (variable $desugar$8 (expr
                   (invocation $default$5 (
-                    (simple-var-ref $desugar$6))))))
+                    (simple-var-ref $desugar$7))))))
               (var-def
                 (variable invalidDec (type
                   (union-type
@@ -197,8 +200,8 @@
                         (value-type byte) dimensions: 1 ([])))
                     (user-defined-type mime DecodeError))) (expr
                   (invocation mime base64Decode (
-                    (simple-var-ref $desugar$6)
-                    (simple-var-ref $desugar$7))))))
+                    (simple-var-ref $desugar$7)
+                    (simple-var-ref $desugar$8))))))
               (expression-stmt
                 (invocation io println (
                   (type-test-expr is

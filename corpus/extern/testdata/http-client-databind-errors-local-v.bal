@@ -23,7 +23,7 @@ type Person record {|
 |};
 
 // A tuple is a subtype of byte[], so the blob builder is selected and must reject a body
-// whose length does not fit rather than hand back an over-long byte[].
+// whose length does not fit.
 type Pair [byte, byte];
 
 // A closed all-string record is a subtype of map<string>, so the form builder is selected
@@ -85,8 +85,7 @@ public function main() returns error? {
         io:println(asXml.message()); // @output Payload binding failed: 'application/xml' responses are not supported because the xml type is not available
     }
 
-    // A body that is not a member of an enum target fails conversion instead of being
-    // returned as a bare string.
+    // A body that is not a member of an enum target fails conversion.
     Colour|error notAColour = c->get("/text");
     if notAColour is error {
         io:println(notAColour.message()); // @output Payload binding failed: '"plain text body"' value cannot be converted to '"green"|"red"'
@@ -98,8 +97,7 @@ public function main() returns error? {
         io:println(tooLong.message()); // @output Payload binding failed: '[int:Unsigned8...]' value cannot be converted to '[int:Unsigned8, int:Unsigned8, never...]'
     }
 
-    // The nilable form of a narrow target fails the same way; only an absent body binds to
-    // (), so a present body that does not fit the target is still an error.
+    // The nilable form fails the same way; only an absent body binds to ().
     Colour?|error notAColourOpt = c->get("/text");
     if notAColourOpt is error {
         io:println(notAColourOpt.message()); // @output Payload binding failed: '"plain text body"' value cannot be converted to 'nil|"green"|"red"'
@@ -134,18 +132,22 @@ public function main() returns error? {
         io:println(goneBlob.message()); // @output Gone
     }
 
-    // A status code with no registered reason phrase names the code, so the message is
-    // never empty. 499 is nginx's client-closed-request code.
+    // A code with no registered phrase names the code, so the message is never empty.
     string|error unregistered = c->get("/nginx-499");
     if unregistered is error {
         io:println(unregistered.message()); // @output status code 499
     }
 
-    // A status error whose Content-Type promises JSON but whose body is absent keeps its
-    // reason phrase instead of reporting a payload extraction failure.
+    // A status error with a JSON content type but no body keeps its reason phrase.
     Person|error emptyJsonError = c->get("/empty-json-401");
     if emptyJsonError is error {
         io:println(emptyJsonError.message()); // @output Unauthorized
+    }
+
+    // A status error whose body is present but unparsable reports the extraction failure.
+    Person|error brokenJsonError = c->get("/missing-broken-json");
+    if brokenJsonError is error {
+        io:println(brokenJsonError.message()); // @output http:ApplicationResponseError creation failed: 404 response payload extraction failed
     }
 
     // An empty body binds to () for a nilable target.

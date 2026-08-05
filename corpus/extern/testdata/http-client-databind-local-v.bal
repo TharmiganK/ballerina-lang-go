@@ -32,8 +32,7 @@ type Employee record {|
     Address address;
 |};
 
-// A closed all-string record is a subtype of map<string>, so the form builder is selected
-// and must convert its map to the record type rather than hand back a plain map<string>.
+// A closed all-string record is a subtype of map<string>, so the form builder is selected.
 type Form record {|
     string a;
     string b;
@@ -66,8 +65,7 @@ public function main() returns error? {
     map<json> asMap = check c->get("/person");
     io:println(asMap["name"]); // @output Alice
 
-    // application/json → json. The member order of a json map is not fixed, so the
-    // shape is asserted rather than the rendered value.
+    // application/json → json. Map member order is not fixed, so only the shape is asserted.
     json asJson = check c->get("/person");
     io:println(asJson is map<json>); // @output true
 
@@ -128,8 +126,7 @@ public function main() returns error? {
     byte[] untypedBytes = check c->get("/no-type");
     io:println(untypedBytes.length()); // @output 12
 
-    // A target that is a proper subtype of the builder's own type is converted to that
-    // target, not left at the builder's type.
+    // A target narrower than the builder's own type is converted to that target.
     Form formRecord = check c->get("/form");
     io:println(formRecord.a, " ", formRecord.b); // @output 1 two
     io:println(<any>formRecord is Form); // @output true
@@ -144,8 +141,7 @@ public function main() returns error? {
     Colour fallbackColour = check c->get("/no-type-colour");
     io:println(fallbackColour, " ", <any>fallbackColour is Colour); // @output red true
 
-    // The nilable form of a narrow target reaches the same builder: a body that fits is
-    // converted to the target, and an absent body binds to ().
+    // The nilable form reaches the same builder; an absent body binds to ().
     Colour? optColour = check c->get("/colour");
     io:println(optColour, " ", <any>optColour is Colour); // @output red true
     Colour? noColour = check c->get("/empty");

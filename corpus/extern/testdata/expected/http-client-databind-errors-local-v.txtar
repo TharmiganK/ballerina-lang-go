@@ -17,6 +17,7 @@ Payload binding failed: invalid URL escape "%zz"
 Gone
 status code 499
 Unauthorized
+http:ApplicationResponseError creation failed: 404 response payload extraction failed
 true
 true
 true

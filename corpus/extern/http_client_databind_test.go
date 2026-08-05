@@ -17,14 +17,16 @@
 package extern_test
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-// databindServer serves one canned response per path, each with the Content-Type that
-// selects a particular payload builder.
+// databindServer serves one canned response per path, each with a Content-Type that selects
+// a particular payload builder.
 func databindServer() *httptest.Server {
 	type canned struct {
 		status      int
@@ -53,6 +55,8 @@ func databindServer() *httptest.Server {
 		"/missing":     {404, "application/json", `{"error": "gone"}`},
 		"/gone-blob":   {410, "application/octet-stream", "\x09"},
 		"/boom":        {500, "text/plain", "kaboom"},
+		// A status error whose declared JSON body does not parse.
+		"/missing-broken-json": {404, "application/json", `{"error": nope}`},
 		// A valid enum member, for a target that is a proper subtype of string.
 		"/colour": {200, "text/plain", "red"},
 		// The same, with no Content-Type, so the builder comes from the target type.
@@ -84,20 +88,57 @@ func databindServer() *httptest.Server {
 	}))
 }
 
-// TestHttpClientDataBindLocal covers the content-type driven payload builders: json to
-// records, arrays, maps and scalars; text/plain to string and byte[]; octet-stream to
-// byte[]; form-urlencoded to map<string>; and the fallback for unknown media types.
+// TestHttpClientDataBindLocal covers each payload builder and the unknown-media-type
+// fallback, including targets narrower than the type their builder produces.
 func TestHttpClientDataBindLocal(t *testing.T) {
 	server := databindServer()
 	defer server.Close()
 	runExtern(t, fileCase("http-client-databind-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
 }
 
-// TestHttpClientDataBindErrorsLocal covers the failure paths: 4xx/5xx status mapping,
-// binding mismatches, malformed JSON, incompatible media types, xml responses, and the
-// empty-body rules for nilable targets.
+// TestHttpClientDataBindErrorsLocal covers the failure paths: status mapping, binding
+// mismatches, incompatible media types, and the empty-body rules.
 func TestHttpClientDataBindErrorsLocal(t *testing.T) {
 	server := databindServer()
 	defer server.Close()
 	runExtern(t, fileCase("http-client-databind-errors-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
+}
+
+// truncatingServer promises a Content-Length it never delivers, then resets the connection,
+// so reading the response body fails.
+func truncatingServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	contentTypes := map[string]string{
+		"/trunc-json": "application/json",
+		"/trunc-text": "text/plain",
+		"/trunc-blob": "application/octet-stream",
+		"/trunc-form": "application/x-www-form-urlencoded",
+		"/trunc-404":  "application/json",
+	}
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		status := "200 OK"
+		if r.URL.Path == "/trunc-404" {
+			status = "404 Not Found"
+		}
+		bw := bufio.NewWriter(conn)
+		_, _ = fmt.Fprintf(bw, "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: 100\r\n\r\n",
+			status, contentTypes[r.URL.Path])
+		_, _ = bw.WriteString("short")
+		_ = bw.Flush()
+		_ = conn.(*net.TCPConn).SetLinger(0)
+		_ = conn.Close()
+	}))
+}
+
+// TestHttpClientDataBindReadFailureLocal covers the read-failure path through each builder,
+// a narrow target (where the failure must survive the conversion step), and a status error.
+func TestHttpClientDataBindReadFailureLocal(t *testing.T) {
+	server := truncatingServer(t)
+	defer server.Close()
+	runExtern(t, fileCase("http-client-databind-read-failure-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
 }

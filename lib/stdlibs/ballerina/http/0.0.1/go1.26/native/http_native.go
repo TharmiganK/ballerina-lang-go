@@ -363,8 +363,7 @@ func compressionModeOf(self *values.Object) string {
 
 func initHttpModule(rt *runtime.Runtime) {
 	env := rt.GetTypeEnv()
-	envCtx := semtypes.ContextFrom(env)
-	jsonTy := semtypes.CreateJSON(envCtx)
+	jsonTy := semtypes.CreateJSON(semtypes.ContextFrom(env))
 	byteArrLd := semtypes.NewListDefinition()
 	strArrLd := semtypes.NewListDefinition()
 	jsonMapMd := semtypes.NewMappingDefinition()
@@ -458,7 +457,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			return values.NewErrorWithMessage(err.Error()), nil
 		}
 		resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
-		return bindResponse(ctx, &types, resp, argAt(args, 5)), nil
+		return bindResponse(ctx, &types, resp, args[5]), nil
 	}
 
 	// Client class def.
@@ -776,7 +775,7 @@ func initHttpModule(rt *runtime.Runtime) {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
 			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
-			return bindResponse(ctx, &types, resp, argAt(args, 3)), nil
+			return bindResponse(ctx, &types, resp, args[3]), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$post",
@@ -820,7 +819,7 @@ func initHttpModule(rt *runtime.Runtime) {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
 			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
-			return bindResponse(ctx, &types, resp, argAt(args, 3)), nil
+			return bindResponse(ctx, &types, resp, args[3]), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$put",
@@ -880,7 +879,7 @@ func initHttpModule(rt *runtime.Runtime) {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
 			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
-			return bindResponse(ctx, &types, resp, argAt(args, 6)), nil
+			return bindResponse(ctx, &types, resp, args[6]), nil
 		})
 
 	// forward: args = [self, path, request, targetType]
@@ -937,7 +936,7 @@ func initHttpModule(rt *runtime.Runtime) {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
 			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
-			return bindResponse(ctx, &types, resp, argAt(args, 3)), nil
+			return bindResponse(ctx, &types, resp, args[3]), nil
 		})
 
 	// Default lambdas for Response header position params (return "LEADING").

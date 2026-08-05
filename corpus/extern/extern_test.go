@@ -58,6 +58,17 @@ func TestExternValid(t *testing.T) {
 	runExtern(t, fileCase("1-v"), testharness.NewTestPal(), externs)
 }
 
+func TestInvokeNilFunctionValue(t *testing.T) {
+	externs := []testharness.ExternRegistration{{
+		Org: "$anon", Module: "invoke-nil-function-v", FuncName: "invokeNilFunction",
+		Impl: func(ctx *extern.Context, _ []values.BalValue) (values.BalValue, error) {
+			_, err := ctx.InvokeFunctionValue(nil, nil)
+			return err != nil, nil
+		},
+	}}
+	runExtern(t, fileCase("invoke-nil-function-v"), testharness.NewTestPal(), externs)
+}
+
 func TestExternTypeMismatchArg(t *testing.T) {
 	runExtern(t, fileCase("2-e"), testharness.NewTestPal(), nil)
 }

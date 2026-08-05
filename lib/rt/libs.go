@@ -32,10 +32,10 @@ import (
 
 	// standard libraries
 	_ "ballerina/lib/stdlibs/ballerina/crypto/0.0.1/go1.26/native"
-	_ "ballerina/lib/stdlibs/ballerina/mime/0.0.1/go1.26/native"
 	_ "ballerina/lib/stdlibs/ballerina/http/0.0.1/go1.26/native"
 	_ "ballerina/lib/stdlibs/ballerina/io/0.0.1/go1.26/native"
 	_ "ballerina/lib/stdlibs/ballerina/log/0.0.1/go1.26/native"
+	_ "ballerina/lib/stdlibs/ballerina/mime/0.0.1/go1.26/native"
 	_ "ballerina/lib/stdlibs/ballerina/os/0.0.1/go1.26/native"
 	_ "ballerina/lib/stdlibs/ballerina/random/0.0.1/go1.26/native"
 	_ "ballerina/lib/stdlibs/ballerina/time/0.0.1/go1.26/native"

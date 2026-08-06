@@ -95,16 +95,13 @@
     (expression-stmt
       (invocation io println (
         (invocation array map (
-          (named-arg arr
-            (simple-var-ref values))
-          (named-arg func
-            (simple-var-ref isolatedIncrement)))))))
+          (simple-var-ref values)
+          (simple-var-ref isolatedIncrement))))))
     (expression-stmt
       (invocation io println (
         (invocation lang.array map (
           (simple-var-ref values)
-          (named-arg func
-            (simple-var-ref isolatedIncrement)))))))
+          (simple-var-ref isolatedIncrement))))))
     (expression-stmt
       (invocation io println (
         (invocation mapInIsolatedFunction (
@@ -123,7 +120,7 @@
           (simple-var-ref recordValue)))))
     (expression-stmt
       (invocation io println (
-        (invocation withMappedDefault ()))))
+        (invocation withMappedDefault ( <default>)))))
     (expression-stmt
       (invocation io println (
         (invocation mapWithCapture (

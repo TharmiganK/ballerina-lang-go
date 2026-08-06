@@ -117,7 +117,8 @@
           (value-type int) dimensions: 1 ([]))) (expr
         (checked-expr
           (invocation lang.value fromJsonWithType (
-            (simple-var-ref arr)))))))
+            (simple-var-ref arr)
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref inferred))))

@@ -18,8 +18,11 @@ PYTHON ?= python3
 WORKSPACE_MODULES = go list -m -f '{{if .Main}}{{.Dir}}{{end}}' all
 TEST_RUNNER = .github/scripts/run_native_tests.py
 
-.PHONY: build test test-coverage test-race vet lint check update-testdata \
+.PHONY: build test test-coverage test-race vet lint check update-testdata bumpDist \
 	test-wasm test-wasm-corpus-light test-wasm-corpus-integration benchmark-corpus
+
+bumpDist:
+	@bash .github/scripts/bump_dist.sh "$(VERSION)"
 
 build:
 	@set -euo pipefail; \

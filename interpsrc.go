@@ -237,23 +237,23 @@ use (
 )
 
 replace (
-	ballerina v0.6.0 => .
-	ballerina/ast v0.6.0 => ./ast
-	ballerina/bir v0.6.0 => ./bir
-	ballerina/cli v0.6.0 => ./cli
-	ballerina/common v0.6.0 => ./common
-	ballerina/context v0.6.0 => ./context
-	ballerina/decimal v0.6.0 => ./decimal
-	ballerina/desugar v0.6.0 => ./desugar
-	ballerina/lib v0.6.0 => ./lib
-	ballerina/model v0.6.0 => ./model
-	ballerina/parser v0.6.0 => ./parser
-	ballerina/platform v0.6.0 => ./platform
-	ballerina/projects v0.6.0 => ./projects
-	ballerina/runtime v0.6.0 => ./runtime
-	ballerina/semantics v0.6.0 => ./semantics
-	ballerina/semtypes v0.6.0 => ./semtypes
-	ballerina/tools v0.6.0 => ./tools
-	ballerina/values v0.6.0 => ./values
+	ballerina v0.7.0 => .
+	ballerina/ast v0.7.0 => ./ast
+	ballerina/bir v0.7.0 => ./bir
+	ballerina/cli v0.7.0 => ./cli
+	ballerina/common v0.7.0 => ./common
+	ballerina/context v0.7.0 => ./context
+	ballerina/decimal v0.7.0 => ./decimal
+	ballerina/desugar v0.7.0 => ./desugar
+	ballerina/lib v0.7.0 => ./lib
+	ballerina/model v0.7.0 => ./model
+	ballerina/parser v0.7.0 => ./parser
+	ballerina/platform v0.7.0 => ./platform
+	ballerina/projects v0.7.0 => ./projects
+	ballerina/runtime v0.7.0 => ./runtime
+	ballerina/semantics v0.7.0 => ./semantics
+	ballerina/semtypes v0.7.0 => ./semtypes
+	ballerina/tools v0.7.0 => ./tools
+	ballerina/values v0.7.0 => ./values
 )
 `

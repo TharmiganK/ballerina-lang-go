@@ -192,7 +192,8 @@ func TestWriteNativeWorkspace(t *testing.T) {
 			t.Errorf("workspace missing payload %s:\n%s", payload.GoModuleName(), content)
 		}
 	}
-	if !strings.Contains(content, "github.com/ballerina-nutcracker/ballerina/ast v0.6.0 =>") {
+	expectedReplacement := "github.com/ballerina-nutcracker/ballerina/ast " + interpreterModuleVersion + " =>"
+	if !strings.Contains(content, expectedReplacement) {
 		t.Errorf("workspace missing versioned interpreter replacement:\n%s", content)
 	}
 }

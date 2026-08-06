@@ -383,7 +383,7 @@ func writeNativeFiles(dir string, payload nativeexec.NativePayload) error {
 	})
 }
 
-const interpreterModuleVersion = "v0.6.0"
+const interpreterModuleVersion = "v0.7.0"
 
 var interpreterModuleDirs = []string{
 	"", "ast", "bir", "cli", "common", "context", "decimal", "desugar", "lib",

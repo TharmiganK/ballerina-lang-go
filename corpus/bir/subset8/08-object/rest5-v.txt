@@ -7,7 +7,7 @@ class IntAdder {
     }
   }
 
-  sum(,[int...]...) -> int{
+  sum([int...]...) -> int{
     bb0 {
       %3 = ConstantLoad 0
       total = %3;

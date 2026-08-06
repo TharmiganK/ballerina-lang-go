@@ -439,7 +439,7 @@ func (br *birReader) readFunction() *bir.BIRFunction {
 	var restParams *bir.BIRParameter
 	if hasRestParam {
 		paramStart := 1
-		if len(localVars) > 1 && localVars[1].GetName() == "self" {
+		if flag.Has(model.FlagAttached) {
 			paramStart = 2
 		}
 		restIdx := paramStart + len(requiredParams)

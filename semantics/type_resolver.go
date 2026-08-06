@@ -1164,18 +1164,11 @@ func resolveTopLevelAnnotationAttachments(t typeResolver, pkg *ast.BLangPackage)
 			classPoint = ast.Point_SERVICE
 		}
 		resolveAnnotationAttachments(t, classDef, classPoint, classDef.Symbol())
-		for j := range classDef.Fields {
-			resolveAnnotationAttachments(t, classDef.Fields[j], ast.Point_OBJECT_FIELD, model.SymbolRef{})
-		}
-		if classDef.InitFunction != nil {
-			resolveFunctionAnnotationAttachments(t, classDef.InitFunction, true)
-		}
-		for _, method := range classDef.Methods {
-			resolveFunctionAnnotationAttachments(t, method, true)
-		}
-		for _, method := range classDef.ResourceMethods {
-			resolveInvokableAnnotationAttachments(t, method, ast.Point_OBJECT_METHOD)
-		}
+		resolveClassBodyAnnotationAttachments(t, classDef.Fields, classDef.InitFunction, classDef.Methods, classDef.ResourceMethods)
+	}
+	for i := range pkg.Services {
+		svc := &pkg.Services[i]
+		resolveClassBodyAnnotationAttachments(t, svc.Fields, svc.InitFunction, svc.Methods, svc.ResourceMethods)
 	}
 	for i := range pkg.Functions {
 		resolveFunctionAnnotationAttachments(t, &pkg.Functions[i], false)
@@ -1194,6 +1187,23 @@ func resolveTopLevelAnnotationAttachments(t typeResolver, pkg *ast.BLangPackage)
 		globals = append(globals, pkg.GlobalVars[initialGlobalCount:]...)
 		globals = append(globals, pkg.GlobalVars[:initialGlobalCount]...)
 		pkg.GlobalVars = globals
+	}
+}
+
+func resolveClassBodyAnnotationAttachments(t typeResolver, fields []ast.SimpleVariableNode, initFn *ast.BLangFunction,
+	methods map[string]*ast.BLangFunction, resourceMethods []*ast.BLangResourceMethod,
+) {
+	for _, field := range fields {
+		resolveAnnotationAttachments(t, field, ast.Point_OBJECT_FIELD, model.SymbolRef{})
+	}
+	if initFn != nil {
+		resolveFunctionAnnotationAttachments(t, initFn, true)
+	}
+	for _, method := range methods {
+		resolveFunctionAnnotationAttachments(t, method, true)
+	}
+	for _, method := range resourceMethods {
+		resolveInvokableAnnotationAttachments(t, method, ast.Point_OBJECT_METHOD)
 	}
 }
 

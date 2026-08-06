@@ -46,7 +46,7 @@ The sequential/concurrent orchestration and the stop-before-stage-5 rule live in
 
 ## Library
 
-[`lib/langlibs/`](../../lib/langlibs/) is the **language library** (`lang.array`, `lang.map`, `lang.string`, …) — built-in operations on core types, required by every program. [`lib/stdlibs/`](../../lib/stdlibs/) is the **standard library** (`http`, `io`, `os`, `crypto`, …) — optional capability modules, versioned like regular packages. [`lib/langinternal/`](../../lib/langinternal/) holds compiler- and runtime-only symbols that are not public API.
+[`lib/langlibs/`](../../lib/langlibs/) is the **language library** (`lang.array`, `lang.map`, `lang.string`, …) — built-in operations on core types, required by every program. It includes `lang.__internal`, a bundled Ballerina module for compiler-generated calls whose `external` functions are implemented under `lib/langlibs/go/lang.__internal`. [`lib/stdlibs/`](../../lib/stdlibs/) is the **standard library** (`http`, `io`, `os`, `crypto`, …) — optional capability modules, versioned like regular packages.
 
 Both libraries are declared in Ballerina, and they are not only a runtime dependency — the pipeline resolves against them during symbol and type resolution too.
 

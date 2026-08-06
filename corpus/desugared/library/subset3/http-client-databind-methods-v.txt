@@ -48,263 +48,219 @@
             (simple-var-ref $desugar$5))))))
       (var-def
         (variable $desugar$7 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$8 (expr
           (remote-method-call post expr:
             (simple-var-ref c) (
             (simple-var-ref $desugar$3)
             (simple-var-ref $desugar$4)
             (simple-var-ref $desugar$5)
             (simple-var-ref $desugar$6)
-            (typedesc-expr))))))
+            (simple-var-ref $desugar$7))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$7))
+          (simple-var-ref $desugar$8))
         (block-stmt
           (return
-            (simple-var-ref $desugar$7))) ())
+            (simple-var-ref $desugar$8))) ())
       (var-def
         (variable postBody (type
           (value-type string)) (expr
-          (simple-var-ref $desugar$7))))
+          (simple-var-ref $desugar$8))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref postBody))))
       (var-def
-        (variable $desugar$8 (expr
+        (variable $desugar$9 (expr
           (literal /path))))
       (var-def
-        (variable $desugar$9 (expr
+        (variable $desugar$10 (expr
           (literal req))))
       (var-def
-        (variable $desugar$10 (expr
-          (invocation $default$28 (
-            (simple-var-ref $desugar$8)
-            (simple-var-ref $desugar$9))))))
-      (var-def
         (variable $desugar$11 (expr
-          (invocation $default$29 (
-            (simple-var-ref $desugar$8)
+          (invocation $default$28 (
             (simple-var-ref $desugar$9)
             (simple-var-ref $desugar$10))))))
       (var-def
         (variable $desugar$12 (expr
+          (invocation $default$29 (
+            (simple-var-ref $desugar$9)
+            (simple-var-ref $desugar$10)
+            (simple-var-ref $desugar$11))))))
+      (var-def
+        (variable $desugar$13 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$14 (expr
           (remote-method-call put expr:
             (simple-var-ref c) (
-            (simple-var-ref $desugar$8)
             (simple-var-ref $desugar$9)
             (simple-var-ref $desugar$10)
             (simple-var-ref $desugar$11)
-            (typedesc-expr))))))
+            (simple-var-ref $desugar$12)
+            (simple-var-ref $desugar$13))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$12))
+          (simple-var-ref $desugar$14))
         (block-stmt
           (return
-            (simple-var-ref $desugar$12))) ())
+            (simple-var-ref $desugar$14))) ())
       (var-def
         (variable putBody (type
           (value-type string)) (expr
-          (simple-var-ref $desugar$12))))
+          (simple-var-ref $desugar$14))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref putBody))))
       (var-def
-        (variable $desugar$13 (expr
+        (variable $desugar$15 (expr
           (literal /path))))
       (var-def
-        (variable $desugar$14 (expr
+        (variable $desugar$16 (expr
           (literal req))))
       (var-def
-        (variable $desugar$15 (expr
-          (invocation $default$24 (
-            (simple-var-ref $desugar$13)
-            (simple-var-ref $desugar$14))))))
-      (var-def
-        (variable $desugar$16 (expr
-          (invocation $default$25 (
-            (simple-var-ref $desugar$13)
-            (simple-var-ref $desugar$14)
-            (simple-var-ref $desugar$15))))))
-      (var-def
         (variable $desugar$17 (expr
-          (remote-method-call patch expr:
-            (simple-var-ref c) (
-            (simple-var-ref $desugar$13)
-            (simple-var-ref $desugar$14)
+          (invocation $default$24 (
+            (simple-var-ref $desugar$15)
+            (simple-var-ref $desugar$16))))))
+      (var-def
+        (variable $desugar$18 (expr
+          (invocation $default$25 (
             (simple-var-ref $desugar$15)
             (simple-var-ref $desugar$16)
-            (typedesc-expr))))))
+            (simple-var-ref $desugar$17))))))
+      (var-def
+        (variable $desugar$19 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$20 (expr
+          (remote-method-call patch expr:
+            (simple-var-ref c) (
+            (simple-var-ref $desugar$15)
+            (simple-var-ref $desugar$16)
+            (simple-var-ref $desugar$17)
+            (simple-var-ref $desugar$18)
+            (simple-var-ref $desugar$19))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$17))
+          (simple-var-ref $desugar$20))
         (block-stmt
           (return
-            (simple-var-ref $desugar$17))) ())
+            (simple-var-ref $desugar$20))) ())
       (var-def
         (variable patchBody (type
           (value-type string)) (expr
-          (simple-var-ref $desugar$17))))
+          (simple-var-ref $desugar$20))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref patchBody))))
       (var-def
-        (variable $desugar$18 (expr
-          (literal /path))))
-      (var-def
-        (variable $desugar$19 (expr
-          (invocation $default$16 (
-            (simple-var-ref $desugar$18))))))
-      (var-def
-        (variable $desugar$20 (expr
-          (invocation $default$17 (
-            (simple-var-ref $desugar$18)
-            (simple-var-ref $desugar$19))))))
-      (var-def
         (variable $desugar$21 (expr
-          (invocation $default$18 (
-            (simple-var-ref $desugar$18)
-            (simple-var-ref $desugar$19)
-            (simple-var-ref $desugar$20))))))
+          (literal /path))))
       (var-def
         (variable $desugar$22 (expr
-          (remote-method-call delete expr:
-            (simple-var-ref c) (
-            (simple-var-ref $desugar$18)
-            (simple-var-ref $desugar$19)
-            (simple-var-ref $desugar$20)
-            (simple-var-ref $desugar$21)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$22))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$22))) ())
-      (var-def
-        (variable deleteBody (type
-          (value-type string)) (expr
-          (simple-var-ref $desugar$22))))
-      (expression-stmt
-        (invocation io println (
-          (simple-var-ref deleteBody))))
+          (invocation $default$16 (
+            (simple-var-ref $desugar$21))))))
       (var-def
         (variable $desugar$23 (expr
-          (literal /path))))
+          (invocation $default$17 (
+            (simple-var-ref $desugar$21)
+            (simple-var-ref $desugar$22))))))
       (var-def
         (variable $desugar$24 (expr
-          (invocation $default$23 (
+          (invocation $default$18 (
+            (simple-var-ref $desugar$21)
+            (simple-var-ref $desugar$22)
             (simple-var-ref $desugar$23))))))
       (var-def
         (variable $desugar$25 (expr
-          (remote-method-call options expr:
-            (simple-var-ref c) (
-            (simple-var-ref $desugar$23)
-            (simple-var-ref $desugar$24)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$25))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$25))) ())
-      (var-def
-        (variable optionsBody (type
-          (value-type string)) (expr
-          (simple-var-ref $desugar$25))))
-      (expression-stmt
-        (invocation io println (
-          (simple-var-ref optionsBody))))
+          (typedesc-expr))))
       (var-def
         (variable $desugar$26 (expr
-          (literal PATCH))))
+          (remote-method-call delete expr:
+            (simple-var-ref c) (
+            (simple-var-ref $desugar$21)
+            (simple-var-ref $desugar$22)
+            (simple-var-ref $desugar$23)
+            (simple-var-ref $desugar$24)
+            (simple-var-ref $desugar$25))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$26))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$26))) ())
+      (var-def
+        (variable deleteBody (type
+          (value-type string)) (expr
+          (simple-var-ref $desugar$26))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref deleteBody))))
       (var-def
         (variable $desugar$27 (expr
           (literal /path))))
       (var-def
         (variable $desugar$28 (expr
-          (literal req))))
+          (invocation $default$23 (
+            (simple-var-ref $desugar$27))))))
       (var-def
         (variable $desugar$29 (expr
-          (invocation $default$19 (
-            (simple-var-ref $desugar$26)
-            (simple-var-ref $desugar$27)
-            (simple-var-ref $desugar$28))))))
+          (typedesc-expr))))
       (var-def
         (variable $desugar$30 (expr
-          (invocation $default$20 (
-            (simple-var-ref $desugar$26)
+          (remote-method-call options expr:
+            (simple-var-ref c) (
             (simple-var-ref $desugar$27)
             (simple-var-ref $desugar$28)
             (simple-var-ref $desugar$29))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$30))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$30))) ())
+      (var-def
+        (variable optionsBody (type
+          (value-type string)) (expr
+          (simple-var-ref $desugar$30))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref optionsBody))))
       (var-def
         (variable $desugar$31 (expr
-          (remote-method-call execute expr:
-            (simple-var-ref c) (
-            (simple-var-ref $desugar$26)
-            (simple-var-ref $desugar$27)
-            (simple-var-ref $desugar$28)
-            (simple-var-ref $desugar$29)
-            (simple-var-ref $desugar$30)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$31))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$31))) ())
-      (var-def
-        (variable execBody (type
-          (value-type string)) (expr
-          (simple-var-ref $desugar$31))))
-      (expression-stmt
-        (invocation io println (
-          (simple-var-ref execBody))))
-      (var-def
-        (variable req (type
-          (user-defined-type http Request)) (expr
-          (new ()))))
+          (literal PATCH))))
       (var-def
         (variable $desugar$32 (expr
-          (literal fwd))))
-      (var-def
-        (variable $desugar$33 (expr
-          (invocation $default$12 (
-            (simple-var-ref $desugar$32))))))
-      (expression-stmt
-        (invocation setTextPayload expr:
-          (simple-var-ref req) (
-          (simple-var-ref $desugar$32)
-          (simple-var-ref $desugar$33))))
-      (var-def
-        (variable $desugar$34 (expr
-          (remote-method-call forward expr:
-            (simple-var-ref c) (
-            (literal /path)
-            (simple-var-ref req)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$34))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$34))) ())
-      (var-def
-        (variable forwardBody (type
-          (value-type string)) (expr
-          (simple-var-ref $desugar$34))))
-      (expression-stmt
-        (invocation io println (
-          (simple-var-ref forwardBody))))
-      (var-def
-        (variable $desugar$35 (expr
           (literal /path))))
       (var-def
+        (variable $desugar$33 (expr
+          (literal req))))
+      (var-def
+        (variable $desugar$34 (expr
+          (invocation $default$19 (
+            (simple-var-ref $desugar$31)
+            (simple-var-ref $desugar$32)
+            (simple-var-ref $desugar$33))))))
+      (var-def
+        (variable $desugar$35 (expr
+          (invocation $default$20 (
+            (simple-var-ref $desugar$31)
+            (simple-var-ref $desugar$32)
+            (simple-var-ref $desugar$33)
+            (simple-var-ref $desugar$34))))))
+      (var-def
         (variable $desugar$36 (expr
-          (invocation $default$22 (
-            (simple-var-ref $desugar$35))))))
+          (typedesc-expr))))
       (var-def
         (variable $desugar$37 (expr
-          (remote-method-call head expr:
+          (remote-method-call execute expr:
             (simple-var-ref c) (
+            (simple-var-ref $desugar$31)
+            (simple-var-ref $desugar$32)
+            (simple-var-ref $desugar$33)
+            (simple-var-ref $desugar$34)
             (simple-var-ref $desugar$35)
             (simple-var-ref $desugar$36))))))
       (if
@@ -314,16 +270,78 @@
           (return
             (simple-var-ref $desugar$37))) ())
       (var-def
+        (variable execBody (type
+          (value-type string)) (expr
+          (simple-var-ref $desugar$37))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref execBody))))
+      (var-def
+        (variable req (type
+          (user-defined-type http Request)) (expr
+          (new ()))))
+      (var-def
+        (variable $desugar$38 (expr
+          (literal fwd))))
+      (var-def
+        (variable $desugar$39 (expr
+          (invocation $default$12 (
+            (simple-var-ref $desugar$38))))))
+      (expression-stmt
+        (invocation setTextPayload expr:
+          (simple-var-ref req) (
+          (simple-var-ref $desugar$38)
+          (simple-var-ref $desugar$39))))
+      (var-def
+        (variable $desugar$40 (expr
+          (remote-method-call forward expr:
+            (simple-var-ref c) (
+            (literal /path)
+            (simple-var-ref req)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$40))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$40))) ())
+      (var-def
+        (variable forwardBody (type
+          (value-type string)) (expr
+          (simple-var-ref $desugar$40))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref forwardBody))))
+      (var-def
+        (variable $desugar$41 (expr
+          (literal /path))))
+      (var-def
+        (variable $desugar$42 (expr
+          (invocation $default$22 (
+            (simple-var-ref $desugar$41))))))
+      (var-def
+        (variable $desugar$43 (expr
+          (remote-method-call head expr:
+            (simple-var-ref c) (
+            (simple-var-ref $desugar$41)
+            (simple-var-ref $desugar$42))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$43))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$43))) ())
+      (var-def
         (variable headResp (type
           (user-defined-type http Response)) (expr
-          (simple-var-ref $desugar$37))))
+          (simple-var-ref $desugar$43))))
       (expression-stmt
         (invocation io println (
           (index-based-access
             (simple-var-ref headResp)
             (literal statusCode)))))
       (var-def
-        (variable $desugar$38 (expr
+        (variable $desugar$44 (expr
           (remote-method-call post expr:
             (simple-var-ref c) (
             (literal /path)
@@ -336,15 +354,15 @@
             (typedesc-expr))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$38))
+          (simple-var-ref $desugar$44))
         (block-stmt
           (return
-            (simple-var-ref $desugar$38))) ())
+            (simple-var-ref $desugar$44))) ())
       (var-def
         (variable withHeaders (type
           (array-type
             (value-type byte) dimensions: 1 ([]))) (expr
-          (simple-var-ref $desugar$38))))
+          (simple-var-ref $desugar$44))))
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (

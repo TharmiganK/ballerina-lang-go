@@ -5,14 +5,15 @@
         (user-defined-type http Client)) (expr
         (checked-expr
           (new (
-            (literal https://example.com)))))))
+            (literal https://example.com) <default>))))))
     (var-def
       (variable r (type
         (user-defined-type http Response)) (expr
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -25,7 +26,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (type-test-expr is
@@ -37,7 +39,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref text))))
@@ -49,7 +52,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref optText))))
@@ -60,7 +64,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (invocation lang.array length (
@@ -74,7 +79,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (type-test-expr is
@@ -87,7 +93,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref nothing))))
@@ -96,10 +103,9 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path)
-            (named-arg targetType
-              (typedesc-expr
-                (value-type string)))))))))
+            (literal /path) <default>
+            (typedesc-expr
+              (value-type string))))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref explicitText))))
@@ -110,7 +116,8 @@
           (error-type))) (expr
         (remote-method-call get expr:
           (simple-var-ref c) (
-          (literal /path))))))
+          (literal /path) <default>
+          (typedesc-expr))))))
     (expression-stmt
       (invocation io println (
         (type-test-expr is
@@ -123,7 +130,8 @@
           (error-type))) (expr
         (remote-method-call get expr:
           (simple-var-ref c) (
-          (literal /path))))))
+          (literal /path) <default>
+          (typedesc-expr))))))
     (expression-stmt
       (invocation io println (
         (type-test-expr is

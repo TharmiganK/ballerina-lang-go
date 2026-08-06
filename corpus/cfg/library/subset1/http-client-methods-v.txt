@@ -13,7 +13,8 @@
           (remote-method-call put expr:
             (simple-var-ref c) (
             (literal /put)
-            (literal body) <default> <default>))))))
+            (literal body) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -28,7 +29,8 @@
             (mapping-constructor-expr
               (key-value
                 (literal key)
-                (literal val))) <default> <default>))))))
+                (literal val))) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -39,7 +41,8 @@
         (checked-expr
           (remote-method-call delete expr:
             (simple-var-ref c) (
-            (literal /delete) <default> <default> <default>))))))
+            (literal /delete) <default> <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -61,7 +64,8 @@
         (checked-expr
           (remote-method-call options expr:
             (simple-var-ref c) (
-            (literal /options) <default>))))))
+            (literal /options) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -74,7 +78,8 @@
             (simple-var-ref c) (
             (literal PATCH)
             (literal /execute)
-            (literal exec body) <default> <default>))))))
+            (literal exec body) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode

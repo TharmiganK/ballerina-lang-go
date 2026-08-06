@@ -13,7 +13,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c1) (
-            (literal /path) <default>))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -40,7 +41,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c2) (
-            (literal /path) <default>))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -62,7 +64,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c3) (
-            (literal /path) <default>))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -83,7 +86,8 @@
             (mapping-constructor-expr
               (key-value
                 (literal X-Custom)
-                (literal value)))))))))
+                (literal value)))
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -104,7 +108,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c5) (
-            (literal /path) <default>))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -125,7 +130,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c6) (
-            (literal /path) <default>))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode

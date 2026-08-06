@@ -38,43 +38,46 @@
             (simple-var-ref $desugar$3))))))
       (var-def
         (variable $desugar$5 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$6 (expr
           (remote-method-call get expr:
             (simple-var-ref c) (
             (simple-var-ref $desugar$3)
             (simple-var-ref $desugar$4)
-            (typedesc-expr))))))
+            (simple-var-ref $desugar$5))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$5))
+          (simple-var-ref $desugar$6))
         (block-stmt
           (return
-            (simple-var-ref $desugar$5))) ())
+            (simple-var-ref $desugar$6))) ())
       (var-def
         (variable r (type
           (user-defined-type http Response)) (expr
-          (simple-var-ref $desugar$5))))
-      (var-def
-        (variable $desugar$6 (expr
-          (literal x-absent))))
+          (simple-var-ref $desugar$6))))
       (var-def
         (variable $desugar$7 (expr
+          (literal x-absent))))
+      (var-def
+        (variable $desugar$8 (expr
           (invocation $default$4 (
-            (simple-var-ref $desugar$6))))))
+            (simple-var-ref $desugar$7))))))
       (expression-stmt
         (invocation io println (
           (invocation hasHeader expr:
             (simple-var-ref r) (
-            (simple-var-ref $desugar$6)
-            (simple-var-ref $desugar$7))))))
+            (simple-var-ref $desugar$7)
+            (simple-var-ref $desugar$8))))))
       (var-def
-        (variable $desugar$8 (expr
+        (variable $desugar$9 (expr
           (invocation $default$2 ()))))
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (
             (invocation getHeaderNames expr:
               (simple-var-ref r) (
-              (simple-var-ref $desugar$8))))))))
+              (simple-var-ref $desugar$9))))))))
       (expression-stmt
         (invocation io println (
           (invocation hasHeader expr:

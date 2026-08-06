@@ -5,7 +5,7 @@
         (user-defined-type http Client)) (expr
         (checked-expr
           (new (
-            (literal https://example.com)))))))
+            (literal https://example.com) <default>))))))
     (var-def
       (variable postBody (type
         (value-type string)) (expr
@@ -13,7 +13,8 @@
           (remote-method-call post expr:
             (simple-var-ref c) (
             (literal /path)
-            (literal req)))))))
+            (literal req) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref postBody))))
@@ -24,7 +25,8 @@
           (remote-method-call put expr:
             (simple-var-ref c) (
             (literal /path)
-            (literal req)))))))
+            (literal req) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref putBody))))
@@ -35,7 +37,8 @@
           (remote-method-call patch expr:
             (simple-var-ref c) (
             (literal /path)
-            (literal req)))))))
+            (literal req) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref patchBody))))
@@ -45,7 +48,8 @@
         (checked-expr
           (remote-method-call delete expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default> <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref deleteBody))))
@@ -55,7 +59,8 @@
         (checked-expr
           (remote-method-call options expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref optionsBody))))
@@ -67,7 +72,8 @@
             (simple-var-ref c) (
             (literal PATCH)
             (literal /path)
-            (literal req)))))))
+            (literal req) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref execBody))))
@@ -78,7 +84,7 @@
     (expression-stmt
       (invocation setTextPayload expr:
         (simple-var-ref req) (
-        (literal fwd))))
+        (literal fwd) <default>)))
     (var-def
       (variable forwardBody (type
         (value-type string)) (expr
@@ -86,7 +92,8 @@
           (remote-method-call forward expr:
             (simple-var-ref c) (
             (literal /path)
-            (simple-var-ref req)))))))
+            (simple-var-ref req)
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (simple-var-ref forwardBody))))
@@ -96,7 +103,7 @@
         (checked-expr
           (remote-method-call head expr:
             (simple-var-ref c) (
-            (literal /path)))))))
+            (literal /path) <default>))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -114,7 +121,8 @@
               (key-value
                 (literal X-Custom)
                 (literal value)))
-            (literal text/plain)))))))
+            (literal text/plain)
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (invocation lang.array length (

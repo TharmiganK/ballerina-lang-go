@@ -12,7 +12,8 @@
         (checked-expr
           (remote-method-call get expr:
             (simple-var-ref c) (
-            (literal /path) <default>))))))
+            (literal /path) <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (invocation hasHeader expr:

@@ -13,7 +13,8 @@
           (remote-method-call post expr:
             (simple-var-ref c) (
             (literal /post)
-            (literal hello world) <default> <default>))))))
+            (literal hello world) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -27,7 +28,8 @@
             (literal /post)
             (literal {"key":"value"})
             (literal <nil>)
-            (literal application/json)))))))
+            (literal application/json)
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode
@@ -45,7 +47,8 @@
                 (literal test))
               (key-value
                 (literal count)
-                (literal 1))) <default> <default>))))))
+                (literal 1))) <default> <default>
+            (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
         (field-based-access statusCode

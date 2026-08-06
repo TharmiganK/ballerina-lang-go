@@ -345,6 +345,7 @@ func (p *PrettyPrinter) PrintStreamClose(n *StreamClose) string {
 }
 
 func (p *PrettyPrinter) PrintClassDef(classDef BIRClassDef) {
+	p.printAnnotations(classDef.Annotations)
 	p.write("class ")
 	p.write(classDef.Name.Value())
 	p.write(" {\n")

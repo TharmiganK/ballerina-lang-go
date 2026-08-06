@@ -199,6 +199,12 @@ func ResourceParams(ctx *extern.Context, impl any) (extern.ResourceSignature, bo
 	return signature, true
 }
 
+// ObjectAnnotations resolves the runtime-visible annotation values attached
+// to an object's class or service declaration.
+func ObjectAnnotations(ctx *extern.Context, obj *values.Object) (values.AnnotationValues, bool) {
+	return resolveAnnotationValues(ctx, obj.AnnotationValues())
+}
+
 // coercePathForEntry coerces the URL string segments to the typed values the
 // candidate resource entry expects, including any rest segments. Returns
 // (nil, false) when the segment count or any segment type does not match.

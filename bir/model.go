@@ -79,11 +79,12 @@ type (
 	}
 
 	BIRClassDef struct {
-		Name      model.Name
-		LookupKey string
-		Fields    []ObjectField
-		VTable    map[string]*BIRFunction
-		RTable    map[string][]BIRResourceMethod
+		Name        model.Name
+		LookupKey   string
+		Annotations values.AnnotationValues
+		Fields      []ObjectField
+		VTable      map[string]*BIRFunction
+		RTable      map[string][]BIRResourceMethod
 	}
 
 	BIRResourceMethod struct {

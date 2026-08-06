@@ -1790,13 +1790,7 @@ func (n *NodeBuilder) TransformServiceDeclaration(serviceDeclarationNode *tree.S
 
 	service := NewBLangService()
 	service.pos = n.getPositionWithoutMetadata(serviceDeclarationNode)
-
-	if metadata != nil && !metadata.IsMissing() {
-		if annotations := metadata.Annotations(); annotations.Size() > 0 {
-			panic("TransformServiceDeclaration: annotations not yet supported")
-		}
-		service.MarkdownDocumentationAttachment = n.createMarkdownDocumentationAttachment(getDocumentationString(metadata))
-	}
+	n.populateMetadata(metadata, &service)
 
 	if typeDesc := serviceDeclarationNode.TypeDescriptor(); typeDesc != nil && !typeDesc.IsMissing() {
 		service.SetTypeData(TypeData{TypeDescriptor: n.createTypeNode(typeDesc)})

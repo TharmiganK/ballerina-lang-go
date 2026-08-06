@@ -1798,6 +1798,7 @@ func transformClassDefinition(ctx *Context, class *ast.BLangClassDefinition, bir
 		return buildFunctionLookupKeyFromSymbol(ctx, rm.Symbol())
 	}
 	birClassDef := transformClassBody(ctx, class.Scope(), classLookupKey, model.Name(className), class.Fields, class.InitFunction, class.Methods, class.ResourceMethods, methodLookupKey, resourceLookupKey, class.GetPosition())
+	birClassDef.Annotations = ctx.CompilerContext.SymbolAnnotationValues(class.Symbol())
 	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
 }
 
@@ -1814,6 +1815,7 @@ func transformService(ctx *Context, svc *ast.BLangService, idx int, birPkg *BIRP
 		return buildLookupKey(pkg, className+"."+sym.Name())
 	}
 	birClassDef := transformClassBody(ctx, svc.Scope(), classLookupKey, model.Name(className), svc.Fields, svc.InitFunction, svc.Methods, svc.ResourceMethods, methodLookupKey, resourceLookupKey, svc.GetPosition())
+	birClassDef.Annotations = ctx.CompilerContext.SymbolAnnotationValues(svc.Symbol())
 	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
 }
 
@@ -1836,10 +1838,11 @@ func transformClassBody(
 	}
 
 	birClassDef := &BIRClassDef{
-		Name:      className,
-		LookupKey: classLookupKey,
-		VTable:    make(map[string]*BIRFunction),
-		RTable:    make(map[string][]BIRResourceMethod),
+		Name:        className,
+		LookupKey:   classLookupKey,
+		Annotations: values.NewAnnotationValues(),
+		VTable:      make(map[string]*BIRFunction),
+		RTable:      make(map[string][]BIRResourceMethod),
 	}
 
 	for _, field := range fields {

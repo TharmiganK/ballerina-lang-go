@@ -31,7 +31,7 @@ import (
 
 const (
 	BIR_MAGIC   = "\xba\x10\xc0\xde"
-	BIR_VERSION = 83
+	BIR_VERSION = 84
 )
 
 type birWriter struct {
@@ -118,6 +118,7 @@ func (bw *birWriter) writeClassDefs(buf *bytes.Buffer, pkg *bir.BIRPackage) {
 func (bw *birWriter) writeClassDef(buf *bytes.Buffer, classDef *bir.BIRClassDef) {
 	bw.writeStringCPEntry(buf, classDef.Name.Value())
 	bw.writeStringCPEntry(buf, classDef.LookupKey)
+	bw.writeAnnotationValues(buf, classDef.Annotations)
 	bw.writeLength(buf, len(classDef.Fields))
 	for _, field := range classDef.Fields {
 		bw.writeStringCPEntry(buf, field.Name)

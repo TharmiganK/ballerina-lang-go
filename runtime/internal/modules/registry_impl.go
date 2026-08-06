@@ -29,9 +29,10 @@ import (
 // reference across all instances, so object creation only allocates the
 // per-instance field map. FieldCount pre-sizes that map.
 type ClassTemplate struct {
-	MethodKeys map[string]string
-	RTable     map[string][]values.ResourceEntry
-	FieldCount int
+	MethodKeys  map[string]string
+	RTable      map[string][]values.ResourceEntry
+	Annotations values.AnnotationValues
+	FieldCount  int
 }
 
 type Registry struct {
@@ -52,8 +53,8 @@ func NewRegistry(builtins map[string]extern.NativeFunc) *Registry {
 	}
 }
 
-// buildClassTemplate converts a class definition's method and resource tables
-// into the shared, read-only form used by every instance of the class.
+// buildClassTemplate converts a class definition's methods, resources, and
+// annotations into the shared, read-only form used by every instance.
 func buildClassTemplate(def *bir.BIRClassDef) *ClassTemplate {
 	methodKeys := make(map[string]string, len(def.VTable))
 	for methodName, method := range def.VTable {
@@ -75,10 +76,15 @@ func buildClassTemplate(def *bir.BIRClassDef) *ClassTemplate {
 		}
 		rtable[methodName] = copied
 	}
+	annotations := def.Annotations
+	if annotations == nil {
+		annotations = values.NewAnnotationValues()
+	}
 	return &ClassTemplate{
-		MethodKeys: methodKeys,
-		RTable:     rtable,
-		FieldCount: len(def.Fields),
+		MethodKeys:  methodKeys,
+		RTable:      rtable,
+		Annotations: annotations,
+		FieldCount:  len(def.Fields),
 	}
 }
 

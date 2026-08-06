@@ -60,6 +60,7 @@ type DispatchHandles struct {
 	LookupResource       func(*Context, *values.Object, string, []values.BalValue) (any, bool) // resourceMethodName, path
 	LookupResourceByPath func(*Context, *values.Object, string, []string) (any, int, bool)     // accessor, segments
 	ResourceParams       func(*Context, any) (ResourceSignature, bool)
+	ObjectAnnotations    func(*Context, *values.Object) (values.AnnotationValues, bool)
 	LookupFunction       func(*Context, string, string, string) (any, bool) // org, module, name
 	Invoke               func(*Context, any, []values.BalValue) (values.BalValue, error)
 	Start                func(*Context, any, []values.BalValue) (<-chan values.BalValue, error)
@@ -107,6 +108,12 @@ func (c *Context) LookupResourceMethodByPath(obj *values.Object, accessor string
 // the backing BIR function is unavailable.
 func (c *Context) ResourceSignature(h MethodHandle) (ResourceSignature, bool) {
 	return c.Env.dispatch.ResourceParams(c, h.impl)
+}
+
+// ObjectAnnotations returns the runtime-visible annotations associated with
+// the object's class or service declaration.
+func (c *Context) ObjectAnnotations(obj *values.Object) (values.AnnotationValues, bool) {
+	return c.Env.dispatch.ObjectAnnotations(c, obj)
 }
 
 // InvokeMethod calls the method captured by h. For object and remote

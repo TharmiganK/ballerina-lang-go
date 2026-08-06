@@ -584,6 +584,7 @@ func buildRequest(method, rawPath, httpVersion string, headers map[string][]stri
 		},
 		requestMethodKeys(),
 		nil,
+		nil,
 	)
 }
 

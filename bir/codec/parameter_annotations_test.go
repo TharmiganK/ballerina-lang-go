@@ -86,3 +86,56 @@ func TestParameterAnnotationsRoundTrip(t *testing.T) {
 		t.Fatalf("runtime annotation reference did not round-trip: %#v", ref)
 	}
 }
+
+// Service declaration annotations are consumed by native listeners through
+// the generated service class, so their BIR carrier needs a direct assertion.
+func TestClassAnnotationsRoundTrip(t *testing.T) {
+	typeEnv := semtypes.CreateTypeEnv()
+	pkg := &bir.BIRPackage{
+		PackageID:  model.DEFAULT,
+		GlobalVars: make(map[string]bir.BIRGlobalVariableDcl),
+		ClassDefs: []bir.BIRClassDef{{
+			Name:      model.Name("$service$0"),
+			LookupKey: "$anon/.:$service$0",
+			Annotations: values.AnnotationValues{
+				"test/meta:runtime": &values.RuntimeAnnotationValueRef{
+					Organization: "test",
+					Module:       "meta",
+					GlobalName:   "$annotation$0",
+				},
+				"test/meta:value": "configured",
+			},
+			VTable: make(map[string]*bir.BIRFunction),
+			RTable: make(map[string][]bir.BIRResourceMethod),
+		}},
+	}
+
+	data, err := Marshal(typeEnv, pkg)
+	if err != nil {
+		t.Fatalf("marshal BIR: %v", err)
+	}
+	second, err := Marshal(typeEnv, pkg)
+	if err != nil {
+		t.Fatalf("marshal BIR again: %v", err)
+	}
+	if !bytes.Equal(data, second) {
+		t.Fatal("class annotation serialization is not deterministic")
+	}
+
+	env := context.NewCompilerEnvironment(semtypes.CreateTypeEnv(), false)
+	decoded, err := Unmarshal(context.NewCompilerContext(env), data)
+	if err != nil {
+		t.Fatalf("unmarshal BIR: %v", err)
+	}
+	classDef := decoded.ClassDefs[0]
+	if got := classDef.Annotations["test/meta:value"]; got != "configured" {
+		t.Fatalf("constant annotation = %#v, want configured", got)
+	}
+	ref, ok := classDef.Annotations["test/meta:runtime"].(*values.RuntimeAnnotationValueRef)
+	if !ok {
+		t.Fatalf("runtime annotation reference has type %T", classDef.Annotations["test/meta:runtime"])
+	}
+	if ref.Organization != "test" || ref.Module != "meta" || ref.GlobalName != "$annotation$0" {
+		t.Fatalf("runtime annotation reference did not round-trip: %#v", ref)
+	}
+}

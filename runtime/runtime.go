@@ -106,6 +106,7 @@ func NewRuntime(platform pal.Platform, tyEnv semtypes.Env) *Runtime {
 		LookupResource:       exec.LookupResourceMethod,
 		LookupResourceByPath: exec.LookupResourceMethodByPath,
 		ResourceParams:       exec.ResourceParams,
+		ObjectAnnotations:    exec.ObjectAnnotations,
 		Invoke:               exec.Invoke,
 		Start:                exec.StartMethod,
 		LookupFunction: func(cx *extern.Context, org, module, name string) (any, bool) {

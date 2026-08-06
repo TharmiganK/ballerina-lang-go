@@ -1168,6 +1168,7 @@ func resolveTopLevelAnnotationAttachments(t typeResolver, pkg *ast.BLangPackage)
 	}
 	for i := range pkg.Services {
 		svc := &pkg.Services[i]
+		resolveAnnotationAttachments(t, svc, ast.Point_SERVICE, svc.Symbol())
 		resolveClassBodyAnnotationAttachments(t, svc.Fields, svc.InitFunction, svc.Methods, svc.ResourceMethods)
 	}
 	for i := range pkg.Functions {
@@ -2597,6 +2598,7 @@ func resolveServiceType(t typeResolver, svc *ast.BLangService, depth int) bool {
 	}
 
 	svc.SetDeterminedType(semType)
+	t.setSymbolType(svc.Symbol(), semType)
 	typeData := svc.GetTypeData()
 	if typeData.TypeDescriptor != nil {
 		if _, ok := resolveBType(t, typeData.TypeDescriptor.(ast.BType), depth+1); !ok {

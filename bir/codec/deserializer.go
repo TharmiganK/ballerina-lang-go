@@ -254,6 +254,7 @@ func (br *birReader) readClassDef(classDef *bir.BIRClassDef) {
 	classDef.Name = name
 	lookupKey := br.readStringCPEntry()
 	classDef.LookupKey = lookupKey.Value()
+	classDef.Annotations = br.readAnnotationValues()
 
 	fieldCount := br.readLength()
 	fields := make([]bir.ObjectField, fieldCount)

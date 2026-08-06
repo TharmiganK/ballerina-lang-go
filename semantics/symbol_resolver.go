@@ -1753,6 +1753,14 @@ func resolveServiceDefinition(ms *moduleSymbolResolver, svc *ast.BLangService) {
 	allocateServiceResourceMethodSymbols(svcResolver, svc.ResourceMethods)
 
 	finishResolveClassDefinition(ms, svcResolver, svc.Fields, svc.Methods, svc.ResourceMethods, svc.InitFunction, nil, svcResolver.scope, serviceMethodSymbolName, resourceMethodsAreNetworkClass)
+
+	serviceSymbol := model.NewTypeSymbol("$service", false, svc.GetPosition())
+	svcResolver.AddSymbol("$service", &serviceSymbol)
+	serviceSymbolRef, _, _ := svcResolver.GetSymbol("$service")
+	svc.SetSymbol(serviceSymbolRef)
+	for i := range svc.AnnAttachments {
+		ast.Walk(svcResolver, &svc.AnnAttachments[i])
+	}
 }
 
 func resolveClassDefinition(ms *moduleSymbolResolver, classDef *ast.BLangClassDefinition) {

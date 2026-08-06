@@ -130,6 +130,7 @@ type (
 	classDefnBase struct {
 		bLangNodeBase
 		scope                           model.Scope
+		symbol                          model.SymbolRef
 		AnnAttachments                  []BLangAnnotationAttachment
 		MarkdownDocumentationAttachment *BLangMarkdownDocumentation
 		InitFunction                    *BLangFunction
@@ -147,8 +148,7 @@ type (
 
 	BLangClassDefinition struct {
 		classDefnBase
-		Name   IdentifierNode
-		symbol model.SymbolRef
+		Name IdentifierNode
 	}
 
 	BLangService struct {
@@ -388,11 +388,11 @@ func (b *bLangNodeBase) SetPosition(pos diagnostics.Location) {
 	b.pos = pos
 }
 
-func (n *BLangClassDefinition) Symbol() model.SymbolRef {
+func (n *classDefnBase) Symbol() model.SymbolRef {
 	return n.symbol
 }
 
-func (n *BLangClassDefinition) SetSymbol(symbolRef model.SymbolRef) {
+func (n *classDefnBase) SetSymbol(symbolRef model.SymbolRef) {
 	n.symbol = symbolRef
 }
 
@@ -508,6 +508,7 @@ var (
 var (
 	// Assert that concrete types with symbols implement BNodeWithSymbol
 	_ BNodeWithSymbol = &BLangClassDefinition{}
+	_ BNodeWithSymbol = &BLangService{}
 	_ BNodeWithSymbol = &BLangConstant{}
 	_ BNodeWithSymbol = &BLangSimpleVariable{}
 	_ BNodeWithSymbol = &BLangFunction{}

@@ -7,7 +7,7 @@ class Client {
     }
   }
 
-  resource get value Client.$resource$get$0(,[function(int) returns int...]...) -> {| value: int, never... |}{
+  resource get value Client.$resource$get$0([function(int) returns int...]...) -> {| value: int, never... |}{
     bb0 {
       _ = callbacks;
       %4 = ConstantLoad value

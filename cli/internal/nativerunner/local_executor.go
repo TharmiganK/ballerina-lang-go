@@ -45,7 +45,7 @@ const defaultTargetPackage = "cli/cmd"
 // LocalExecutor builds a custom interpreter binary using the local Go toolchain.
 // It implements nativeexec.NativeExecutor.
 type LocalExecutor struct {
-	// interpreterRoot is the directory that contains the ballerina go.mod.
+	// interpreterRoot is the directory that contains the interpreter go.work.
 	interpreterRoot string
 	// outputBinary is the path where the compiled native binary is written.
 	// Relative paths are resolved against the interpreter root.
@@ -84,7 +84,7 @@ func (e *LocalExecutor) Available() bool {
 	if !goVersionAtLeast(goExe, MinGoVersion) {
 		return false
 	}
-	_, err = os.Stat(filepath.Join(e.interpreterRoot, "go.mod"))
+	_, err = os.Stat(filepath.Join(e.interpreterRoot, "go.work"))
 	return err == nil
 }
 
@@ -302,36 +302,31 @@ func (e *LocalExecutor) loadCachedBinary(fingerprint string) (string, bool) {
 	return outBin, true
 }
 
-// localFingerprint hashes the interpreter root path, workspace manifests, Go
-// version, target package, target platform, and payload contents. The target
-// platform must already be resolved rather than defaulted here.
+// localFingerprint hashes the driver root, effective workspace module
+// selection, CLI manifests, Go version, target, and payload contents.
 func localFingerprint(interpreterRoot, targetPackage string, payloads []nativeexec.NativePayload, targetOS, targetArch string) (string, error) {
-	seeds := make([][]byte, 0, len(interpreterModuleDirs)*2+6)
-	seeds = append(seeds, []byte(interpreterRoot))
-	for _, name := range []string{"go.mod", "go.sum", "go.work"} {
-		data, err := os.ReadFile(filepath.Join(interpreterRoot, name))
-		if err != nil {
-			return "", fmt.Errorf("reading interpreter %s: %w", name, err)
-		}
-		seeds = append(seeds, data)
+	workspace, workspaceJSON, err := readSourceWorkspace(interpreterRoot)
+	if err != nil {
+		return "", err
 	}
-	for _, dir := range interpreterModuleDirs[1:] {
+	seeds := [][]byte{[]byte(interpreterRoot), workspaceJSON}
+	for _, use := range workspace.Use {
+		moduleDir := resolveWorkspacePath(interpreterRoot, use.DiskPath)
 		for _, name := range []string{"go.mod", "go.sum"} {
-			data, err := os.ReadFile(filepath.Join(interpreterRoot, dir, name))
+			data, err := os.ReadFile(filepath.Join(moduleDir, name))
 			if err == nil {
 				seeds = append(seeds, data)
 				continue
 			}
 			if !os.IsNotExist(err) || name == "go.mod" {
-				return "", fmt.Errorf("reading interpreter %s/%s: %w", dir, name, err)
+				return "", fmt.Errorf("reading workspace module %s/%s: %w", use.DiskPath, name, err)
 			}
 		}
 	}
 	if ver, err := installedGoVersion(); err == nil {
 		seeds = append(seeds, []byte(ver))
 	}
-	seeds = append(seeds, []byte(targetPackage))
-	seeds = append(seeds, []byte(targetOS+"/"+targetArch))
+	seeds = append(seeds, []byte(targetPackage), []byte(targetOS+"/"+targetArch))
 	return nativeexec.FingerprintPayloads(payloads, seeds...)
 }
 
@@ -383,40 +378,92 @@ func writeNativeFiles(dir string, payload nativeexec.NativePayload) error {
 	})
 }
 
-const interpreterModuleVersion = "v0.7.0"
-
-var interpreterModuleDirs = []string{
-	"", "ast", "bir", "cli", "common", "context", "decimal", "desugar", "lib",
-	"model", "parser", "platform", "projects", "runtime", "semantics", "semtypes",
-	"tools", "values",
+type workspaceFile struct {
+	Go      string             `json:"Go"`
+	Use     []workspaceUse     `json:"Use"`
+	Replace []workspaceReplace `json:"Replace"`
 }
 
-// writeNativeWorkspace creates a workspace containing the extracted
-// interpreter modules and generated native payload modules.
+type workspaceUse struct {
+	DiskPath string `json:"DiskPath"`
+}
+
+type workspaceModule struct {
+	Path    string `json:"Path"`
+	Version string `json:"Version"`
+}
+
+type workspaceReplace struct {
+	Old workspaceModule `json:"Old"`
+	New workspaceModule `json:"New"`
+}
+
+func readSourceWorkspace(interpreterRoot string) (workspaceFile, []byte, error) {
+	workspacePath := filepath.Join(interpreterRoot, "go.work")
+	cmd := exec.Command("go", "work", "edit", "-json", workspacePath)
+	data, err := cmd.Output()
+	if err != nil {
+		return workspaceFile{}, nil, fmt.Errorf("reading driver workspace: %w", err)
+	}
+	var workspace workspaceFile
+	if err := json.Unmarshal(data, &workspace); err != nil {
+		return workspaceFile{}, nil, fmt.Errorf("parsing driver workspace: %w", err)
+	}
+	return workspace, data, nil
+}
+
+func resolveWorkspacePath(interpreterRoot, name string) string {
+	if filepath.IsAbs(name) {
+		return filepath.Clean(name)
+	}
+	return filepath.Join(interpreterRoot, filepath.FromSlash(name))
+}
+
+// writeNativeWorkspace preserves the driver's standard workspace selection
+// and adds one temporary module for each native payload.
 func writeNativeWorkspace(dstDir, interpreterRoot string, payloads []nativeexec.NativePayload) (string, error) {
-	const modulePrefix = "github.com/ballerina-nutcracker/ballerina"
+	source, _, err := readSourceWorkspace(interpreterRoot)
+	if err != nil {
+		return "", err
+	}
+
+	goVersion := source.Go
+	if goVersion == "" {
+		goVersion = MinGoVersion
+	}
 	var workspace strings.Builder
-	fmt.Fprintf(&workspace, "go %s\n\nuse (\n", MinGoVersion)
-	for _, dir := range interpreterModuleDirs {
-		moduleDir := filepath.Join(interpreterRoot, dir)
+	fmt.Fprintf(&workspace, "go %s\n\nuse (\n", goVersion)
+	for _, use := range source.Use {
+		moduleDir := resolveWorkspacePath(interpreterRoot, use.DiskPath)
 		if _, err := os.Stat(filepath.Join(moduleDir, "go.mod")); err != nil {
-			return "", fmt.Errorf("reading interpreter module %s: %w", dir, err)
+			return "", fmt.Errorf("reading workspace module %s: %w", use.DiskPath, err)
 		}
 		fmt.Fprintf(&workspace, "\t%q\n", moduleDir)
 	}
 	for _, payload := range payloads {
 		fmt.Fprintf(&workspace, "\t%q\n", filepath.Join(dstDir, moduleDirName(payload.GoModuleName())))
 	}
-	workspace.WriteString(")\n\nreplace (\n")
-	for _, dir := range interpreterModuleDirs {
-		modulePath := modulePrefix
-		if dir != "" {
-			modulePath += "/" + dir
-		}
-		fmt.Fprintf(&workspace, "\t%s %s => %q\n", modulePath, interpreterModuleVersion,
-			filepath.Join(interpreterRoot, dir))
-	}
 	workspace.WriteString(")\n")
+
+	if len(source.Replace) > 0 {
+		workspace.WriteString("\nreplace (\n")
+		for _, replacement := range source.Replace {
+			newPath := replacement.New.Path
+			if replacement.New.Version == "" {
+				newPath = strconv.Quote(resolveWorkspacePath(interpreterRoot, newPath))
+			}
+			fmt.Fprintf(&workspace, "\t%s", replacement.Old.Path)
+			if replacement.Old.Version != "" {
+				fmt.Fprintf(&workspace, " %s", replacement.Old.Version)
+			}
+			fmt.Fprintf(&workspace, " => %s", newPath)
+			if replacement.New.Version != "" {
+				fmt.Fprintf(&workspace, " %s", replacement.New.Version)
+			}
+			workspace.WriteByte('\n')
+		}
+		workspace.WriteString(")\n")
+	}
 
 	dst := filepath.Join(dstDir, "go.work")
 	if err := os.WriteFile(dst, []byte(workspace.String()), 0o600); err != nil {

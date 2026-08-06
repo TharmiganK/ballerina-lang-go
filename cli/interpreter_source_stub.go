@@ -14,19 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//go:build !native_interp
+//go:build native_interp
 
 package cli
 
-import (
-	"embed"
-	"io/fs"
-)
+import "io/fs"
 
-//go:embed all:*
-var driverSource embed.FS
-
-// DriverSource returns the embedded CLI source used to build native-enabled executables.
+// DriverSource is empty in native executables so they do not embed the driver recursively.
 func DriverSource() fs.FS {
-	return driverSource
+	return nil
 }

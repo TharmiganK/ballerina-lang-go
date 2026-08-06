@@ -1541,7 +1541,6 @@ func TestBalBuildUnsupportedTargetPlatform(t *testing.T) {
 // native-multi-org-v fixture + golden output as TestNativeMultiOrgPackages
 // (native_runner_test.go).
 func TestBalBuildNativeDependency(t *testing.T) {
-	t.Parallel()
 	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
 		t.Skip("skipping CLI integration test on WASM")
 	}
@@ -1561,7 +1560,15 @@ func TestBalBuildNativeDependency(t *testing.T) {
 	projectDir := t.TempDir()
 	copyDir(t, srcProject, projectDir)
 
-	extraEnv := []string{"BAL_ENV=" + tempHome, "BALLERINA_SRC=" + repoRoot}
+	proxyURL := localDistributionProxy(t, repoRoot)
+	moduleCache := isolatedGoModuleCache(t, tempHome)
+	extraEnv := []string{
+		"BAL_ENV=" + tempHome,
+		"BALLERINA_SRC=",
+		"GOPROXY=" + proxyURL + ",https://proxy.golang.org,direct",
+		"GONOSUMDB=github.com/ballerina-nutcracker/ballerina*",
+		"GOMODCACHE=" + moduleCache,
+	}
 	runBuild := func() (stdout, stderr string, code int) {
 		return runCLICommandWithEnv(t, balBin, repoRoot, coverDir, extraEnv, "build", projectDir)
 	}

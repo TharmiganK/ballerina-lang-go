@@ -18,11 +18,11 @@ PYTHON ?= python3
 WORKSPACE_MODULES = go list -m -f '{{if .Main}}{{.Dir}}{{end}}' all
 TEST_RUNNER = .github/scripts/run_native_tests.py
 
-.PHONY: build test test-coverage test-race vet lint check update-testdata bumpDist \
+.PHONY: build test test-coverage test-race vet lint check update-testdata release \
 	test-wasm test-wasm-corpus-light test-wasm-corpus-integration benchmark-corpus
 
-bumpDist:
-	@bash .github/scripts/bump_dist.sh "$(VERSION)"
+release:
+	@bash .github/scripts/release_dist.sh "$(VERSION)" "$(or $(REMOTE),origin)"
 
 build:
 	@set -euo pipefail; \
@@ -70,7 +70,7 @@ test-wasm:
 	wasm_exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec"; \
 	while IFS= read -r dir; do \
 		case "$$dir" in */compiler-tools/*) continue ;; esac; \
-		packages="$$(cd "$$dir" && go list ./... | sed '/^github.com\/ballerina-nutcracker\/ballerina\/corpus$$/d')"; \
+		packages="$$(cd "$$dir" && go list ./... | sed -e '/^github.com\/ballerina-nutcracker\/ballerina\/corpus$$/d' -e '/^github.com\/ballerina-nutcracker\/ballerina\/cli\/internal\/nativerunner$$/d')"; \
 		if [[ -n "$$packages" ]]; then \
 			go test -p=1 -skip 'TestParseCorpusFiles|TestJBalUnitTests|TestJBalUnitBIRTests' -timeout 30m $$packages -exec="$$wasm_exec"; \
 		fi; \

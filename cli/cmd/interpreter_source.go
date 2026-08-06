@@ -16,17 +16,10 @@
 
 //go:build !native_interp
 
-package cli
+package main
 
-import (
-	"embed"
-	"io/fs"
-)
+import "github.com/ballerina-nutcracker/ballerina/cli"
 
-//go:embed all:*
-var driverSource embed.FS
-
-// DriverSource returns the embedded CLI source used to build native-enabled executables.
-func DriverSource() fs.FS {
-	return driverSource
+func extractDriverSource(cacheRoot, version string) (string, error) {
+	return cli.ExtractDriverSource(cacheRoot, version)
 }

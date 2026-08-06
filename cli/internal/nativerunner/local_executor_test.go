@@ -162,9 +162,17 @@ func TestWriteNativeFiles_CopiesGoFiles(t *testing.T) {
 func TestWriteNativeWorkspace(t *testing.T) {
 	t.Parallel()
 	interpRoot := t.TempDir()
-	for _, dir := range interpreterModuleDirs {
-		mustWriteFile(t, filepath.Join(interpRoot, dir, "go.mod"), "module example.com/interpreter\n\ngo 1.26\n")
-	}
+	mustWriteFile(t, filepath.Join(interpRoot, "cli", "go.mod"), "module example.com/cli\n\ngo 1.26\n")
+	mustWriteFile(t, filepath.Join(interpRoot, "ast", "go.mod"), "module example.com/ast\n\ngo 1.26\n")
+	mustWriteFile(t, filepath.Join(interpRoot, "go.work"), `go 1.26
+
+use (
+	./cli
+	./ast
+)
+
+replace example.com/ast v1.0.0 => ./ast
+`)
 
 	tmpDir := t.TempDir()
 	payloads := []nativeexec.NativePayload{
@@ -181,9 +189,9 @@ func TestWriteNativeWorkspace(t *testing.T) {
 		t.Fatalf("writeNativeWorkspace: %v", err)
 	}
 	content := mustReadFile(t, workspaceFile)
-	for _, dir := range interpreterModuleDirs {
+	for _, dir := range []string{"cli", "ast"} {
 		if !strings.Contains(content, strconv.Quote(filepath.Join(interpRoot, dir))) {
-			t.Errorf("workspace missing interpreter module %q:\n%s", dir, content)
+			t.Errorf("workspace did not preserve local module %q:\n%s", dir, content)
 		}
 	}
 	for _, payload := range payloads {
@@ -192,17 +200,40 @@ func TestWriteNativeWorkspace(t *testing.T) {
 			t.Errorf("workspace missing payload %s:\n%s", payload.GoModuleName(), content)
 		}
 	}
-	expectedReplacement := "github.com/ballerina-nutcracker/ballerina/ast " + interpreterModuleVersion + " =>"
-	if !strings.Contains(content, expectedReplacement) {
-		t.Errorf("workspace missing versioned interpreter replacement:\n%s", content)
+	if !strings.Contains(content, "example.com/ast v1.0.0 => "+strconv.Quote(filepath.Join(interpRoot, "ast"))) {
+		t.Errorf("workspace did not preserve the local replacement:\n%s", content)
+	}
+	if strings.Contains(content, "ballerina/runtime") || strings.Contains(content, "ballerina/projects") {
+		t.Errorf("workspace synthesized interpreter dependency entries:\n%s", content)
+	}
+}
+
+func TestWriteNativeWorkspaceDriverOnly(t *testing.T) {
+	t.Parallel()
+	interpRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(interpRoot, "cli", "go.mod"), "module example.com/cli\n\ngo 1.26\n\nrequire example.com/dependency v1.0.0\n")
+	mustWriteFile(t, filepath.Join(interpRoot, "go.work"), "go 1.26\n\nuse ./cli\n")
+
+	workspaceFile, err := writeNativeWorkspace(t.TempDir(), interpRoot, nil)
+	if err != nil {
+		t.Fatalf("writeNativeWorkspace: %v", err)
+	}
+	content := mustReadFile(t, workspaceFile)
+	if !strings.Contains(content, strconv.Quote(filepath.Join(interpRoot, "cli"))) {
+		t.Errorf("workspace missing CLI driver:\n%s", content)
+	}
+	if strings.Contains(content, "example.com/dependency") || strings.Contains(content, "replace") {
+		t.Errorf("workspace must leave cli/go.mod dependency resolution untouched:\n%s", content)
 	}
 }
 
 func TestWriteNativeWorkspace_MissingModule(t *testing.T) {
 	t.Parallel()
-	_, err := writeNativeWorkspace(t.TempDir(), "/nonexistent/root", nil)
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "go.work"), "go 1.26\n\nuse ./cli\n")
+	_, err := writeNativeWorkspace(t.TempDir(), root, nil)
 	if err == nil {
-		t.Error("expected error when an interpreter module is missing")
+		t.Error("expected error when the CLI driver module is missing")
 	}
 }
 
@@ -226,16 +257,14 @@ func TestNewForTarget_SetsTargetPackage(t *testing.T) {
 	}
 }
 
-// newFakeInterpreterRoot creates minimal workspace manifests, enough for
-// localFingerprint without a real interpreter checkout.
+// newFakeInterpreterRoot creates minimal driver workspace manifests, enough
+// for localFingerprint without a real interpreter checkout.
 func newFakeInterpreterRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "go.work"), "go 1.26\n")
-	for _, dir := range interpreterModuleDirs {
-		mustWriteFile(t, filepath.Join(root, dir, "go.mod"), "module example.com/interpreter\n\ngo 1.26\n")
-	}
-	mustWriteFile(t, filepath.Join(root, "go.sum"), "")
+	mustWriteFile(t, filepath.Join(root, "go.work"), "go 1.26\n\nuse ./cli\n")
+	mustWriteFile(t, filepath.Join(root, "cli", "go.mod"), "module example.com/cli\n\ngo 1.26\n")
+	mustWriteFile(t, filepath.Join(root, "cli", "go.sum"), "")
 	return root
 }
 
@@ -621,7 +650,7 @@ func TestBuild_CompileErrorInNativeSource(t *testing.T) {
 	outBin := filepath.Join(t.TempDir(), "balrt-native")
 	executor := NewForTarget(repoRoot, outBin, "cli/internal/balrt")
 	if !executor.Available() {
-		t.Skip("Go toolchain or interpreter source unavailable in this environment")
+		t.Skip("Go toolchain or driver source unavailable in this environment")
 	}
 
 	_, buildErr := executor.Build(context.Background(), nativeexec.NativeRunnerRequest{

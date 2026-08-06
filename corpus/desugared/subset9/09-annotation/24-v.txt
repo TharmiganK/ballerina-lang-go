@@ -1,5 +1,6 @@
 (package
   (import-package ballerina io (as io))
+  (variable $annotation$0)
   (annotation parameterMeta
     (user-defined-type Meta)
     (attach-point parameter))
@@ -10,6 +11,14 @@
     (record-type
       (field name
         (value-type string))))
+  (function init () ()
+    (block-function-body
+      (assignment
+        (simple-var-ref $annotation$0)
+        (mapping-constructor-expr
+          (key-value
+            (literal name)
+            (invocation annotationName ()))))))
   (function identity (
     (variable value (type
       (value-type int)))) (
@@ -22,10 +31,26 @@
     (block-function-body
       (return
         (simple-var-ref value))))
+  (function annotationName () (
+    (value-type string))
+    (block-function-body
+      (return
+        (literal runtime-value))))
+  (function runtimeIdentity (
+    (variable value (type
+      (value-type int)))) (
+    (value-type int))
+    (block-function-body
+      (return
+        (simple-var-ref value))))
   (function main () (
     (value-type null))
     (block-function-body
       (expression-stmt
         (invocation io println (
           (invocation identity (
-            (literal 42)))))))))
+            (literal 42))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation runtimeIdentity (
+            (literal 84)))))))))

@@ -1226,10 +1226,10 @@ func resolveInvokableAnnotationAttachments(
 ) {
 	resolveAnnotationAttachments(t, fn, point, model.SymbolRef{})
 	for _, parameter := range fn.GetParameters() {
-		resolveAnnotationAttachments(t, parameter, ast.Point_PARAMETER, model.SymbolRef{})
+		resolveAnnotationAttachments(t, parameter, ast.Point_PARAMETER, parameter.Symbol())
 	}
 	if restParam := fn.GetRestParam(); restParam != nil {
-		resolveAnnotationAttachments(t, restParam, ast.Point_PARAMETER, model.SymbolRef{})
+		resolveAnnotationAttachments(t, restParam, ast.Point_PARAMETER, restParam.Symbol())
 	}
 	if ret := fn.GetReturnTypeDescriptor(); ret != nil {
 		resolveAnnotationAttachments(t, ret, ast.Point_RETURN, model.SymbolRef{})
@@ -1240,7 +1240,7 @@ func resolveAnnotationAttachments(
 	t typeResolver,
 	node ast.AnnotatableNode,
 	point ast.Point,
-	typeSymbol model.SymbolRef,
+	ownerSymbol model.SymbolRef,
 ) {
 	seen := make(map[string]bool)
 	repeatedValues := make(map[string]*repeatedAnnotationValue)
@@ -1310,8 +1310,8 @@ func resolveAnnotationAttachments(
 		if !runtimeValue {
 			ann.AnnotationValue = value
 		}
-		storedOnType := typeSymbol != (model.SymbolRef{}) && sym.IsRuntimeVisibleAt(pointKey)
-		if repeated && storedOnType {
+		storeValue := ownerSymbol != (model.SymbolRef{}) && sym.IsRuntimeVisibleAt(pointKey)
+		if repeated && storeValue {
 			group := repeatedValues[key]
 			if group == nil {
 				group = &repeatedAnnotationValue{listType: expectedType}
@@ -1324,13 +1324,13 @@ func resolveAnnotationAttachments(
 			continue
 		}
 		if runtimeValue {
-			if storedOnType {
-				setTypeAnnotationValue(t, typeSymbol, key, createRuntimeAnnotationGlobal(t, ann.Expr))
+			if storeValue {
+				setSymbolAnnotationValue(t, ownerSymbol, key, createRuntimeAnnotationGlobal(t, ann.Expr))
 			}
 			continue
 		}
-		if storedOnType {
-			setTypeAnnotationValue(t, typeSymbol, key, value)
+		if storeValue {
+			setSymbolAnnotationValue(t, ownerSymbol, key, value)
 		}
 	}
 
@@ -1348,12 +1348,12 @@ func resolveAnnotationAttachments(
 			}
 			expr.SetPosition(group.expressions[0].GetPosition())
 			expr.SetDeterminedType(group.listType)
-			setTypeAnnotationValue(t, typeSymbol, key, createRuntimeAnnotationGlobal(t, expr))
+			setSymbolAnnotationValue(t, ownerSymbol, key, createRuntimeAnnotationGlobal(t, expr))
 			continue
 		}
 		restFiller, _ := values.FillerFactoryFor(t.typeContext(), atomic.Rest())
 		value := values.NewList(group.listType, atomic, true, restFiller, len(group.values), group.values)
-		setTypeAnnotationValue(t, typeSymbol, key, value)
+		setSymbolAnnotationValue(t, ownerSymbol, key, value)
 	}
 }
 
@@ -1453,7 +1453,7 @@ func createRuntimeAnnotationGlobal(t typeResolver, expr ast.BLangExpression) *va
 	}
 }
 
-func setTypeAnnotationValue(t typeResolver, symbol model.SymbolRef, key string, value values.AnnotationValue) {
+func setSymbolAnnotationValue(t typeResolver, symbol model.SymbolRef, key string, value values.AnnotationValue) {
 	t.compilerContext().SetSymbolAnnotationValue(symbol, key, value)
 }
 

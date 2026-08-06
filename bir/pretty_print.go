@@ -96,15 +96,13 @@ func (p *PrettyPrinter) Print(tyCtx semtypes.Context, node BIRPackage) string {
 func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 	p.write(function.Name.Value())
 	p.write("(")
-	paramStart := 1
-	if len(function.LocalVars) > 1 && function.LocalVars[1].GetName() == "self" {
-		paramStart = 2
-	}
+	paramStart := function.ParamLocalVarOffset()
 	for i, v := range function.LocalVars[paramStart:] {
 		if i < len(function.RequiredParams) {
 			if i > 0 {
 				p.write(",")
 			}
+			p.printAnnotations(function.RequiredParams[i].Annotations)
 			p.write(p.PrintSemType(v.Type))
 		} else {
 			break
@@ -115,6 +113,7 @@ func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 		if variableIndex != 1 {
 			p.write(",")
 		}
+		p.printAnnotations(function.RestParams.Annotations)
 		p.write(p.PrintSemType(function.LocalVars[variableIndex].Type))
 		p.write("...")
 	}
@@ -141,6 +140,21 @@ func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 	p.decreaseIndent()
 	p.writeIndent()
 	p.write("}")
+}
+
+func (p *PrettyPrinter) printAnnotations(annotations values.AnnotationValues) {
+	keys := make([]string, 0, len(annotations))
+	for key := range annotations {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		p.write("@")
+		p.write(key)
+		p.write("(")
+		p.write(formatConstantValue(annotations[key]))
+		p.write(") ")
+	}
 }
 
 func (p *PrettyPrinter) PrintBasicBlock(basicBlock BIRBasicBlock) {
@@ -469,6 +483,9 @@ func formatConstantValue(v any) string {
 	switch v.(type) {
 	case *values.List, *values.Map, *values.Error, *values.Function, *values.Object, *values.TypeDesc:
 		return values.String(v, map[uintptr]bool{})
+	}
+	if ref, ok := v.(*values.RuntimeAnnotationValueRef); ok {
+		return fmt.Sprintf("runtime-ref(%s/%s:%s)", ref.Organization, ref.Module, ref.GlobalName)
 	}
 	return fmt.Sprintf("%v", v)
 }

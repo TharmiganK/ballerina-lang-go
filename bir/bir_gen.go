@@ -467,15 +467,20 @@ func transformFunctionInner(root *funcBlock, astFunc *ast.BLangFunction, selfSym
 	for i, param := range astFunc.RequiredParams {
 		root.addLocalVar(model.Name(param.GetName().GetValue()), ctx.CompilerContext.SymbolType(param.Symbol()), param.Symbol())
 		requiredParams[i] = BIRParameter{
-			Name:  model.Name(param.GetName().GetValue()),
-			Flags: param.Flags(),
+			Name:        model.Name(param.GetName().GetValue()),
+			Flags:       param.Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(param.Symbol()),
 		}
 	}
 	if astFunc.RestParam != nil {
 		restParam := astFunc.RestParam
 		ty := ctx.CompilerContext.SymbolType(restParam.Symbol())
 		root.addLocalVar(model.Name(restParam.GetName().GetValue()), ty, restParam.Symbol())
-		birFunc.RestParams = &BIRParameter{Name: model.Name(restParam.GetName().GetValue())}
+		birFunc.RestParams = &BIRParameter{
+			Name:        model.Name(restParam.GetName().GetValue()),
+			Flags:       restParam.(*ast.BLangSimpleVariable).Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(restParam.Symbol()),
+		}
 	}
 	birFunc.RequiredParams = requiredParams
 	switch body := astFunc.Body.(type) {
@@ -1936,21 +1941,29 @@ func transformResourceMethodInner(root *funcBlock, rm *ast.BLangResourceMethod, 
 			continue
 		}
 		root.addLocalVar(model.Name(name), ctx.CompilerContext.SymbolType(ref), ref)
-		requiredParams = append(requiredParams, BIRParameter{Name: model.Name(name)})
+		requiredParams = append(requiredParams, BIRParameter{
+			Name:        model.Name(name),
+			Annotations: values.NewAnnotationValues(),
+		})
 	}
 	for i := range rm.RequiredParams {
 		param := &rm.RequiredParams[i]
 		root.addLocalVar(model.Name(param.GetName().GetValue()), ctx.CompilerContext.SymbolType(param.Symbol()), param.Symbol())
 		requiredParams = append(requiredParams, BIRParameter{
-			Name:  model.Name(param.GetName().GetValue()),
-			Flags: param.Flags(),
+			Name:        model.Name(param.GetName().GetValue()),
+			Flags:       param.Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(param.Symbol()),
 		})
 	}
 	if rm.RestParam != nil {
 		restParam := rm.RestParam
 		ty := ctx.CompilerContext.SymbolType(restParam.Symbol())
 		root.addLocalVar(model.Name(restParam.GetName().GetValue()), ty, restParam.Symbol())
-		birFunc.RestParams = &BIRParameter{Name: model.Name(restParam.GetName().GetValue())}
+		birFunc.RestParams = &BIRParameter{
+			Name:        model.Name(restParam.GetName().GetValue()),
+			Flags:       restParam.(*ast.BLangSimpleVariable).Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(restParam.Symbol()),
+		}
 	}
 	birFunc.RequiredParams = requiredParams
 	switch body := rm.Body.(type) {

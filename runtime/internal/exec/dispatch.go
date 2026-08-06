@@ -124,6 +124,13 @@ func resourceExtraArgCount(ctx *extern.Context, entry *values.ResourceEntry) int
 	if fn == nil {
 		return 0
 	}
+	if extra := len(fn.RequiredParams) - resourcePathParamCount(entry); extra > 0 {
+		return extra
+	}
+	return 0
+}
+
+func resourcePathParamCount(entry *values.ResourceEntry) int {
 	nonLiteral := 0
 	for i := range entry.PathSegments {
 		if _, isLit := values.LiteralPathSegment(entry.PathSegments[i]); !isLit {
@@ -133,10 +140,63 @@ func resourceExtraArgCount(ctx *extern.Context, entry *values.ResourceEntry) int
 	if !semtypes.IsNever(entry.RestSegmentTy) {
 		nonLiteral++
 	}
-	if extra := len(fn.RequiredParams) - nonLiteral; extra > 0 {
-		return extra
+	return nonLiteral
+}
+
+// ResourceParams returns the non-path parameter metadata captured by a
+// resolved resource handle. Native protocol dispatchers use this to bind wire
+// values without depending directly on BIR or runtime-internal packages.
+func ResourceParams(ctx *extern.Context, impl any) (extern.ResourceSignature, bool) {
+	empty := extern.ResourceSignature{Params: make([]extern.ParamDescriptor, 0)}
+	handle, ok := impl.(*InvokableHandle)
+	if !ok || handle.resourceEntry == nil {
+		return empty, false
 	}
-	return 0
+	entry := handle.resourceEntry
+	fn := ctx.Env.Registry.(*modules.Registry).GetBIRFunction(entry.FunctionLookupKey)
+	if fn == nil {
+		return empty, false
+	}
+	pathParamCount := resourcePathParamCount(entry)
+	if pathParamCount > len(fn.RequiredParams) {
+		return empty, false
+	}
+	paramLocalOffset := fn.ParamLocalVarOffset()
+	params := make([]extern.ParamDescriptor, len(fn.RequiredParams)-pathParamCount)
+	for i := pathParamCount; i < len(fn.RequiredParams); i++ {
+		localIndex := paramLocalOffset + i
+		if localIndex >= len(fn.LocalVars) {
+			return empty, false
+		}
+		param := &fn.RequiredParams[i]
+		annotations, ok := resolveAnnotationValues(ctx, param.Annotations)
+		if !ok {
+			return empty, false
+		}
+		params[i-pathParamCount] = extern.ParamDescriptor{
+			Name:        param.Name.Value(),
+			Type:        fn.LocalVars[localIndex].Type,
+			Annotations: annotations,
+		}
+	}
+	signature := extern.ResourceSignature{Params: params}
+	if fn.RestParams == nil {
+		return signature, true
+	}
+	restLocalIndex := paramLocalOffset + len(fn.RequiredParams)
+	if restLocalIndex >= len(fn.LocalVars) {
+		return empty, false
+	}
+	annotations, ok := resolveAnnotationValues(ctx, fn.RestParams.Annotations)
+	if !ok {
+		return empty, false
+	}
+	signature.RestParam = &extern.ParamDescriptor{
+		Name:        fn.RestParams.Name.Value(),
+		Type:        fn.LocalVars[restLocalIndex].Type,
+		Annotations: annotations,
+	}
+	return signature, true
 }
 
 // coercePathForEntry coerces the URL string segments to the typed values the

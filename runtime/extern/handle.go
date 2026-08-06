@@ -16,7 +16,10 @@
 
 package extern
 
-import "ballerina/values"
+import (
+	"ballerina/semtypes"
+	"ballerina/values"
+)
 
 // MethodHandle is an opaque reference to a resolved method on a Ballerina
 // object. Obtain one from Context.LookupObjectMethod,
@@ -32,6 +35,21 @@ type FunctionHandle struct {
 	Fn any
 }
 
+// ParamDescriptor describes a non-path resource parameter for native
+// dispatchers that bind protocol values to a resource invocation.
+type ParamDescriptor struct {
+	Name        string
+	Type        semtypes.SemType
+	Annotations values.AnnotationValues
+}
+
+// ResourceSignature describes the non-path portion of a resolved resource
+// method's signature.
+type ResourceSignature struct {
+	Params    []ParamDescriptor
+	RestParam *ParamDescriptor
+}
+
 // DispatchHandles carry the runtime's method-resolution and invocation
 // implementations. They are installed once by InitEnv and used by the
 // Context.Lookup*/InvokeMethod/StartMethod methods. Lookup hooks return the
@@ -41,7 +59,8 @@ type DispatchHandles struct {
 	LookupRemote         func(*Context, *values.Object, string) (any, bool)
 	LookupResource       func(*Context, *values.Object, string, []values.BalValue) (any, bool) // resourceMethodName, path
 	LookupResourceByPath func(*Context, *values.Object, string, []string) (any, int, bool)     // accessor, segments
-	LookupFunction       func(*Context, string, string, string) (any, bool)                    // org, module, name
+	ResourceParams       func(*Context, any) (ResourceSignature, bool)
+	LookupFunction       func(*Context, string, string, string) (any, bool) // org, module, name
 	Invoke               func(*Context, any, []values.BalValue) (values.BalValue, error)
 	Start                func(*Context, any, []values.BalValue) (<-chan values.BalValue, error)
 }
@@ -81,6 +100,13 @@ func (c *Context) LookupResourceMethod(obj *values.Object, resourceMethodName st
 func (c *Context) LookupResourceMethodByPath(obj *values.Object, accessor string, segments []string) (MethodHandle, int, bool) {
 	impl, extraArgs, ok := c.Env.dispatch.LookupResourceByPath(c, obj, accessor, segments)
 	return MethodHandle{impl: impl}, extraArgs, ok
+}
+
+// ResourceSignature returns the non-path parameter metadata associated with a
+// resolved resource handle. It returns false for non-resource handles or when
+// the backing BIR function is unavailable.
+func (c *Context) ResourceSignature(h MethodHandle) (ResourceSignature, bool) {
+	return c.Env.dispatch.ResourceParams(c, h.impl)
 }
 
 // InvokeMethod calls the method captured by h. For object and remote

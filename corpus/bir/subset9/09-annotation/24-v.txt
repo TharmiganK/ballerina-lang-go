@@ -1,5 +1,19 @@
 module $anon.. v 0.0.0;
-identity(int) -> int{
+$annotation$0  any;
+identity(@$anon/.:0.0.0:parameterMeta({"name":"value"}) int) -> int{
+  bb0 {
+    %0 = value;
+    return;
+  }
+}
+annotationName() -> string{
+  bb0 {
+    %1 = ConstantLoad runtime-value
+    %0 = %1;
+    return;
+  }
+}
+runtimeIdentity(@$anon/.:0.0.0:parameterMeta(runtime-ref($anon/.:$annotation$0)) int) -> int{
   bb0 {
     %0 = value;
     return;
@@ -16,6 +30,15 @@ main() -> nil{
     %5 = println(%4) -> bb2;
   }
   bb2 {
+    %6 = ConstantLoad 84
+    %7 = %6;
+    %8 = runtimeIdentity(%7) -> bb3;
+  }
+  bb3 {
+    %9 = %8;
+    %10 = println(%9) -> bb4;
+  }
+  bb4 {
     return;
   }
 }

@@ -21,6 +21,7 @@ import (
 
 	"ballerina/model"
 	"ballerina/semtypes"
+	"ballerina/values"
 )
 
 type ConstValue struct {
@@ -149,8 +150,9 @@ type (
 
 	BIRParameter struct {
 		BIRNodeBase
-		Name  model.Name
-		Flags model.Flag
+		Name        model.Name
+		Flags       model.Flag
+		Annotations values.AnnotationValues
 	}
 
 	BIRFunctionParameter struct {
@@ -165,6 +167,16 @@ type (
 		Address     Address
 	}
 )
+
+// ParamLocalVarOffset returns the local-variable index of a function's first
+// declared parameter. Local slot zero is the return value and attached
+// functions additionally reserve slot one for self.
+func (f *BIRFunction) ParamLocalVarOffset() int {
+	if f.Flags.Has(model.FlagAttached) {
+		return 2
+	}
+	return 1
+}
 
 type Address struct {
 	Mode       AddressingMode

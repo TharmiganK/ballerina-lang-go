@@ -27,6 +27,15 @@ function identity(@parameterMeta {name: "value"} int value) returns @returnMeta 
     return value;
 }
 
+function annotationName() returns string {
+    return "runtime-value";
+}
+
+function runtimeIdentity(@parameterMeta {name: annotationName()} int value) returns int {
+    return value;
+}
+
 public function main() {
     io:println(identity(42)); // @output 42
+    io:println(runtimeIdentity(84)); // @output 84
 }

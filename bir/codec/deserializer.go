@@ -327,15 +327,23 @@ func (br *birReader) readFunction() *bir.BIRFunction {
 	for j := 0; j < int(requiredParamsCount); j++ {
 		paramName := br.readStringCPEntry()
 		paramFlags := br.readFlags()
+		annotations := br.readAnnotationValues()
 
 		requiredParams[j] = bir.BIRParameter{
-			Name:  paramName,
-			Flags: paramFlags,
+			Name:        paramName,
+			Flags:       paramFlags,
+			Annotations: annotations,
 		}
 	}
 
 	var hasRestParam bool
 	br.read(&hasRestParam)
+	var restParamFlags model.Flag
+	var restParamAnnotations values.AnnotationValues
+	if hasRestParam {
+		restParamFlags = br.readFlags()
+		restParamAnnotations = br.readAnnotationValues()
+	}
 
 	_ = br.readLength() // Unused?
 
@@ -429,12 +437,13 @@ func (br *birReader) readFunction() *bir.BIRFunction {
 
 	var restParams *bir.BIRParameter
 	if hasRestParam {
-		paramStart := 1
-		if len(localVars) > 1 && localVars[1].GetName() == "self" {
-			paramStart = 2
-		}
+		paramStart := (&bir.BIRFunction{Flags: flag}).ParamLocalVarOffset()
 		restIdx := paramStart + len(requiredParams)
-		restParams = &bir.BIRParameter{Name: localVars[restIdx].GetName()}
+		restParams = &bir.BIRParameter{
+			Name:        localVars[restIdx].GetName(),
+			Flags:       restParamFlags,
+			Annotations: restParamAnnotations,
+		}
 	}
 
 	return &bir.BIRFunction{
@@ -1043,6 +1052,16 @@ func (br *birReader) readConstValue() any {
 
 	tag := typeTag(tagByte)
 	return br.readConstValueByTag(tag)
+}
+
+func (br *birReader) readAnnotationValues() values.AnnotationValues {
+	count := br.readLength()
+	annotations := values.NewAnnotationValues()
+	for range count {
+		key := string(br.readStringCPEntry())
+		annotations[key] = br.readConstValue()
+	}
+	return annotations
 }
 
 func (br *birReader) readConstValueByTag(tag typeTag) any {

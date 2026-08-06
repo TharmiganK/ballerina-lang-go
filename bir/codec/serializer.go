@@ -31,7 +31,7 @@ import (
 
 const (
 	BIR_MAGIC   = "\xba\x10\xc0\xde"
-	BIR_VERSION = 82
+	BIR_VERSION = 83
 )
 
 type birWriter struct {
@@ -181,8 +181,13 @@ func (bw *birWriter) writeFunction(buf *bytes.Buffer, fn *bir.BIRFunction) {
 	for _, requiredParam := range fn.RequiredParams {
 		bw.writeStringCPEntry(buf, requiredParam.Name.Value())
 		bw.writeFlags(buf, requiredParam.Flags)
+		bw.writeAnnotationValues(buf, requiredParam.Annotations)
 	}
 	write(buf, fn.RestParams != nil)
+	if fn.RestParams != nil {
+		bw.writeFlags(buf, fn.RestParams.Flags)
+		bw.writeAnnotationValues(buf, fn.RestParams.Annotations)
+	}
 
 	birbuf := &bytes.Buffer{}
 	bw.writeLength(birbuf, fn.ArgsCount)
@@ -500,6 +505,19 @@ func (bw *birWriter) writeConstValue(buf *bytes.Buffer, value any) {
 	}
 	write(buf, int8(tag))
 	bw.writeConstValueByTag(buf, tag, value)
+}
+
+func (bw *birWriter) writeAnnotationValues(buf *bytes.Buffer, annotations values.AnnotationValues) {
+	keys := make([]string, 0, len(annotations))
+	for key := range annotations {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	bw.writeLength(buf, len(keys))
+	for _, key := range keys {
+		bw.writeStringCPEntry(buf, key)
+		bw.writeConstValue(buf, annotations[key])
+	}
 }
 
 func (bw *birWriter) writeConstValueByTag(buf *bytes.Buffer, tag typeTag, value any) {

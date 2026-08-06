@@ -28,7 +28,8 @@ import (
 // InvokableHandle is provides a unified representation that can be used to execute any function/method
 // in runtime
 type InvokableHandle struct {
-	invoke func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error)
+	invoke        func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error)
+	resourceEntry *values.ResourceEntry
 }
 
 func NewBIRHandle(fn *bir.BIRFunction) *InvokableHandle {
@@ -75,6 +76,7 @@ func parentFrameFromFunctionValue(fnValue *values.Function) *Frame {
 
 func newResourceHandle(receiver *values.Object, match *values.ResourceEntry, path []values.BalValue) *InvokableHandle {
 	return &InvokableHandle{
+		resourceEntry: match,
 		invoke: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			full := buildResourceCallArgs(ctx, receiver, match, path, args)
 			return lookupAndExecute(ctx, nil, full, match.FunctionLookupKey)

@@ -1,9 +1,6 @@
 # Supported ballerina library features
 
-Subset 3 extends the released [subset 2](subset2.md) with stream-based file
-read/write additions and byte channels in the `io` module, building on the
-language's new `stream` type, and with client-side response data binding for
-the `http` module.
+Subset 3 extends the released [subset 2](subset2.md) with stream-based file read/write additions and byte channels in the `io` module, building on the language's new `stream` type, and with client-side response data binding for the `http` module.
 
 ## [io](https://github.com/ballerina-platform/module-ballerina-io/blob/master/docs/spec/spec.md)
 
@@ -78,21 +75,18 @@ The `LineStream` and `BlockStream` public helper classes are not declared;
 
 ## [http](https://github.com/ballerina-platform/module-ballerina-http/blob/master/docs/spec/spec.md)
 
-The client remote methods now bind the response payload directly to the
-contextually expected type instead of only returning an `http:Response`.
+The client remote methods now bind the response payload directly to the contextually expected type instead of only returning an `http:Response`.
 
 ### Client — response data binding
 
-Every remote method except `head` takes a trailing `targetType` parameter with an
-inferred typedesc default:
+Every remote method except `head` takes a trailing `targetType` parameter with an inferred typedesc default:
 
 ```ballerina
 remote isolated function get(string path, map<string|string[]>? headers = (),
         TargetType targetType = <>) returns targetType|error;
 ```
 
-`TargetType` is `typedesc<http:Response|anydata>`. The target is normally inferred
-from the contextually expected type, so a plain assignment is enough:
+`TargetType` is `typedesc<http:Response|anydata>`. The target is normally inferred from the contextually expected type, so a plain assignment is enough:
 
 ```ballerina
 http:Client c = check new ("https://example.com");
@@ -102,8 +96,7 @@ string text = check c->get("/greeting");   // binds a text/plain body
 http:Response r = check c->get("/raw");    // no binding — the raw response
 ```
 
-`var` provides no contextually expected type, so the target must be passed
-explicitly in that position:
+`var` provides no contextually expected type, so the target must be passed explicitly in that position:
 
 ```ballerina
 var p = check c->get("/person", targetType = Person);
@@ -116,9 +109,7 @@ var p = check c->get("/person", targetType = Person);
 | `()` target | The payload is read and discarded |
 | Nilable targets | An absent (empty) payload binds to `()` |
 
-The builder is selected from the response `Content-Type`, matching jBallerina's
-media-type patterns. When the header is absent or unrecognised, the target type
-alone selects the builder.
+The builder is selected from the response `Content-Type`, matching jBallerina's media-type patterns. When the header is absent or unrecognised, the target type alone selects the builder.
 
 | Content-Type | Supported target types |
 |---|---|
@@ -128,16 +119,9 @@ alone selects the builder.
 | `application/x-www-form-urlencoded` | `map<string>`, `string`, and their nilable forms; repeated keys keep the last value |
 | absent or unrecognised | `string`, `byte[]`, and their nilable forms are read directly; every other target is parsed as JSON |
 
-A target that does not fit the response media type returns an `error` — for
-example a record target for a `text/plain` response. JSON conversion uses the
-same routine as `lang.value:fromJsonWithType`.
+A target that does not fit the response media type returns an `error` — for example a record target for a `text/plain` response. JSON conversion uses the same routine as `lang.value:fromJsonWithType`.
 
-A target may also be strictly narrower than the type its builder produces — an
-enum or a singleton where the builder yields `string`, a closed all-string record
-where it yields `map<string>`, a tuple or a fixed-length array where it yields
-`byte[]`. The built payload is converted to that target with the same routine, so
-a body outside the narrower type returns an `error` rather than a value outside
-its declared type:
+A target may also be strictly narrower than the type its builder produces — an enum or a singleton where the builder yields `string`, a closed all-string record where it yields `map<string>`, a tuple or a fixed-length array where it yields `byte[]`. The built payload is converted to that target with the same routine, so a body outside the narrower type returns an `error` rather than a value outside its declared type:
 
 ```ballerina
 enum Colour { RED = "red", GREEN = "green" }
@@ -147,16 +131,9 @@ Colour|error c2 = c->get("/text");     // text/plain "hello" — error
 Colour? c3 = check c->get("/empty");   // text/plain "" — ()
 ```
 
-The nilable form of such a target binds the same way: an absent body gives `()`,
-and a body that is present but does not fit the target is an `error`. Only the nilable
-form turns an absent body into `()` — a narrow target that is not nilable is handed the
-builder's empty value (`""`, `[]`, or `{}`), and rejects it unless the narrow type happens
-to admit it.
+The nilable form of such a target binds the same way: an absent body gives `()`, and a body that is present but does not fit the target is an `error`. Only the nilable form turns an absent body into `()` — a narrow target that is not nilable is handed the builder's empty value (`""`, `[]`, or `{}`), and rejects it unless the narrow type happens to admit it.
 
-Not covered in this subset: `xml` targets and `application/xml` responses (the
-runtime has no `xml` type), `stream<http:SseEvent, error?>` targets, status code
-response records (`http:StatusCodeClient`, `getStatusCodeRecord()`), and the
-`validation` / `laxDataBinding` client configuration flags.
+Not covered in this subset: `xml` targets and `application/xml` responses (not yet implemented — the runtime does have an `xml` type), `stream<http:SseEvent, error?>` targets, status code response records (`http:StatusCodeClient`, `getStatusCodeRecord()`), and the `validation` / `laxDataBinding` client configuration flags.
 
 ### Response
 

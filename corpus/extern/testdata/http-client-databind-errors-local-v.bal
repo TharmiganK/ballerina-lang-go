@@ -79,10 +79,10 @@ public function main() returns error? {
         io:println(wrongMime.message()); // @output incompatible '{| age: int, name: string, never... |}' found for 'text/plain' mime type
     }
 
-    // An xml response cannot be bound because the runtime has no xml type.
+    // xml payload binding is not implemented yet.
     string|error asXml = c->get("/xml");
     if asXml is error {
-        io:println(asXml.message()); // @output Payload binding failed: 'application/xml' responses are not supported because the xml type is not available
+        io:println(asXml.message()); // @output Payload binding failed: 'application/xml' responses are not supported
     }
 
     // A body that is not a member of an enum target fails conversion.

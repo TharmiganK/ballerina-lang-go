@@ -92,8 +92,8 @@ func statusCodeError(ctx *extern.Context, types *httpTypes, resp *values.Object,
 	return values.NewError(semtypes.ERROR, reasonPhrase(statusCode), nil, typeName, detail)
 }
 
-// Extracts the error body the way jBallerina's getPayload does. XML is read as text, the
-// runtime having no xml type.
+// Extracts the error body the way jBallerina's getPayload does, except that an xml body is
+// read as text — xml payload binding is not implemented yet.
 func statusErrorPayload(ctx *extern.Context, types *httpTypes, resp *values.Object) (values.BalValue, *values.Error) {
 	body, err := responseBody(resp)
 	if err != nil {
@@ -269,13 +269,13 @@ func payloadBindingError(message string, cause *values.Error) *values.Error {
 		"PayloadBindingClientError", nil)
 }
 
-// The runtime has no xml type, so neither an xml target nor an xml body can be bound.
+// xml payload binding is not implemented yet, so neither an xml target nor an xml body can
+// be bound. The runtime does have an xml type — see values.ParseAsXMLValue.
 func unsupportedXMLTarget(contentType string) *values.Error {
 	if contentType == "" {
 		return payloadBindingError("xml target types are not supported", nil)
 	}
-	return payloadBindingError("'"+contentType+
-		"' responses are not supported because the xml type is not available", nil)
+	return payloadBindingError("'"+contentType+"' responses are not supported", nil)
 }
 
 // incompatibleTargetError is only reached from a builder the Content-Type selected, so the

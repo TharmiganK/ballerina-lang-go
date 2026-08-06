@@ -138,7 +138,7 @@ Support Levels:
 | Response write methods | Supported | `setTextPayload`, `setJsonPayload`, `setBinaryPayload` (each with optional `contentType`), `setHeader`, `addHeader`, `removeHeader`, `removeAllHeaders`, and `setContentType` populate a constructed `Response`. Status code is set by direct field assignment (`resp.statusCode = 404`). |
 | Streaming response body | Not Yet Supported | `getByteStream()` is not implemented. |
 | Server-Sent Events | Not Yet Supported | `getSseEventStream()` and consuming a `stream<SseEvent, error?>` response are not implemented. |
-| Response XML payload | Not Yet Supported | The `xml` type and related payload handling methods (`getXmlPayload()`, `setXmlPayload()`) are not implemented due to the lack of XML support in the Go runtime. |
+| Response XML payload | Not Yet Supported | `getXmlPayload()` and `setXmlPayload()` are not declared. The runtime does have an `xml` type, so this is an unimplemented gap rather than a platform limitation. |
 
 ### Listener
 
@@ -176,7 +176,7 @@ Support Levels:
 | HTTP version enum | Supported | `HttpVersion` with `HTTP_1_0`, `HTTP_1_1`, and `HTTP_2_0` enum constants. `HTTP_1_0` prints a runtime warning and falls back to HTTP/1.1. |
 | Distinct HTTP error types | Not Yet Supported | All errors surface as the generic `error` type; `http:ClientError`, `http:HeaderNotFoundError`, and similar subtypes are not declared — `is http:ClientError` type checks will not work. |
 | Observability and metrics | Not Yet Supported | Metrics and tracing integration via `ballerina/observe` is not implemented. |
-| XML payloads | Not Yet Supported | The `xml` type and related payload handling methods (`getXmlPayload()`, `setXmlPayload()`) are not implemented due to the lack of XML support in the Go runtime. |
+| XML payloads | Not Yet Supported | `getXmlPayload()` and `setXmlPayload()` are not declared, and `RequestMessage` has no `xml` member. The runtime does have an `xml` type, so this is an unimplemented gap rather than a platform limitation. |
 
 ### Notable Behavioural Changes
 

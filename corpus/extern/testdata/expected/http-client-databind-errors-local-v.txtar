@@ -6,7 +6,7 @@ moved body
 Payload binding failed: '7' value cannot be converted to '{| age: int, name: string, never... |}'
 failed to parse JSON payload: invalid character 'o' in literal null (expecting 'u')
 incompatible '{| age: int, name: string, never... |}' found for 'text/plain' mime type
-Payload binding failed: 'application/xml' responses are not supported because the xml type is not available
+Payload binding failed: 'application/xml' responses are not supported
 Payload binding failed: '"plain text body"' value cannot be converted to '"green"|"red"'
 Payload binding failed: '[int:Unsigned8...]' value cannot be converted to '[int:Unsigned8, int:Unsigned8, never...]'
 Payload binding failed: '"plain text body"' value cannot be converted to 'nil|"green"|"red"'

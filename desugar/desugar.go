@@ -1144,12 +1144,19 @@ func desugarTopLevelTypeDescs(cx *packageContext, pkg *ast.BLangPackage) {
 	}
 }
 
-func desugarFunctionParamDefaults(ctx desugarContext, fn *ast.BLangFunction) []*ast.BLangFunction {
+type defaultableInvokable interface {
+	Symbol() model.SymbolRef
+	Scope() model.Scope
+	RequiredParameters() []ast.BLangSimpleVariable
+}
+
+func desugarFunctionParamDefaults(ctx desugarContext, fn defaultableInvokable) []*ast.BLangFunction {
 	fnSym := ctx.getSymbol(fn.Symbol()).(model.FunctionSymbol)
 	defaultableParams := fnSym.DefaultableParams()
+	requiredParams := fn.RequiredParameters()
 	var results []*ast.BLangFunction
-	for j := range fn.RequiredParams {
-		param := &fn.RequiredParams[j]
+	for j := range requiredParams {
+		param := &requiredParams[j]
 		dp, ok := defaultableParams.Get(j)
 		if !ok {
 			if param.IsDefaultableParam() {
@@ -1169,8 +1176,8 @@ func desugarFunctionParamDefaults(ctx desugarContext, fn *ast.BLangFunction) []*
 		defaultFn.SetScope(fnScope)
 
 		symbolMapping := make(map[model.SymbolRef]model.SymbolRef)
-		for k := range fn.RequiredParams[:j] {
-			precedingParam := fn.RequiredParams[k]
+		for k := range requiredParams[:j] {
+			precedingParam := requiredParams[k]
 			paramName := precedingParam.Name.GetValue()
 			paramTy := ctx.symbolType(precedingParam.Symbol())
 			newParam := newSimpleVariable(paramName, paramTy)
@@ -1199,7 +1206,7 @@ func desugarTopLevelFunctionDefaults(pkgCtx *packageContext, pkg *ast.BLangPacka
 }
 
 func desugarClassMethodDefaults(pkgCtx *packageContext, pkg *ast.BLangPackage) {
-	desugarObjectMethodDefaults := func(initFn *ast.BLangFunction, methods map[string]*ast.BLangFunction) {
+	desugarObjectMethodDefaults := func(initFn *ast.BLangFunction, methods map[string]*ast.BLangFunction, resourceMethods []*ast.BLangResourceMethod) {
 		if initFn != nil {
 			for _, fn := range desugarFunctionParamDefaults(pkgCtx, initFn) {
 				pkg.Functions = append(pkg.Functions, *fn)
@@ -1210,14 +1217,19 @@ func desugarClassMethodDefaults(pkgCtx *packageContext, pkg *ast.BLangPackage) {
 				pkg.Functions = append(pkg.Functions, *fn)
 			}
 		}
+		for _, resourceMethod := range resourceMethods {
+			for _, fn := range desugarFunctionParamDefaults(pkgCtx, resourceMethod) {
+				pkg.Functions = append(pkg.Functions, *fn)
+			}
+		}
 	}
 	for i := range pkg.ClassDefinitions {
 		classDef := &pkg.ClassDefinitions[i]
-		desugarObjectMethodDefaults(classDef.InitFunction, classDef.Methods)
+		desugarObjectMethodDefaults(classDef.InitFunction, classDef.Methods, classDef.ResourceMethods)
 	}
 	for i := range pkg.Services {
 		svc := &pkg.Services[i]
-		desugarObjectMethodDefaults(svc.InitFunction, svc.Methods)
+		desugarObjectMethodDefaults(svc.InitFunction, svc.Methods, svc.ResourceMethods)
 	}
 }
 

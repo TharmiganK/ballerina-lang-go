@@ -76,10 +76,13 @@ func initLocalsForFunction(ctx *extern.Context, birFunc *bir.BIRFunction, args [
 	localVars := &birFunc.LocalVars
 	paramLocalOffset := birFunc.ParamLocalVarOffset()
 	argOffset := paramLocalOffset - 1
+	requiredCount := len(birFunc.RequiredParams)
+	if len(args) < requiredCount+argOffset {
+		panic(values.NewErrorWithMessage("not enough arguments"))
+	}
 	if argOffset != 0 {
 		frame.SetLocal(1, args[0])
 	}
-	requiredCount := len(birFunc.RequiredParams)
 	for i := range requiredCount {
 		frame.SetLocal(i+paramLocalOffset, args[i+argOffset])
 	}

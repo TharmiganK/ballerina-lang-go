@@ -6043,8 +6043,12 @@ func resolveResourceMethodSignature(t typeResolver, isClient bool, isService boo
 	sym.SetPathListType(pathTy)
 	sym.SetPathParams(pathParamRefs)
 
-	_, _, _, _, ok = resolveInvokableSignature(t, method, sym, method.RequiredParams, depth)
-	return ok
+	_, paramTypes, _, _, ok := resolveInvokableSignature(t, method, sym, method.RequiredParams, depth)
+	if !ok {
+		return false
+	}
+	setDefaultableParamFnSignatures(t, sym.DefaultableParams(), paramTypes)
+	return true
 }
 
 func resolveResourcePathType(t typeResolver, method *ast.BLangResourceMethod, depth int) (semtypes.SemType, []model.SymbolRef, bool) {

@@ -83,6 +83,11 @@ type (
 		nextDefaultSymbolName() string
 	}
 
+	defaultableParamNode interface {
+		Symbol() model.SymbolRef
+		RequiredParameters() []ast.BLangSimpleVariable
+	}
+
 	prevPos struct {
 		pos      diagnostics.Location
 		reported bool
@@ -966,20 +971,21 @@ func isExternalFunctionBody(body ast.FunctionBodyNode) bool {
 	return ok
 }
 
-func allocateDefaultParamSymbols(alloc defaultSymbolAllocator, targetScope model.Scope, function *ast.BLangFunction) {
-	if len(function.RequiredParams) == 0 {
+func allocateDefaultParamSymbols(alloc defaultSymbolAllocator, targetScope model.Scope, function defaultableParamNode) {
+	requiredParams := function.RequiredParameters()
+	if len(requiredParams) == 0 {
 		return
 	}
 	cx := alloc.GetCtx()
 	fnSymRef := function.Symbol()
 	fnSym := cx.GetSymbol(fnSymRef).(model.FunctionSymbol)
-	info := model.NewDefaultableParamInfo(len(function.RequiredParams))
+	info := model.NewDefaultableParamInfo(len(requiredParams))
 	var inclInfo *model.IncludedRecordParamInfo
-	for i := range function.RequiredParams {
-		param := &function.RequiredParams[i]
+	for i := range requiredParams {
+		param := &requiredParams[i]
 		if param.IsIncludedRecordParam() {
 			if inclInfo == nil {
-				inclInfo = model.NewIncludedRecordParamInfo(len(function.RequiredParams))
+				inclInfo = model.NewIncludedRecordParamInfo(len(requiredParams))
 			}
 			inclInfo.Set(i)
 			continue
@@ -1854,6 +1860,7 @@ func finishResolveClassDefinition(ms *moduleSymbolResolver, blockRes *blockSymbo
 		methodResolver := newFunctionResolver(blockRes, rm)
 		rm.SetScope(methodResolver.scope)
 		resolveResourceMethod(methodResolver, rm)
+		allocateDefaultParamSymbols(ms, ms.scope, rm)
 	}
 }
 

@@ -892,14 +892,14 @@ func resolveInvokableSignature(t typeResolver, fn functionDecl, fnSym model.Func
 	paramTypes := make([]semtypes.SemType, len(requiredParams))
 	for i := range requiredParams {
 		resolveSimpleVariableInner(t, nil, &requiredParams[i], depth+1)
-		setOtherNodesAsNever(&requiredParams[i])
+		setOtherNodesAsNeverExceptAnnotations(&requiredParams[i])
 		paramTypes[i] = requiredParams[i].GetDeterminedType()
 	}
 	restTy := semtypes.NEVER
 	if rp := fn.GetRestParam(); rp != nil {
 		restParam := rp.(*ast.BLangSimpleVariable)
 		resolveSimpleVariableInner(t, nil, restParam, depth+1)
-		setOtherNodesAsNever(restParam)
+		setOtherNodesAsNeverExceptAnnotations(restParam)
 		elementType := restParam.GetDeterminedType()
 		restTy = elementType
 		listDefn := semtypes.NewListDefinition()
@@ -916,7 +916,7 @@ func resolveInvokableSignature(t typeResolver, fn functionDecl, fnSym model.Func
 		if !ok {
 			return semtypes.SemType{}, nil, semtypes.SemType{}, semtypes.SemType{}, false
 		}
-		setOtherNodesAsNever(retTd)
+		setOtherNodesAsNeverExceptAnnotations(retTd)
 	} else {
 		returnTy = semtypes.NIL
 	}
@@ -1846,14 +1846,14 @@ func resolveDependentlyTypedFunctionSignature(t typeResolver, fn *ast.BLangFunct
 		t.internalError("failed to build return type op for dependently-typed function", fn.GetPosition())
 		return semtypes.SemType{}, false
 	}
-	setOtherNodesAsNever(retTd)
+	setOtherNodesAsNeverExceptAnnotations(retTd)
 	sym.SetParamTypes(paramTypes)
 	sym.SetReturnType(retOp)
 	setDefaultableParamFnSignatures(t, sym.DefaultableParams(), paramTypes)
 	if !validateIncludedRecordParams(t, fn, sym) {
 		return semtypes.SemType{}, false
 	}
-	setOtherNodesAsNever(fn)
+	setOtherNodesAsNeverExceptAnnotations(fn)
 	return semtypes.NEVER, true
 }
 
@@ -2111,25 +2111,34 @@ func resolveTypeData(t typeResolver, typeData *ast.TypeData) bool {
 	return true
 }
 
-type neverVisitor struct{}
+type neverVisitor struct {
+	preserveAnnotations bool
+}
 
-func (neverVisitor) Visit(node ast.BLangNode) ast.Visitor {
+func (v neverVisitor) Visit(node ast.BLangNode) ast.Visitor {
 	if node == nil {
+		return nil
+	}
+	if _, ok := node.(*ast.BLangAnnotationAttachment); ok && v.preserveAnnotations {
 		return nil
 	}
 	if semtypes.IsZero(node.GetDeterminedType()) {
 		node.SetDeterminedType(semtypes.NEVER)
 	}
-	return neverVisitor{}
+	return v
 }
 
-func (neverVisitor) VisitTypeData(_ *ast.TypeData) ast.Visitor {
-	return neverVisitor{}
+func (v neverVisitor) VisitTypeData(_ *ast.TypeData) ast.Visitor {
+	return v
 }
 
 // setOtherNodesAsNever set type of every ast node who's determined type is not set as NEVER
 func setOtherNodesAsNever(node ast.BLangNode) {
 	ast.Walk(neverVisitor{}, node)
+}
+
+func setOtherNodesAsNeverExceptAnnotations(node ast.BLangNode) {
+	ast.Walk(neverVisitor{preserveAnnotations: true}, node)
 }
 
 func allocateDefaultFnSymbol(t typeResolver, fieldTy semtypes.SemType) model.SymbolRef {

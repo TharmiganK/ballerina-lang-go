@@ -1,0 +1,31 @@
+(package
+  (import-package ballerina io (as io))
+  (annotation parameterMeta
+    (user-defined-type Meta)
+    (attach-point parameter))
+  (annotation returnMeta
+    (user-defined-type Meta)
+    (attach-point return))
+  (type-definition Meta
+    (record-type
+      (field name
+        (value-type string))))
+  (function identity (
+    (variable value (type
+      (value-type int)))) (
+    (annotation-attachment returnMeta
+      (mapping-constructor-expr
+        (key-value
+          (literal name)
+          (literal result))))
+    (value-type int))
+    (block-function-body
+      (return
+        (simple-var-ref value))))
+  (function main () (
+    (value-type null))
+    (block-function-body
+      (expression-stmt
+        (invocation io println (
+          (invocation identity (
+            (literal 42)))))))))

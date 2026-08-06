@@ -1,0 +1,14 @@
+(identity
+  (bb0 () ()
+    (return
+      (simple-var-ref value))
+  )
+)
+(main
+  (bb0 () ()
+    (expression-stmt
+      (invocation io println (
+        (invocation identity (
+          (literal 42))))))
+  )
+)

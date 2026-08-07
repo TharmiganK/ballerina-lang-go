@@ -59,11 +59,16 @@ type DispatchHandles struct {
 	LookupRemote         func(*Context, *values.Object, string) (any, bool)
 	LookupResource       func(*Context, *values.Object, string, []values.BalValue) (any, bool) // resourceMethodName, path
 	LookupResourceByPath func(*Context, *values.Object, string, []string) (any, int, bool)     // accessor, segments
-	ResourceParams       func(*Context, any) (ResourceSignature, bool)
-	ObjectAnnotations    func(*Context, *values.Object) (values.AnnotationValues, bool)
-	LookupFunction       func(*Context, string, string, string) (any, bool) // org, module, name
+	LookupFunction       func(*Context, string, string, string) (any, bool)                    // org, module, name
 	Invoke               func(*Context, any, []values.BalValue) (values.BalValue, error)
 	Start                func(*Context, any, []values.BalValue) (<-chan values.BalValue, error)
+}
+
+// MetadataHandles carry runtime introspection implementations independently
+// from method dispatch.
+type MetadataHandles struct {
+	ResourceParams    func(*Context, any) (ResourceSignature, bool)
+	ObjectAnnotations func(*Context, *values.Object) (values.AnnotationValues, bool)
 }
 
 // LookupObjectMethod resolves a regular method on obj. The second return is
@@ -107,13 +112,13 @@ func (c *Context) LookupResourceMethodByPath(obj *values.Object, accessor string
 // resolved resource handle. It returns false for non-resource handles or when
 // the backing BIR function is unavailable.
 func (c *Context) ResourceSignature(h MethodHandle) (ResourceSignature, bool) {
-	return c.Env.dispatch.ResourceParams(c, h.impl)
+	return c.Env.metadata.ResourceParams(c, h.impl)
 }
 
 // ObjectAnnotations returns the runtime-visible annotations associated with
 // the object's class or service declaration.
 func (c *Context) ObjectAnnotations(obj *values.Object) (values.AnnotationValues, bool) {
-	return c.Env.dispatch.ObjectAnnotations(c, obj)
+	return c.Env.metadata.ObjectAnnotations(c, obj)
 }
 
 // InvokeMethod calls the method captured by h. For object and remote

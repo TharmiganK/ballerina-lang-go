@@ -10,12 +10,22 @@
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
+// KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations
 // under the License.
 
-type Info record {|
-    string label;
+import ballerina/io;
+
+public type HttpHeader record {|
+    string name?;
 |};
 
-const annotation Info info on type; // @error
+public const annotation HttpHeader Header on parameter, record field;
+
+function greet(@Header {name: "X-Api-Key"} string key) returns string {
+    return key;
+}
+
+public function main() {
+    io:println(greet("k")); // @output k
+}

@@ -1186,10 +1186,6 @@ func resolveAnnotationDeclaration(t typeResolver, annotation *ast.BLangAnnotatio
 			t.semanticError("annotation type must be a subtype of true|map<Cloneable>|map<Cloneable>[]", typeDesc.GetPosition())
 			return false
 		}
-		if annotation.IsConst() && !semtypes.IsSubtype(t.typeContext(), ty, semtypes.VAL_READONLY) {
-			t.semanticError("const annotation type must be readonly", typeDesc.GetPosition())
-			return false
-		}
 	} else {
 		ty = semtypes.BooleanConst(true)
 	}

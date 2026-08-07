@@ -370,15 +370,19 @@ func TestAnnotationRuntimeMetadata(t *testing.T) {
 				if !ok {
 					return nil, fmt.Errorf("resource method 'get items' not found")
 				}
-				signature, ok := ctx.ResourceSignature(handle)
+				signature, ok := ctx.MethodSignature(handle)
 				if !ok || len(signature.Params) != 2 || signature.RestParam == nil {
 					return nil, fmt.Errorf("unexpected resource signature: %#v", signature)
 				}
-				countName, err := annotationName(signature.Params[0].Annotations[parameterKey])
+				metadata, ok := ctx.MethodMetadata(handle)
+				if !ok || len(metadata.Params) != 2 || metadata.RestParam == nil {
+					return nil, fmt.Errorf("unexpected resource metadata: %#v", metadata)
+				}
+				countName, err := annotationName(metadata.Params[0].Annotations[parameterKey])
 				if err != nil {
 					return nil, err
 				}
-				headerName, err := annotationName(signature.Params[1].Annotations[parameterKey])
+				headerName, err := annotationName(metadata.Params[1].Annotations[parameterKey])
 				if err != nil {
 					return nil, err
 				}
@@ -388,7 +392,10 @@ func TestAnnotationRuntimeMetadata(t *testing.T) {
 				if signature.Params[1].Name != "header" || !semtypes.IsSubtype(ctx.TypeCtx(), signature.Params[1].Type, semtypes.STRING) {
 					return nil, fmt.Errorf("unexpected header descriptor")
 				}
-				if signature.RestParam.Name != "extras" || signature.RestParam.Annotations[markerKey] != true {
+				if !semtypes.IsSubtype(ctx.TypeCtx(), signature.ReturnType, semtypes.INT) {
+					return nil, fmt.Errorf("unexpected return type")
+				}
+				if signature.RestParam.Name != "extras" || metadata.RestParam.Annotations[markerKey] != true {
 					return nil, fmt.Errorf("unexpected rest descriptor")
 				}
 

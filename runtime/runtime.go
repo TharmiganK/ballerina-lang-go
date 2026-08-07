@@ -111,7 +111,8 @@ func NewRuntime(platform pal.Platform, tyEnv semtypes.Env) *Runtime {
 			return exec.LookupFunction(cx.Env, org, module, name)
 		},
 	}, extern.MetadataHandles{
-		ResourceParams:    exec.ResourceParams,
+		Signature:         exec.FunctionSignature,
+		Metadata:          exec.FunctionMetadata,
 		ObjectAnnotations: exec.ObjectAnnotations,
 	})
 	rt.env = env

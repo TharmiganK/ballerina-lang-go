@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"ballerina/bir"
 	"ballerina/decimal"
 	"ballerina/model"
 	"ballerina/runtime/extern"
@@ -143,60 +144,80 @@ func resourcePathParamCount(entry *values.ResourceEntry) int {
 	return nonLiteral
 }
 
-// ResourceParams returns the non-path parameter metadata captured by a
-// resolved resource handle. Native protocol dispatchers use this to bind wire
-// values without depending directly on BIR or runtime-internal packages.
-func ResourceParams(ctx *extern.Context, impl any) (extern.ResourceSignature, bool) {
-	empty := extern.ResourceSignature{Params: make([]extern.ParamDescriptor, 0)}
+func resourceFunctionDescriptor(ctx *extern.Context, impl any) (*bir.BIRFunction, int, bool) {
 	handle, ok := impl.(*InvokableHandle)
 	if !ok || handle.resourceEntry == nil {
-		return empty, false
+		return nil, 0, false
 	}
 	entry := handle.resourceEntry
 	fn := ctx.Env.Registry.(*modules.Registry).GetBIRFunction(entry.FunctionLookupKey)
 	if fn == nil {
-		return empty, false
+		return nil, 0, false
 	}
 	pathParamCount := resourcePathParamCount(entry)
 	if pathParamCount > len(fn.RequiredParams) {
-		return empty, false
+		return nil, 0, false
+	}
+	return fn, pathParamCount, true
+}
+
+// FunctionSignature returns the non-path signature captured by a resolved
+// resource handle.
+func FunctionSignature(ctx *extern.Context, impl any) (extern.FunctionSignature, bool) {
+	fn, pathParamCount, ok := resourceFunctionDescriptor(ctx, impl)
+	if !ok {
+		return extern.FunctionSignature{}, false
 	}
 	paramLocalOffset := fn.ParamLocalVarOffset()
-	params := make([]extern.ParamDescriptor, len(fn.RequiredParams)-pathParamCount)
+	params := make([]extern.Parameter, len(fn.RequiredParams)-pathParamCount)
 	for i := pathParamCount; i < len(fn.RequiredParams); i++ {
 		localIndex := paramLocalOffset + i
 		if localIndex >= len(fn.LocalVars) {
-			return empty, false
+			return extern.FunctionSignature{}, false
 		}
-		param := &fn.RequiredParams[i]
-		annotations, ok := resolveAnnotationValues(ctx, param.Annotations)
-		if !ok {
-			return empty, false
-		}
-		params[i-pathParamCount] = extern.ParamDescriptor{
-			Name:        param.Name.Value(),
-			Type:        fn.LocalVars[localIndex].Type,
-			Annotations: annotations,
+		params[i-pathParamCount] = extern.Parameter{
+			Name: fn.RequiredParams[i].Name.Value(),
+			Type: fn.LocalVars[localIndex].Type,
 		}
 	}
-	signature := extern.ResourceSignature{Params: params}
-	if fn.RestParams == nil {
-		return signature, true
-	}
-	restLocalIndex := paramLocalOffset + len(fn.RequiredParams)
-	if restLocalIndex >= len(fn.LocalVars) {
-		return empty, false
-	}
-	annotations, ok := resolveAnnotationValues(ctx, fn.RestParams.Annotations)
-	if !ok {
-		return empty, false
-	}
-	signature.RestParam = &extern.ParamDescriptor{
-		Name:        fn.RestParams.Name.Value(),
-		Type:        fn.LocalVars[restLocalIndex].Type,
-		Annotations: annotations,
+	signature := extern.FunctionSignature{Params: params, ReturnType: fn.ReturnVariable.Type}
+	if fn.RestParams != nil {
+		restLocalIndex := paramLocalOffset + len(fn.RequiredParams)
+		if restLocalIndex >= len(fn.LocalVars) {
+			return extern.FunctionSignature{}, false
+		}
+		signature.RestParam = &extern.Parameter{
+			Name: fn.RestParams.Name.Value(),
+			Type: fn.LocalVars[restLocalIndex].Type,
+		}
 	}
 	return signature, true
+}
+
+// FunctionMetadata returns the non-path parameter metadata captured by a
+// resolved resource handle.
+func FunctionMetadata(ctx *extern.Context, impl any) (extern.FunctionMetadata, bool) {
+	fn, pathParamCount, ok := resourceFunctionDescriptor(ctx, impl)
+	if !ok {
+		return extern.FunctionMetadata{}, false
+	}
+	params := make([]extern.ParameterMetadata, len(fn.RequiredParams)-pathParamCount)
+	for i := pathParamCount; i < len(fn.RequiredParams); i++ {
+		annotations, ok := resolveAnnotationValues(ctx, fn.RequiredParams[i].Annotations)
+		if !ok {
+			return extern.FunctionMetadata{}, false
+		}
+		params[i-pathParamCount] = extern.ParameterMetadata{Annotations: annotations}
+	}
+	metadata := extern.FunctionMetadata{Params: params}
+	if fn.RestParams != nil {
+		annotations, ok := resolveAnnotationValues(ctx, fn.RestParams.Annotations)
+		if !ok {
+			return extern.FunctionMetadata{}, false
+		}
+		metadata.RestParam = &extern.ParameterMetadata{Annotations: annotations}
+	}
+	return metadata, true
 }
 
 // ObjectAnnotations resolves the runtime-visible annotation values attached

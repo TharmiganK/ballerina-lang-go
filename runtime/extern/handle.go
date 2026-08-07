@@ -32,22 +32,32 @@ type MethodHandle struct {
 // FunctionHandle is an opaque reference to a function,
 // returned by Runtime.LookupFunction or Context.LookupFunction
 type FunctionHandle struct {
-	Fn any
+	impl any
 }
 
-// ParamDescriptor describes a non-path resource parameter for native
-// dispatchers that bind protocol values to a resource invocation.
-type ParamDescriptor struct {
-	Name        string
-	Type        semtypes.SemType
+// Parameter describes a callable parameter.
+type Parameter struct {
+	Name string
+	Type semtypes.SemType
+}
+
+// FunctionSignature describes the parameters and return type of a callable.
+type FunctionSignature struct {
+	Params     []Parameter
+	RestParam  *Parameter
+	ReturnType semtypes.SemType
+}
+
+// ParameterMetadata contains the runtime-visible annotations on a parameter.
+type ParameterMetadata struct {
 	Annotations values.AnnotationValues
 }
 
-// ResourceSignature describes the non-path portion of a resolved resource
-// method's signature.
-type ResourceSignature struct {
-	Params    []ParamDescriptor
-	RestParam *ParamDescriptor
+// FunctionMetadata contains runtime metadata corresponding to a callable's
+// parameters.
+type FunctionMetadata struct {
+	Params    []ParameterMetadata
+	RestParam *ParameterMetadata
 }
 
 // DispatchHandles carry the runtime's method-resolution and invocation
@@ -67,7 +77,8 @@ type DispatchHandles struct {
 // MetadataHandles carry runtime introspection implementations independently
 // from method dispatch.
 type MetadataHandles struct {
-	ResourceParams    func(*Context, any) (ResourceSignature, bool)
+	Signature         func(*Context, any) (FunctionSignature, bool)
+	Metadata          func(*Context, any) (FunctionMetadata, bool)
 	ObjectAnnotations func(*Context, *values.Object) (values.AnnotationValues, bool)
 }
 
@@ -108,11 +119,14 @@ func (c *Context) LookupResourceMethodByPath(obj *values.Object, accessor string
 	return MethodHandle{impl: impl}, extraArgs, ok
 }
 
-// ResourceSignature returns the non-path parameter metadata associated with a
-// resolved resource handle. It returns false for non-resource handles or when
-// the backing BIR function is unavailable.
-func (c *Context) ResourceSignature(h MethodHandle) (ResourceSignature, bool) {
-	return c.Env.metadata.ResourceParams(c, h.impl)
+// MethodSignature returns the callable signature associated with h.
+func (c *Context) MethodSignature(h MethodHandle) (FunctionSignature, bool) {
+	return c.Env.metadata.Signature(c, h.impl)
+}
+
+// MethodMetadata returns the runtime metadata associated with h.
+func (c *Context) MethodMetadata(h MethodHandle) (FunctionMetadata, bool) {
+	return c.Env.metadata.Metadata(c, h.impl)
 }
 
 // ObjectAnnotations returns the runtime-visible annotations associated with
@@ -133,12 +147,22 @@ func (c *Context) InvokeMethod(h MethodHandle, args []values.BalValue) (values.B
 // The second return is false if no such function is registered.
 func (c *Context) LookupFunction(org, module, name string) (FunctionHandle, bool) {
 	impl, ok := c.Env.dispatch.LookupFunction(c, org, module, name)
-	return FunctionHandle{Fn: impl}, ok
+	return FunctionHandle{impl: impl}, ok
 }
 
 // InvokeFunction calls the function captured by h.
 func (c *Context) InvokeFunction(h FunctionHandle, args []values.BalValue) (values.BalValue, error) {
-	return c.Env.dispatch.Invoke(c, h.Fn, args)
+	return c.Env.dispatch.Invoke(c, h.impl, args)
+}
+
+// FunctionSignature returns the callable signature associated with h.
+func (c *Context) FunctionSignature(h FunctionHandle) (FunctionSignature, bool) {
+	return c.Env.metadata.Signature(c, h.impl)
+}
+
+// FunctionMetadata returns the runtime metadata associated with h.
+func (c *Context) FunctionMetadata(h FunctionHandle) (FunctionMetadata, bool) {
+	return c.Env.metadata.Metadata(c, h.impl)
 }
 
 // InvokeFunctionValue invokes a Ballerina function value on the current strand.

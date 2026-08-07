@@ -28,10 +28,9 @@ import (
 // InvokableHandle is provides a unified representation that can be used to execute any function/method
 // in runtime
 type InvokableHandle struct {
-	invoke        func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error)
-	signature     func() (extern.FunctionSignature, bool)
-	metadata      func(ctx *extern.Context) (extern.FunctionMetadata, bool)
-	resourceEntry *values.ResourceEntry
+	invoke    func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error)
+	signature func() (extern.FunctionSignature, bool)
+	metadata  func(ctx *extern.Context) (extern.FunctionMetadata, bool)
 }
 
 func NewBIRHandle(fn *bir.BIRFunction) *InvokableHandle {
@@ -84,14 +83,16 @@ func parentFrameFromFunctionValue(fnValue *values.Function) *Frame {
 	return fnValue.ParentFrame.(*Frame)
 }
 
-func newResourceHandle(receiver *values.Object, match *values.ResourceEntry, path []values.BalValue) *InvokableHandle {
-	return &InvokableHandle{
-		resourceEntry: match,
-		invoke: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+func newResourceHandle(ctx *extern.Context, receiver *values.Object, match *values.ResourceEntry, path []values.BalValue) *InvokableHandle {
+	descriptor := ctx.Env.Registry.(*modules.Registry).GetFunctionDescriptor(match.FunctionLookupKey)
+	return newInvokableHandle(
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			full := buildResourceCallArgs(ctx, receiver, match, path, args)
 			return lookupAndExecute(ctx, nil, full, match.FunctionLookupKey)
 		},
-	}
+		descriptor,
+		resourcePathParamCount(match),
+	)
 }
 
 func newInvokableHandle(
@@ -163,4 +164,20 @@ func describeFunctionMetadata(ctx *extern.Context, fn *bir.BIRFunction, firstPar
 		metadata.RestParam = &extern.ParameterMetadata{Annotations: annotations}
 	}
 	return metadata, true
+}
+
+func FunctionSignature(_ *extern.Context, impl any) (extern.FunctionSignature, bool) {
+	handle, ok := impl.(*InvokableHandle)
+	if !ok || handle.signature == nil {
+		return extern.FunctionSignature{}, false
+	}
+	return handle.signature()
+}
+
+func FunctionMetadata(ctx *extern.Context, impl any) (extern.FunctionMetadata, bool) {
+	handle, ok := impl.(*InvokableHandle)
+	if !ok || handle.metadata == nil {
+		return extern.FunctionMetadata{}, false
+	}
+	return handle.metadata(ctx)
 }

@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 
-	"ballerina/bir"
 	"ballerina/decimal"
 	"ballerina/model"
 	"ballerina/runtime/extern"
@@ -70,7 +69,7 @@ func LookupResourceMethod(ctx *extern.Context, obj *values.Object, resourceMetho
 	if len(matches) != 1 {
 		return nil, false
 	}
-	return newResourceHandle(obj, matches[0], path), true
+	return newResourceHandle(ctx, obj, matches[0], path), true
 }
 
 // LookupResourceMethodByPath resolves a resource method from a RAW, untyped
@@ -110,7 +109,7 @@ func LookupResourceMethodByPath(ctx *extern.Context, obj *values.Object, accesso
 	if matchEntry == nil {
 		return nil, 0, false
 	}
-	return newResourceHandle(obj, matchEntry, matchPath), resourceExtraArgCount(ctx, matchEntry), true
+	return newResourceHandle(ctx, obj, matchEntry, matchPath), resourceExtraArgCount(ctx, matchEntry), true
 }
 
 // resourceExtraArgCount returns how many parameters of the resource function
@@ -121,7 +120,7 @@ func LookupResourceMethodByPath(ctx *extern.Context, obj *values.Object, accesso
 // must be counted as path-bound here too, alongside the non-literal fixed
 // segments.
 func resourceExtraArgCount(ctx *extern.Context, entry *values.ResourceEntry) int {
-	fn := ctx.Env.Registry.(*modules.Registry).GetBIRFunction(entry.FunctionLookupKey)
+	fn := ctx.Env.Registry.(*modules.Registry).GetFunctionDescriptor(entry.FunctionLookupKey)
 	if fn == nil {
 		return 0
 	}
@@ -142,49 +141,6 @@ func resourcePathParamCount(entry *values.ResourceEntry) int {
 		nonLiteral++
 	}
 	return nonLiteral
-}
-
-func resourceFunctionDescriptor(ctx *extern.Context, impl any) (*bir.BIRFunction, int, bool) {
-	handle, ok := impl.(*InvokableHandle)
-	if !ok || handle.resourceEntry == nil {
-		return nil, 0, false
-	}
-	entry := handle.resourceEntry
-	fn := ctx.Env.Registry.(*modules.Registry).GetFunctionDescriptor(entry.FunctionLookupKey)
-	if fn == nil {
-		return nil, 0, false
-	}
-	pathParamCount := resourcePathParamCount(entry)
-	if pathParamCount > len(fn.RequiredParams) {
-		return nil, 0, false
-	}
-	return fn, pathParamCount, true
-}
-
-// FunctionSignature returns the callable signature captured by a resolved
-// function or method handle.
-func FunctionSignature(ctx *extern.Context, impl any) (extern.FunctionSignature, bool) {
-	if handle, ok := impl.(*InvokableHandle); ok && handle.signature != nil {
-		return handle.signature()
-	}
-	fn, pathParamCount, ok := resourceFunctionDescriptor(ctx, impl)
-	if !ok {
-		return extern.FunctionSignature{}, false
-	}
-	return describeFunctionSignature(fn, pathParamCount)
-}
-
-// FunctionMetadata returns the callable metadata captured by a resolved
-// function or method handle.
-func FunctionMetadata(ctx *extern.Context, impl any) (extern.FunctionMetadata, bool) {
-	if handle, ok := impl.(*InvokableHandle); ok && handle.metadata != nil {
-		return handle.metadata(ctx)
-	}
-	fn, pathParamCount, ok := resourceFunctionDescriptor(ctx, impl)
-	if !ok {
-		return extern.FunctionMetadata{}, false
-	}
-	return describeFunctionMetadata(ctx, fn, pathParamCount)
 }
 
 // ObjectAnnotations resolves the runtime-visible annotation values attached

@@ -353,7 +353,35 @@ func TestAnnotationRuntimeMetadata(t *testing.T) {
 	externs := []testharness.ExternRegistration{
 		{Org: org, Module: module + ".lst", FuncName: "Listener.inspect",
 			Impl: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
-				svc, err := attachedService(args[0].(*values.Object))
+				listener := args[0].(*values.Object)
+				methodHandle, ok := ctx.LookupObjectMethod(listener, "inspect")
+				if !ok {
+					return nil, fmt.Errorf("method 'inspect' not found")
+				}
+				methodSignature, ok := ctx.MethodSignature(methodHandle)
+				if !ok || len(methodSignature.Params) != 0 {
+					return nil, fmt.Errorf("unexpected native method signature: %#v", methodSignature)
+				}
+				methodMetadata, ok := ctx.MethodMetadata(methodHandle)
+				if !ok || len(methodMetadata.Params) != 0 {
+					return nil, fmt.Errorf("unexpected native method metadata: %#v", methodMetadata)
+				}
+
+				functionHandle, ok := ctx.LookupFunction(org, module, "parameterName")
+				if !ok {
+					return nil, fmt.Errorf("function 'parameterName' not found")
+				}
+				functionSignature, ok := ctx.FunctionSignature(functionHandle)
+				if !ok || len(functionSignature.Params) != 0 ||
+					!semtypes.IsSubtype(ctx.TypeCtx(), functionSignature.ReturnType, semtypes.STRING) {
+					return nil, fmt.Errorf("unexpected function signature: %#v", functionSignature)
+				}
+				functionMetadata, ok := ctx.FunctionMetadata(functionHandle)
+				if !ok || len(functionMetadata.Params) != 0 {
+					return nil, fmt.Errorf("unexpected function metadata: %#v", functionMetadata)
+				}
+
+				svc, err := attachedService(listener)
 				if err != nil {
 					return nil, err
 				}

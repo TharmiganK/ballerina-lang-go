@@ -29,6 +29,8 @@ import (
 // in runtime
 type InvokableHandle struct {
 	invoke        func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error)
+	signature     func() (extern.FunctionSignature, bool)
+	metadata      func(ctx *extern.Context) (extern.FunctionMetadata, bool)
 	resourceEntry *values.ResourceEntry
 }
 
@@ -37,19 +39,27 @@ func NewBIRHandle(fn *bir.BIRFunction) *InvokableHandle {
 }
 
 func newBIRHandle(fn *bir.BIRFunction, parentFrame *Frame) *InvokableHandle {
-	return &InvokableHandle{
-		invoke: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return newInvokableHandle(
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			return executeFunction(ctx, fn, args, parentFrame), nil
 		},
-	}
+		fn,
+		0,
+	)
 }
 
 func NewNativeHandle(fn extern.NativeFunc) *InvokableHandle {
-	return &InvokableHandle{
-		invoke: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return newNativeHandle(fn, nil)
+}
+
+func newNativeHandle(fn extern.NativeFunc, descriptor *bir.BIRFunction) *InvokableHandle {
+	return newInvokableHandle(
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			return fn(ctx, args)
 		},
-	}
+		descriptor,
+		0,
+	)
 }
 
 func NewFunctionValueHandle(env *extern.Env, fnValue *values.Function) (*InvokableHandle, error) {
@@ -62,7 +72,7 @@ func NewFunctionValueHandle(env *extern.Env, fnValue *values.Function) (*Invokab
 		return newBIRHandle(fn, parentFrameFromFunctionValue(fnValue)), nil
 	}
 	if externFn := reg.GetNativeFunction(lookupKey); externFn != nil {
-		return NewNativeHandle(externFn.Impl), nil
+		return newNativeHandle(externFn.Impl, reg.GetFunctionDescriptor(lookupKey)), nil
 	}
 	return nil, fmt.Errorf("function not found: %s", lookupKey)
 }
@@ -82,4 +92,75 @@ func newResourceHandle(receiver *values.Object, match *values.ResourceEntry, pat
 			return lookupAndExecute(ctx, nil, full, match.FunctionLookupKey)
 		},
 	}
+}
+
+func newInvokableHandle(
+	invoke func(*extern.Context, []values.BalValue) (values.BalValue, error),
+	descriptor *bir.BIRFunction,
+	firstParam int,
+) *InvokableHandle {
+	handle := &InvokableHandle{invoke: invoke}
+	if descriptor == nil {
+		return handle
+	}
+	handle.signature = func() (extern.FunctionSignature, bool) {
+		return describeFunctionSignature(descriptor, firstParam)
+	}
+	handle.metadata = func(ctx *extern.Context) (extern.FunctionMetadata, bool) {
+		return describeFunctionMetadata(ctx, descriptor, firstParam)
+	}
+	return handle
+}
+
+func describeFunctionSignature(fn *bir.BIRFunction, firstParam int) (extern.FunctionSignature, bool) {
+	if firstParam > len(fn.RequiredParams) || fn.ReturnVariable == nil {
+		return extern.FunctionSignature{}, false
+	}
+	paramLocalOffset := fn.ParamLocalVarOffset()
+	params := make([]extern.Parameter, len(fn.RequiredParams)-firstParam)
+	for i := firstParam; i < len(fn.RequiredParams); i++ {
+		localIndex := paramLocalOffset + i
+		if localIndex >= len(fn.LocalVars) {
+			return extern.FunctionSignature{}, false
+		}
+		params[i-firstParam] = extern.Parameter{
+			Name: fn.RequiredParams[i].Name.Value(),
+			Type: fn.LocalVars[localIndex].Type,
+		}
+	}
+	signature := extern.FunctionSignature{Params: params, ReturnType: fn.ReturnVariable.Type}
+	if fn.RestParams != nil {
+		restLocalIndex := paramLocalOffset + len(fn.RequiredParams)
+		if restLocalIndex >= len(fn.LocalVars) {
+			return extern.FunctionSignature{}, false
+		}
+		signature.RestParam = &extern.Parameter{
+			Name: fn.RestParams.Name.Value(),
+			Type: fn.LocalVars[restLocalIndex].Type,
+		}
+	}
+	return signature, true
+}
+
+func describeFunctionMetadata(ctx *extern.Context, fn *bir.BIRFunction, firstParam int) (extern.FunctionMetadata, bool) {
+	if firstParam > len(fn.RequiredParams) || fn.ReturnVariable == nil {
+		return extern.FunctionMetadata{}, false
+	}
+	params := make([]extern.ParameterMetadata, len(fn.RequiredParams)-firstParam)
+	for i := firstParam; i < len(fn.RequiredParams); i++ {
+		annotations, ok := resolveAnnotationValues(ctx, fn.RequiredParams[i].Annotations)
+		if !ok {
+			return extern.FunctionMetadata{}, false
+		}
+		params[i-firstParam] = extern.ParameterMetadata{Annotations: annotations}
+	}
+	metadata := extern.FunctionMetadata{Params: params}
+	if fn.RestParams != nil {
+		annotations, ok := resolveAnnotationValues(ctx, fn.RestParams.Annotations)
+		if !ok {
+			return extern.FunctionMetadata{}, false
+		}
+		metadata.RestParam = &extern.ParameterMetadata{Annotations: annotations}
+	}
+	return metadata, true
 }

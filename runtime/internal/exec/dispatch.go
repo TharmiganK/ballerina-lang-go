@@ -51,7 +51,7 @@ func LookupFunction(env *extern.Env, org, module, name string) (any, bool) {
 		return NewBIRHandle(fn), true
 	}
 	if ef := reg.GetNativeFunction(key); ef != nil {
-		return NewNativeHandle(ef.Impl), true
+		return newNativeHandle(ef.Impl, reg.GetFunctionDescriptor(key)), true
 	}
 	return nil, false
 }
@@ -150,7 +150,7 @@ func resourceFunctionDescriptor(ctx *extern.Context, impl any) (*bir.BIRFunction
 		return nil, 0, false
 	}
 	entry := handle.resourceEntry
-	fn := ctx.Env.Registry.(*modules.Registry).GetBIRFunction(entry.FunctionLookupKey)
+	fn := ctx.Env.Registry.(*modules.Registry).GetFunctionDescriptor(entry.FunctionLookupKey)
 	if fn == nil {
 		return nil, 0, false
 	}
@@ -161,63 +161,30 @@ func resourceFunctionDescriptor(ctx *extern.Context, impl any) (*bir.BIRFunction
 	return fn, pathParamCount, true
 }
 
-// FunctionSignature returns the non-path signature captured by a resolved
-// resource handle.
+// FunctionSignature returns the callable signature captured by a resolved
+// function or method handle.
 func FunctionSignature(ctx *extern.Context, impl any) (extern.FunctionSignature, bool) {
+	if handle, ok := impl.(*InvokableHandle); ok && handle.signature != nil {
+		return handle.signature()
+	}
 	fn, pathParamCount, ok := resourceFunctionDescriptor(ctx, impl)
 	if !ok {
 		return extern.FunctionSignature{}, false
 	}
-	paramLocalOffset := fn.ParamLocalVarOffset()
-	params := make([]extern.Parameter, len(fn.RequiredParams)-pathParamCount)
-	for i := pathParamCount; i < len(fn.RequiredParams); i++ {
-		localIndex := paramLocalOffset + i
-		if localIndex >= len(fn.LocalVars) {
-			return extern.FunctionSignature{}, false
-		}
-		params[i-pathParamCount] = extern.Parameter{
-			Name: fn.RequiredParams[i].Name.Value(),
-			Type: fn.LocalVars[localIndex].Type,
-		}
-	}
-	signature := extern.FunctionSignature{Params: params, ReturnType: fn.ReturnVariable.Type}
-	if fn.RestParams != nil {
-		restLocalIndex := paramLocalOffset + len(fn.RequiredParams)
-		if restLocalIndex >= len(fn.LocalVars) {
-			return extern.FunctionSignature{}, false
-		}
-		signature.RestParam = &extern.Parameter{
-			Name: fn.RestParams.Name.Value(),
-			Type: fn.LocalVars[restLocalIndex].Type,
-		}
-	}
-	return signature, true
+	return describeFunctionSignature(fn, pathParamCount)
 }
 
-// FunctionMetadata returns the non-path parameter metadata captured by a
-// resolved resource handle.
+// FunctionMetadata returns the callable metadata captured by a resolved
+// function or method handle.
 func FunctionMetadata(ctx *extern.Context, impl any) (extern.FunctionMetadata, bool) {
+	if handle, ok := impl.(*InvokableHandle); ok && handle.metadata != nil {
+		return handle.metadata(ctx)
+	}
 	fn, pathParamCount, ok := resourceFunctionDescriptor(ctx, impl)
 	if !ok {
 		return extern.FunctionMetadata{}, false
 	}
-	params := make([]extern.ParameterMetadata, len(fn.RequiredParams)-pathParamCount)
-	for i := pathParamCount; i < len(fn.RequiredParams); i++ {
-		annotations, ok := resolveAnnotationValues(ctx, fn.RequiredParams[i].Annotations)
-		if !ok {
-			return extern.FunctionMetadata{}, false
-		}
-		params[i-pathParamCount] = extern.ParameterMetadata{Annotations: annotations}
-	}
-	metadata := extern.FunctionMetadata{Params: params}
-	if fn.RestParams != nil {
-		annotations, ok := resolveAnnotationValues(ctx, fn.RestParams.Annotations)
-		if !ok {
-			return extern.FunctionMetadata{}, false
-		}
-		metadata.RestParam = &extern.ParameterMetadata{Annotations: annotations}
-	}
-	return metadata, true
+	return describeFunctionMetadata(ctx, fn, pathParamCount)
 }
 
 // ObjectAnnotations resolves the runtime-visible annotation values attached
@@ -370,7 +337,7 @@ func lookupByKey(ctx *extern.Context, lookupKey string) (any, bool) {
 		return NewBIRHandle(fn), true
 	}
 	if externFn := reg.GetNativeFunction(lookupKey); externFn != nil {
-		return NewNativeHandle(externFn.Impl), true
+		return newNativeHandle(externFn.Impl, reg.GetFunctionDescriptor(lookupKey)), true
 	}
 	return nil, false
 }

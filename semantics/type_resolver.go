@@ -968,14 +968,12 @@ func resolveInvokableSignature(t typeResolver, fn functionDecl, fnSym model.Func
 				return semtypes.SemType{}, nil, semtypes.SemType{}, semtypes.SemType{}, false
 			}
 		}
-		setOtherNodesAsNeverExceptAnnotations(param)
 		paramTypes[i] = param.GetDeterminedType()
 	}
 	restTy := semtypes.NEVER
 	if rp := fn.GetRestParam(); rp != nil {
 		restParam := rp.(*ast.BLangSimpleVariable)
 		resolveSimpleVariableInner(t, nil, restParam, depth+1)
-		setOtherNodesAsNeverExceptAnnotations(restParam)
 		elementType := restParam.GetDeterminedType()
 		restTy = elementType
 		listDefn := semtypes.NewListDefinition()
@@ -992,7 +990,6 @@ func resolveInvokableSignature(t typeResolver, fn functionDecl, fnSym model.Func
 		if !ok {
 			return semtypes.SemType{}, nil, semtypes.SemType{}, semtypes.SemType{}, false
 		}
-		setOtherNodesAsNeverExceptAnnotations(retTd)
 	} else {
 		returnTy = semtypes.NIL
 	}
@@ -1105,6 +1102,16 @@ func (t *packageTypeResolver) resolveTopLevelTypes(pkg *ast.BLangPackage) {
 	// have been folded even though the annotated type/function nodes were
 	// resolved earlier in the top-level pass.
 	resolveTopLevelAnnotationAttachments(t, pkg)
+	for i := range pkg.Functions {
+		finalizeInvokableSignatureNodes(&pkg.Functions[i])
+	}
+	if pkg.InitFunction != nil {
+		finalizeInvokableSignatureNodes(pkg.InitFunction)
+	}
+	for i := range pkg.ClassDefinitions {
+		classDef := &pkg.ClassDefinitions[i]
+		finalizeClassBodySignatureNodes(classDef.InitFunction, classDef.Methods, classDef.ResourceMethods)
+	}
 	for i := range pkg.Imports {
 		setOtherNodesAsNever(&pkg.Imports[i])
 	}
@@ -1135,6 +1142,7 @@ func (t *packageTypeResolver) resolveTopLevelTypes(pkg *ast.BLangPackage) {
 		if !resolveServiceAttachedExpressions(t, svc) || !resolveServiceType(t, svc, 0, attachPointBound) {
 			continue
 		}
+		finalizeClassBodySignatureNodes(svc.InitFunction, svc.Methods, svc.ResourceMethods)
 		svc.SetDeterminedType(semtypes.NEVER)
 	}
 	for i := range pkg.XmlnsList {
@@ -1267,6 +1275,34 @@ func resolveClassBodyAnnotationAttachments(t typeResolver, fields []ast.SimpleVa
 	}
 	for _, method := range resourceMethods {
 		resolveInvokableAnnotationAttachments(t, method, ast.Point_OBJECT_METHOD)
+	}
+}
+
+func finalizeClassBodySignatureNodes(
+	initFn *ast.BLangFunction,
+	methods map[string]*ast.BLangFunction,
+	resourceMethods []*ast.BLangResourceMethod,
+) {
+	if initFn != nil {
+		finalizeInvokableSignatureNodes(initFn)
+	}
+	for _, method := range methods {
+		finalizeInvokableSignatureNodes(method)
+	}
+	for _, method := range resourceMethods {
+		finalizeInvokableSignatureNodes(method)
+	}
+}
+
+func finalizeInvokableSignatureNodes(fn ast.InvokableNode) {
+	for _, parameter := range fn.GetParameters() {
+		setOtherNodesAsNever(parameter.(ast.BLangNode))
+	}
+	if restParam := fn.GetRestParam(); restParam != nil {
+		setOtherNodesAsNever(restParam.(ast.BLangNode))
+	}
+	if ret := fn.GetReturnTypeDescriptor(); ret != nil {
+		setOtherNodesAsNever(ret)
 	}
 }
 
@@ -1975,13 +2011,11 @@ func resolveDependentlyTypedFunctionSignature(t typeResolver, fn *ast.BLangFunct
 		t.internalError("failed to build return type op for dependently-typed function", fn.GetPosition())
 		return semtypes.SemType{}, false
 	}
-	setOtherNodesAsNeverExceptAnnotations(retTd)
 	sym.SetParamTypes(paramTypes)
 	sym.SetReturnType(retOp)
 	if !finalizeResolvedFunctionSignature(t, fn) {
 		return semtypes.SemType{}, false
 	}
-	setOtherNodesAsNeverExceptAnnotations(fn)
 	return semtypes.NEVER, true
 }
 
@@ -2248,34 +2282,25 @@ func resolveTypeData(t typeResolver, typeData *ast.TypeData) bool {
 	return true
 }
 
-type neverVisitor struct {
-	preserveAnnotations bool
-}
+type neverVisitor struct{}
 
-func (v neverVisitor) Visit(node ast.BLangNode) ast.Visitor {
+func (neverVisitor) Visit(node ast.BLangNode) ast.Visitor {
 	if node == nil {
-		return nil
-	}
-	if _, ok := node.(*ast.BLangAnnotationAttachment); ok && v.preserveAnnotations {
 		return nil
 	}
 	if semtypes.IsZero(node.GetDeterminedType()) {
 		node.SetDeterminedType(semtypes.NEVER)
 	}
-	return v
+	return neverVisitor{}
 }
 
-func (v neverVisitor) VisitTypeData(_ *ast.TypeData) ast.Visitor {
-	return v
+func (neverVisitor) VisitTypeData(_ *ast.TypeData) ast.Visitor {
+	return neverVisitor{}
 }
 
 // setOtherNodesAsNever set type of every ast node who's determined type is not set as NEVER
 func setOtherNodesAsNever(node ast.BLangNode) {
 	ast.Walk(neverVisitor{}, node)
-}
-
-func setOtherNodesAsNeverExceptAnnotations(node ast.BLangNode) {
-	ast.Walk(neverVisitor{preserveAnnotations: true}, node)
 }
 
 func allocateDefaultFnSymbol(t typeResolver, fieldTy semtypes.SemType, loc diagnostics.Location) model.SymbolRef {

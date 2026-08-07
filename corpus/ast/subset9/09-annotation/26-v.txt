@@ -11,11 +11,24 @@
   (annotation runtimeServiceMeta
     (user-defined-type Meta)
     (attach-point service))
+  (annotation parameterMeta
+    (user-defined-type Meta)
+    (attach-point parameter))
   (function annotationName () (
     (value-type string))
     (block-function-body
       (return
         (literal runtime-service))))
+  (function alphaName () (
+    (value-type string))
+    (block-function-body
+      (return
+        (literal runtime-alpha))))
+  (function betaName () (
+    (value-type string))
+    (block-function-body
+      (return
+        (literal runtime-beta))))
   (class-definition SimpleListener
     (function attach (
       (variable svc (type
@@ -66,11 +79,29 @@
     (on
     (new
       (user-defined-type SimpleListener) ()))
+    (function alpha (
+      (variable value (type
+        (value-type int)))) (
+      (value-type int))
+      (block-function-body
+        (return
+          (simple-var-ref value))))
+    (function beta (
+      (variable value (type
+        (value-type int)))) (
+      (value-type int))
+      (block-function-body
+        (return
+          (simple-var-ref value))))
     (resource-function get name:value
       (value-type int)
       (block-function-body
         (return
-          (literal 42)))))
+          (invocation alpha expr:
+            (simple-var-ref self) (
+            (invocation beta expr:
+              (simple-var-ref self) (
+              (literal 42)))))))))
   (function main () (
     (value-type null))
     (block-function-body

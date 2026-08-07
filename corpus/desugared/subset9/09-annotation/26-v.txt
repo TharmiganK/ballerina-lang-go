@@ -2,6 +2,8 @@
   (import-package ballerina io (as io))
   (import-package ballerina lang array (as lang.array))
   (variable $annotation$0)
+  (variable $annotation$1)
+  (variable $annotation$2)
   (variable $desugar$0)
   (variable $moduleListeners)
   (annotation serviceMeta
@@ -10,6 +12,9 @@
   (annotation runtimeServiceMeta
     (user-defined-type Meta)
     (attach-point service))
+  (annotation parameterMeta
+    (user-defined-type Meta)
+    (attach-point parameter))
   (type-definition Meta
     (record-type
       (field name
@@ -67,11 +72,29 @@
     (simple-var-ref $desugar$0))
     (function init () ()
       (block-function-body))
+    (function alpha (
+      (variable value (type
+        (value-type int)))) (
+      (value-type int))
+      (block-function-body
+        (return
+          (simple-var-ref value))))
+    (function beta (
+      (variable value (type
+        (value-type int)))) (
+      (value-type int))
+      (block-function-body
+        (return
+          (simple-var-ref value))))
     (resource-function get name:value
       (value-type int)
       (block-function-body
         (return
-          (literal 42)))))
+          (invocation alpha expr:
+            (simple-var-ref self) (
+            (invocation beta expr:
+              (simple-var-ref self) (
+              (literal 42)))))))))
   (function init () ()
     (block-function-body
       (assignment
@@ -83,6 +106,18 @@
           (key-value
             (literal name)
             (invocation annotationName ()))))
+      (assignment
+        (simple-var-ref $annotation$1)
+        (mapping-constructor-expr
+          (key-value
+            (literal name)
+            (invocation alphaName ()))))
+      (assignment
+        (simple-var-ref $annotation$2)
+        (mapping-constructor-expr
+          (key-value
+            (literal name)
+            (invocation betaName ()))))
       (assignment
         (simple-var-ref $desugar$0)
         (new
@@ -105,6 +140,16 @@
     (block-function-body
       (return
         (literal runtime-service))))
+  (function alphaName () (
+    (value-type string))
+    (block-function-body
+      (return
+        (literal runtime-alpha))))
+  (function betaName () (
+    (value-type string))
+    (block-function-body
+      (return
+        (literal runtime-beta))))
   (function main () (
     (value-type null))
     (block-function-body

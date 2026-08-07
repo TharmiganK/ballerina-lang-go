@@ -39,11 +39,14 @@ import (
 	"time"
 
 	"ballerina/bir"
+	bircodec "ballerina/bir/codec"
+	compilercontext "ballerina/context"
 	"ballerina/platform/pal"
 	"ballerina/platform/palnative"
 	"ballerina/projects"
 	"ballerina/runtime"
 	"ballerina/runtime/extern"
+	"ballerina/semtypes"
 	"ballerina/test_util"
 	"ballerina/tools/diagnostics"
 )
@@ -396,6 +399,17 @@ type ExternRegistration struct {
 // (rendered text, for golden-file diff) and pal.SetDiagnostics (structured,
 // for @error marker checking).
 func Run(t testing.TB, tc test_util.TestCase, pal TestPal, externs []ExternRegistration) {
+	run(t, tc, pal, externs, false)
+}
+
+// RunWithBIRRoundtrip compiles, serializes, and deserializes every BIR package
+// before interpretation. It is used by corpus tests for runtime metadata that
+// must survive package boundaries and persisted BIR.
+func RunWithBIRRoundtrip(t testing.TB, tc test_util.TestCase, pal TestPal, externs []ExternRegistration) {
+	run(t, tc, pal, externs, true)
+}
+
+func run(t testing.TB, tc test_util.TestCase, pal TestPal, externs []ExternRegistration, roundtripBIR bool) {
 	t.Helper()
 	pal.SetReporter(t)
 	defer pal.Close()
@@ -439,6 +453,24 @@ func Run(t testing.TB, tc test_util.TestCase, pal TestPal, externs []ExternRegis
 	birPkgs := backend.BIRPackages()
 	if len(birPkgs) == 0 {
 		t.Fatalf("compilation succeeded but produced no BIR packages for %s", tc.Name)
+	}
+	if roundtripBIR {
+		freshEnv := compilercontext.NewCompilerEnvironment(semtypes.CreateTypeEnv(), false)
+		freshCtx := compilercontext.NewCompilerContext(freshEnv)
+		roundtripped := make([]*bir.BIRPackage, 0, len(birPkgs))
+		for _, birPkg := range birPkgs {
+			serialized, err := bircodec.Marshal(tyEnv, birPkg)
+			if err != nil {
+				t.Fatalf("serializing BIR package %s: %v", birPkg.PackageID.PkgName.Value(), err)
+			}
+			deserialized, err := bircodec.Unmarshal(freshCtx, serialized)
+			if err != nil {
+				t.Fatalf("deserializing BIR package %s: %v", birPkg.PackageID.PkgName.Value(), err)
+			}
+			roundtripped = append(roundtripped, deserialized)
+		}
+		birPkgs = roundtripped
+		tyEnv = freshEnv.GetTypeEnv()
 	}
 
 	rt := runtime.NewRuntime(pal.Platform(), tyEnv)

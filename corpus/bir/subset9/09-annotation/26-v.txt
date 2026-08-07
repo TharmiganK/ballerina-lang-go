@@ -1,5 +1,7 @@
 module $anon.. v 0.0.0;
 $annotation$0  any;
+$annotation$1  any;
+$annotation$2  any;
 $desugar$0  object { public function attach(service object, nil|string|[string...]) returns nil; public function detach(service object) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function init() returns nil; public function start() returns nil|error };
 $moduleListeners  [object { public function attach(never, [string...]) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }|object { public function attach(never, string) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }|object { public function attach(never, nil) returns nil|error; public function detach(never) returns nil|error; public function gracefulStop() returns nil|error; public function immediateStop() returns nil|error; public function start() returns nil|error }...];
 class SimpleListener {
@@ -45,6 +47,20 @@ class SimpleListener {
 }
 @$anon/.:0.0.0:runtimeServiceMeta(runtime-ref($anon/.:$annotation$0)) @$anon/.:0.0.0:serviceMeta({"name":"declaration"}) class $service$0 {
 
+  alpha(@$anon/.:0.0.0:parameterMeta(runtime-ref($anon/.:$annotation$1)) int) -> int{
+    bb0 {
+      %0 = value;
+      return;
+    }
+  }
+
+  beta(@$anon/.:0.0.0:parameterMeta(runtime-ref($anon/.:$annotation$2)) int) -> int{
+    bb0 {
+      %0 = value;
+      return;
+    }
+  }
+
   init() -> nil{
     bb0 {
       return;
@@ -54,7 +70,15 @@ class SimpleListener {
   resource get value $resource$get$0() -> int{
     bb0 {
       %2 = ConstantLoad 42
-      %0 = %2;
+      %3 = %2;
+      %4 = beta(self,%3) -> bb1;
+    }
+    bb1 {
+      %5 = %4;
+      %6 = alpha(self,%5) -> bb2;
+    }
+    bb2 {
+      %0 = %6;
       return;
     }
   }
@@ -62,6 +86,20 @@ class SimpleListener {
 annotationName() -> string{
   bb0 {
     %1 = ConstantLoad runtime-service
+    %0 = %1;
+    return;
+  }
+}
+alphaName() -> string{
+  bb0 {
+    %1 = ConstantLoad runtime-alpha
+    %0 = %1;
+    return;
+  }
+}
+betaName() -> string{
+  bb0 {
+    %1 = ConstantLoad runtime-beta
     %0 = %1;
     return;
   }

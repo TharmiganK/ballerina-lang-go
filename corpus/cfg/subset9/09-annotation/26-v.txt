@@ -29,13 +29,41 @@
 ($resource$get$0
   (bb0 () ()
     (return
-      (literal 42))
+      (invocation alpha expr:
+        (simple-var-ref self) (
+        (invocation beta expr:
+          (simple-var-ref self) (
+          (literal 42))))))
+  )
+)
+(alpha
+  (bb0 () ()
+    (return
+      (simple-var-ref value))
+  )
+)
+(alphaName
+  (bb0 () ()
+    (return
+      (literal runtime-alpha))
   )
 )
 (annotationName
   (bb0 () ()
     (return
       (literal runtime-service))
+  )
+)
+(beta
+  (bb0 () ()
+    (return
+      (simple-var-ref value))
+  )
+)
+(betaName
+  (bb0 () ()
+    (return
+      (literal runtime-beta))
   )
 )
 (main

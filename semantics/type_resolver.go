@@ -1200,8 +1200,8 @@ func resolveClassBodyAnnotationAttachments(t typeResolver, fields []ast.SimpleVa
 	if initFn != nil {
 		resolveFunctionAnnotationAttachments(t, initFn, true)
 	}
-	for _, method := range methods {
-		resolveFunctionAnnotationAttachments(t, method, true)
+	for _, method := range methodsInResolutionOrder(methods) {
+		resolveFunctionAnnotationAttachments(t, method.method, true)
 	}
 	for _, method := range resourceMethods {
 		resolveInvokableAnnotationAttachments(t, method, ast.Point_OBJECT_METHOD)

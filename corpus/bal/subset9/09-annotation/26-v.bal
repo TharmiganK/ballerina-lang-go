@@ -22,9 +22,18 @@ type Meta record {|
 
 annotation Meta serviceMeta on service;
 annotation Meta runtimeServiceMeta on service;
+annotation Meta parameterMeta on parameter;
 
 function annotationName() returns string {
     return "runtime-service";
+}
+
+function alphaName() returns string {
+    return "runtime-alpha";
+}
+
+function betaName() returns string {
+    return "runtime-beta";
 }
 
 class SimpleListener {
@@ -50,8 +59,16 @@ class SimpleListener {
 @serviceMeta {name: "declaration"}
 @runtimeServiceMeta {name: annotationName()}
 service /annotated on new SimpleListener() {
+    function alpha(@parameterMeta {name: alphaName()} int value) returns int {
+        return value;
+    }
+
+    function beta(@parameterMeta {name: betaName()} int value) returns int {
+        return value;
+    }
+
     resource function get value() returns int {
-        return 42;
+        return self.alpha(self.beta(42));
     }
 }
 

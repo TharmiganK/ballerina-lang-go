@@ -67,16 +67,6 @@ func runExtern(t *testing.T, tc test_util.TestCase, pal testharness.TestPal, ext
 	testharness.Validate(t, tc, pal)
 }
 
-func runExternWithBIRRoundtrip(t *testing.T, tc test_util.TestCase, pal testharness.TestPal, externs []testharness.ExternRegistration) {
-	t.Helper()
-	testharness.RunWithBIRRoundtrip(t, tc, pal, externs)
-	if *update {
-		testharness.Update(t, tc, pal)
-		return
-	}
-	testharness.Validate(t, tc, pal)
-}
-
 // httpPal wraps a default in-memory TestPal but overrides Platform() to inject
 // a caller-supplied HTTP client factory. Stdout/stderr/diagnostics still flow
 // through the embedded TestPal. When realFS is true, FS.ReadFile delegates

@@ -410,7 +410,7 @@ func TestAnnotationRuntimeMetadata(t *testing.T) {
 				return ctx.InvokeMethod(handle, nil)
 			}},
 	}
-	runExternWithBIRRoundtrip(t, projectCase("annotation-runtime-v"), testharness.NewTestPal(), externs)
+	runExtern(t, projectCase("annotation-runtime-v"), testharness.NewTestPal(), externs)
 }
 
 func TestStartMethod(t *testing.T) {

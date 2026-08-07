@@ -196,88 +196,82 @@ func execInstruction(ctx *extern.Context, inst bir.BIRNonTerminator, frame *Fram
 		execStreamClose(ctx, v, frame)
 	case *bir.FieldAccess:
 		switch v.GetKind() {
-		case bir.INSTRUCTION_KIND_ARRAY_STORE:
+		case bir.InstructionKindArrayStore:
 			execArrayStore(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_ARRAY_LOAD:
+		case bir.InstructionKindArrayLoad:
 			execArrayLoad(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_ARRAY_FILLING_LOAD:
+		case bir.InstructionKindArrayFillingLoad:
 			execArrayFillingLoad(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_MAP_STORE:
+		case bir.InstructionKindMapStore:
 			execMapStore(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_MAP_FILLING_LOAD:
+		case bir.InstructionKindMapFillingLoad:
 			execMapFillingLoad(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_MAP_LOAD:
+		case bir.InstructionKindMapLoad:
 			execMapLoad(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_OBJECT_STORE:
+		case bir.InstructionKindObjectStore:
 			execObjectStore(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_OBJECT_LOAD:
+		case bir.InstructionKindObjectLoad:
 			execObjectLoad(ctx, v, frame)
 		default:
 			fmt.Printf("UNKNOWN_FIELD_ACCESS_KIND(%d)\n", v.GetKind())
 		}
 	case *bir.BinaryOp:
 		switch v.GetKind() {
-		case bir.INSTRUCTION_KIND_ADD:
+		case bir.InstructionKindAdd:
 			execBinaryOpAdd(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_SUB:
+		case bir.InstructionKindSub:
 			execBinaryOpSub(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_MUL:
+		case bir.InstructionKindMul:
 			execBinaryOpMul(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_DIV:
+		case bir.InstructionKindDiv:
 			execBinaryOpDiv(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_MOD:
+		case bir.InstructionKindMod:
 			execBinaryOpMod(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_EQUAL:
+		case bir.InstructionKindEqual:
 			execBinaryOpEqual(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_NOT_EQUAL:
+		case bir.InstructionKindNotEqual:
 			execBinaryOpNotEqual(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_GREATER_THAN:
+		case bir.InstructionKindGreaterThan:
 			execBinaryOpGT(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_GREATER_EQUAL:
+		case bir.InstructionKindGreaterEqual:
 			execBinaryOpGTE(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_LESS_THAN:
+		case bir.InstructionKindLessThan:
 			execBinaryOpLT(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_LESS_EQUAL:
+		case bir.InstructionKindLessEqual:
 			execBinaryOpLTE(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_AND:
+		case bir.InstructionKindAnd:
 			execBinaryOpAnd(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_OR:
+		case bir.InstructionKindOr:
 			execBinaryOpOr(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_REF_EQUAL:
+		case bir.InstructionKindRefEqual:
 			execBinaryOpRefEqual(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_REF_NOT_EQUAL:
+		case bir.InstructionKindRefNotEqual:
 			execBinaryOpRefNotEqual(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_CLOSED_RANGE:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_CLOSED_RANGE")
-		case bir.INSTRUCTION_KIND_HALF_OPEN_RANGE:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_HALF_OPEN_RANGE")
-		case bir.INSTRUCTION_KIND_ANNOT_ACCESS:
+		case bir.InstructionKindAnnotAccess:
 			execBinaryOpAnnotAccess(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_BITWISE_AND:
+		case bir.InstructionKindBitwiseAnd:
 			execBinaryOpBitwiseAnd(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_BITWISE_OR:
+		case bir.InstructionKindBitwiseOr:
 			execBinaryOpBitwiseOr(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_BITWISE_XOR:
+		case bir.InstructionKindBitwiseXor:
 			execBinaryOpBitwiseXor(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_BITWISE_LEFT_SHIFT:
+		case bir.InstructionKindBitwiseLeftShift:
 			execBinaryOpBitwiseLeftShift(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_BITWISE_RIGHT_SHIFT:
+		case bir.InstructionKindBitwiseRightShift:
 			execBinaryOpBitwiseRightShift(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_BITWISE_UNSIGNED_RIGHT_SHIFT:
+		case bir.InstructionKindBitwiseUnsignedRightShift:
 			execBinaryOpBitwiseUnsignedRightShift(ctx, v, frame)
 		default:
 			fmt.Printf("UNKNOWN_BINARY_INSTRUCTION_KIND(%d)\n", v.GetKind())
 		}
 	case *bir.UnaryOp:
 		switch v.GetKind() {
-		case bir.INSTRUCTION_KIND_NOT:
+		case bir.InstructionKindNot:
 			execUnaryOpNot(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_NEGATE:
+		case bir.InstructionKindNegate:
 			execUnaryOpNegate(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_BITWISE_COMPLEMENT:
+		case bir.InstructionKindBitwiseComplement:
 			execUnaryOpBitwiseComplement(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_TYPEOF:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_TYPEOF")
 		default:
 			fmt.Printf("UNKNOWN_UNARY_INSTRUCTION_KIND(%d)\n", v.GetKind())
 		}
@@ -315,32 +309,10 @@ func execTerminator(ctx *extern.Context, term bir.BIRTerminator, frame *Frame) *
 		return execPanic(ctx, v, frame)
 	case *bir.Call:
 		switch v.GetKind() {
-		case bir.INSTRUCTION_KIND_CALL:
+		case bir.InstructionKindCall:
 			return execCall(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_ASYNC_CALL:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_ASYNC_CALL")
-		case bir.INSTRUCTION_KIND_WAIT:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_WAIT")
-		case bir.INSTRUCTION_KIND_FP_CALL:
+		case bir.InstructionKindFPCall:
 			return execFpCall(ctx, v, frame)
-		case bir.INSTRUCTION_KIND_WK_RECEIVE:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_WK_RECEIVE")
-		case bir.INSTRUCTION_KIND_WK_SEND:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_WK_SEND")
-		case bir.INSTRUCTION_KIND_FLUSH:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_FLUSH")
-		case bir.INSTRUCTION_KIND_LOCK:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_LOCK")
-		case bir.INSTRUCTION_KIND_FIELD_LOCK:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_FIELD_LOCK")
-		case bir.INSTRUCTION_KIND_UNLOCK:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_UNLOCK")
-		case bir.INSTRUCTION_KIND_WAIT_ALL:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_WAIT_ALL")
-		case bir.INSTRUCTION_KIND_WK_ALT_RECEIVE:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_WK_ALT_RECEIVE")
-		case bir.INSTRUCTION_KIND_WK_MULTIPLE_RECEIVE:
-			fmt.Println("NOT IMPLEMENTED: INSTRUCTION_KIND_WK_MULTIPLE_RECEIVE")
 		default:
 			fmt.Printf("UNKNOWN_CALL_INSTRUCTION_KIND(%d)\n", v.GetKind())
 		}
@@ -371,7 +343,7 @@ func panicValueToErrorValue(r any) values.BalValue {
 
 func setRecoveredError(ctx *extern.Context, op *bir.BIROperand, currentFrame *Frame, errVal values.BalValue) *Frame {
 	if gv, ok := op.VariableDcl.(*bir.BIRGlobalVariableDcl); ok {
-		module := getModule(ctx, gv.PkgId)
+		module := getModule(ctx, gv.PkgID)
 		module.Globals[gv.GlobalVarLookupKey] = errVal
 		return currentFrame
 	}

@@ -130,10 +130,6 @@ func newBlockContext(parent context) blockContext {
 	return blockContext{fn: parent.function(), enclosing: parent, vars: make(map[model.SymbolRef]*bir.BIROperand)}
 }
 
-func absoluteAddress(baseIndex, frameIndex int) bir.Address {
-	return bir.Address{Mode: bir.AddressingModeAbsolute, BaseIndex: baseIndex, FrameIndex: frameIndex}
-}
-
 func (c *packageContext) stringMapType() semtypes.SemType {
 	if semtypes.IsZero(c.stringMapTy) {
 		md := semtypes.NewMappingDefinition()
@@ -220,7 +216,7 @@ func lookupVar(b context, symRef model.SymbolRef) (*bir.BIROperand, bool, bool) 
 			if op.Address.Mode == bir.AddressingModeAbsolute {
 				baseIndex = levelsUp + op.Address.BaseIndex
 			}
-			return &bir.BIROperand{VariableDcl: op.VariableDcl, Address: absoluteAddress(baseIndex, op.Address.FrameIndex)}, crossed, true
+			return &bir.BIROperand{VariableDcl: op.VariableDcl, Address: bir.AbsoluteAddress(baseIndex, op.Address.FrameIndex)}, crossed, true
 		}
 		next := cur.enclosingBlock()
 		if next == nil {
@@ -250,7 +246,7 @@ func retVar(b context) *bir.BIROperand {
 	if depth == 0 {
 		return &bir.BIROperand{VariableDcl: retVarDcl, Address: bir.RelativeAddress(0)}
 	}
-	return &bir.BIROperand{VariableDcl: retVarDcl, Address: absoluteAddress(depth, 0)}
+	return &bir.BIROperand{VariableDcl: retVarDcl, Address: bir.AbsoluteAddress(depth, 0)}
 }
 
 func (b *blockContext) numLocals() int { return len(b.localVars) }
@@ -314,7 +310,7 @@ func addFunctionTempVar(ctx context, ty semtypes.SemType) (fromCtx, fromRoot *bi
 	if depth == 0 {
 		return fromRoot, fromRoot
 	}
-	fromCtx = &bir.BIROperand{VariableDcl: fromRoot.VariableDcl, Address: absoluteAddress(depth, fromRoot.Address.FrameIndex)}
+	fromCtx = &bir.BIROperand{VariableDcl: fromRoot.VariableDcl, Address: bir.AbsoluteAddress(depth, fromRoot.Address.FrameIndex)}
 	return fromCtx, fromRoot
 }
 
@@ -433,7 +429,7 @@ func transformGlobalVariableDcl(ctx *packageContext, ast *ast.BLangVariable) bir
 	dcl := bir.BIRGlobalVariableDcl{}
 	dcl.Pos = birLoc(ctx.CompilerContext.DiagnosticEnv(), ast.GetPosition())
 	dcl.Name = name
-	dcl.PkgId = ctx.packageID
+	dcl.PkgID = ctx.packageID
 	dcl.Type = ctx.CompilerContext.SymbolType(ast.Symbol())
 	dcl.Flags = ast.Flags()
 	dcl.GlobalVarLookupKey = buildGlobalVarLookupKey(ctx.packageID, name)
@@ -617,11 +613,11 @@ func memberAccessInstructionKinds(tyCtx semtypes.Context, containerType semtypes
 	containerType = semtypes.Diff(containerType, semtypes.NIL)
 	switch {
 	case semtypes.IsSubtype(tyCtx, containerType, semtypes.LIST):
-		return bir.INSTRUCTION_KIND_ARRAY_LOAD, bir.INSTRUCTION_KIND_ARRAY_STORE
+		return bir.InstructionKindArrayLoad, bir.InstructionKindArrayStore
 	case semtypes.IsSubtype(tyCtx, containerType, semtypes.OBJECT):
-		return bir.INSTRUCTION_KIND_OBJECT_LOAD, bir.INSTRUCTION_KIND_OBJECT_STORE
+		return bir.InstructionKindObjectLoad, bir.InstructionKindObjectStore
 	default:
-		return bir.INSTRUCTION_KIND_MAP_LOAD, bir.INSTRUCTION_KIND_MAP_STORE
+		return bir.InstructionKindMapLoad, bir.InstructionKindMapStore
 	}
 }
 
@@ -840,7 +836,7 @@ func matchStatement(ctx context, curBB *bir.BIRBasicBlock, stmt *ast.BLangMatchS
 				curBB = patternEffect.block
 				eqResult := ctx.addTempVar(semtypes.BOOLEAN)
 				eqPos := ctx.function().loc(p.Expr.GetPosition())
-				binaryOp := bir.NewBinaryOp(bir.INSTRUCTION_KIND_EQUAL, eqResult, matchOperand, patternEffect.result, eqPos)
+				binaryOp := bir.NewBinaryOp(bir.InstructionKindEqual, eqResult, matchOperand, patternEffect.result, eqPos)
 				curBB.Instructions = append(curBB.Instructions, binaryOp)
 				condOperand = orOperands(ctx, curBB, condOperand, eqResult, eqPos)
 			case *ast.BLangWildCardMatchPattern:
@@ -894,14 +890,14 @@ func orOperands(ctx context, bb *bir.BIRBasicBlock, existing *bir.BIROperand, ne
 		return new
 	}
 	result := ctx.addTempVar(semtypes.BOOLEAN)
-	binaryOp := bir.NewBinaryOp(bir.INSTRUCTION_KIND_OR, result, existing, new, pos)
+	binaryOp := bir.NewBinaryOp(bir.InstructionKindOr, result, existing, new, pos)
 	bb.Instructions = append(bb.Instructions, binaryOp)
 	return result
 }
 
 func andOperands(ctx context, bb *bir.BIRBasicBlock, existing *bir.BIROperand, new *bir.BIROperand, pos bir.Location) *bir.BIROperand {
 	result := ctx.addTempVar(semtypes.BOOLEAN)
-	binaryOp := bir.NewBinaryOp(bir.INSTRUCTION_KIND_AND, result, existing, new, pos)
+	binaryOp := bir.NewBinaryOp(bir.InstructionKindAnd, result, existing, new, pos)
 	bb.Instructions = append(bb.Instructions, binaryOp)
 	return result
 }
@@ -1040,7 +1036,7 @@ func annotAccessExpression(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLan
 	keyOp := ctx.addTempVar(semtypes.STRING)
 	curBB.Instructions = append(curBB.Instructions, bir.NewConstantLoad(keyOp, model.AnnotationKey(ctx.symbolPackage(symRef), sym.Name()), pos))
 	resultOperand := ctx.addTempVar(expr.GetDeterminedType())
-	curBB.Instructions = append(curBB.Instructions, bir.NewBinaryOp(bir.INSTRUCTION_KIND_ANNOT_ACCESS, resultOperand, receiver.result, keyOp, pos))
+	curBB.Instructions = append(curBB.Instructions, bir.NewBinaryOp(bir.InstructionKindAnnotAccess, resultOperand, receiver.result, keyOp, pos))
 	return expressionEffect{
 		result: resultOperand,
 		block:  curBB,
@@ -1401,9 +1397,9 @@ func assignmentContainerReference(ctx context, bb *bir.BIRBasicBlock, expr ast.B
 	var filler values.FillerFactory
 	switch {
 	case semtypes.IsSubtype(tyCtx, containerType, semtypes.LIST):
-		fillingKind = bir.INSTRUCTION_KIND_ARRAY_FILLING_LOAD
+		fillingKind = bir.InstructionKindArrayFillingLoad
 	case semtypes.IsSubtype(tyCtx, containerType, semtypes.MAPPING):
-		fillingKind = bir.INSTRUCTION_KIND_MAP_FILLING_LOAD
+		fillingKind = bir.InstructionKindMapFillingLoad
 		tyCx := semtypes.TypeCheckContext(ctx.typeEnv())
 		valueType := semtypes.MappingMemberTypeInnerVal(tyCx, containerType, semtypes.STRING)
 		filler, _ = values.FillerFactoryFor(tyCx, valueType)
@@ -1452,11 +1448,11 @@ func unaryExpression(ctx context, bb *bir.BIRBasicBlock, expr *ast.BLangUnaryExp
 	var kind bir.InstructionKind
 	switch expr.Operator {
 	case model.OperatorKind_NOT:
-		kind = bir.INSTRUCTION_KIND_NOT
+		kind = bir.InstructionKindNot
 	case model.OperatorKind_SUB:
-		kind = bir.INSTRUCTION_KIND_NEGATE
+		kind = bir.InstructionKindNegate
 	case model.OperatorKind_BITWISE_COMPLEMENT:
-		kind = bir.INSTRUCTION_KIND_BITWISE_COMPLEMENT
+		kind = bir.InstructionKindBitwiseComplement
 	default:
 		panic("unexpected unary operator kind")
 	}
@@ -1543,7 +1539,7 @@ func generateCall(ctx context, bb *bir.BIRBasicBlock, callable callable) express
 	if _, isRemote := callable.(*ast.BLangRemoteMethodCallAction); isRemote {
 		callName = model.RemoteMethodName(callName)
 	}
-	call := bir.NewCall(bir.INSTRUCTION_KIND_CALL, args, model.Name(callName), thenBB, resultOperand, ctx.function().loc(callable.GetPosition()))
+	call := bir.NewCall(bir.InstructionKindCall, args, model.Name(callName), thenBB, resultOperand, ctx.function().loc(callable.GetPosition()))
 	call.IsMethodCall = isMethodCall
 
 	if !isMethodCall {
@@ -1553,7 +1549,7 @@ func generateCall(ctx context, bb *bir.BIRBasicBlock, callable callable) express
 			call.FunctionLookupKey = buildFunctionLookupKeyFromSymbol(ctx.function().pkgCtx, symRef)
 			call.CalleePkg = packageIDFromIdentifier(ctx.compilerContext(), ctx.symbolPackage(symRef))
 		} else {
-			call.Kind = bir.INSTRUCTION_KIND_FP_CALL
+			call.Kind = bir.InstructionKindFPCall
 			unnarrowedRef := ctx.unnarrowedSymbol(symRef)
 			if op, crossedFunction, ok := lookupVar(ctx, unnarrowedRef); ok {
 				call.FpOperand = op
@@ -1562,7 +1558,7 @@ func generateCall(ctx context, bb *bir.BIRBasicBlock, callable callable) express
 				pkgID := packageIDFromIdentifier(ctx.compilerContext(), ctx.symbolPackage(unnarrowedRef))
 				global := &bir.BIRGlobalVariableDcl{}
 				global.Name = model.Name(ctx.symbolName(unnarrowedRef))
-				global.PkgId = pkgID
+				global.PkgID = pkgID
 				global.GlobalVarLookupKey = buildGlobalVarLookupKey(pkgID, global.Name)
 				call.FpOperand = &bir.BIROperand{VariableDcl: global}
 			}
@@ -1588,43 +1584,43 @@ func literal(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLangLiteral) expr
 func operatorKindToBinaryInstructionKind(opKind model.OperatorKind) bir.InstructionKind {
 	switch opKind {
 	case model.OperatorKind_ADD:
-		return bir.INSTRUCTION_KIND_ADD
+		return bir.InstructionKindAdd
 	case model.OperatorKind_SUB:
-		return bir.INSTRUCTION_KIND_SUB
+		return bir.InstructionKindSub
 	case model.OperatorKind_MUL:
-		return bir.INSTRUCTION_KIND_MUL
+		return bir.InstructionKindMul
 	case model.OperatorKind_DIV:
-		return bir.INSTRUCTION_KIND_DIV
+		return bir.InstructionKindDiv
 	case model.OperatorKind_MOD:
-		return bir.INSTRUCTION_KIND_MOD
+		return bir.InstructionKindMod
 	case model.OperatorKind_EQUAL:
-		return bir.INSTRUCTION_KIND_EQUAL
+		return bir.InstructionKindEqual
 	case model.OperatorKind_NOT_EQUAL:
-		return bir.INSTRUCTION_KIND_NOT_EQUAL
+		return bir.InstructionKindNotEqual
 	case model.OperatorKind_GREATER_THAN:
-		return bir.INSTRUCTION_KIND_GREATER_THAN
+		return bir.InstructionKindGreaterThan
 	case model.OperatorKind_GREATER_EQUAL:
-		return bir.INSTRUCTION_KIND_GREATER_EQUAL
+		return bir.InstructionKindGreaterEqual
 	case model.OperatorKind_LESS_THAN:
-		return bir.INSTRUCTION_KIND_LESS_THAN
+		return bir.InstructionKindLessThan
 	case model.OperatorKind_LESS_EQUAL:
-		return bir.INSTRUCTION_KIND_LESS_EQUAL
+		return bir.InstructionKindLessEqual
 	case model.OperatorKind_REF_EQUAL:
-		return bir.INSTRUCTION_KIND_REF_EQUAL
+		return bir.InstructionKindRefEqual
 	case model.OperatorKind_REF_NOT_EQUAL:
-		return bir.INSTRUCTION_KIND_REF_NOT_EQUAL
+		return bir.InstructionKindRefNotEqual
 	case model.OperatorKind_BITWISE_AND:
-		return bir.INSTRUCTION_KIND_BITWISE_AND
+		return bir.InstructionKindBitwiseAnd
 	case model.OperatorKind_BITWISE_OR:
-		return bir.INSTRUCTION_KIND_BITWISE_OR
+		return bir.InstructionKindBitwiseOr
 	case model.OperatorKind_BITWISE_XOR:
-		return bir.INSTRUCTION_KIND_BITWISE_XOR
+		return bir.InstructionKindBitwiseXor
 	case model.OperatorKind_BITWISE_LEFT_SHIFT:
-		return bir.INSTRUCTION_KIND_BITWISE_LEFT_SHIFT
+		return bir.InstructionKindBitwiseLeftShift
 	case model.OperatorKind_BITWISE_RIGHT_SHIFT:
-		return bir.INSTRUCTION_KIND_BITWISE_RIGHT_SHIFT
+		return bir.InstructionKindBitwiseRightShift
 	case model.OperatorKind_BITWISE_UNSIGNED_RIGHT_SHIFT:
-		return bir.INSTRUCTION_KIND_BITWISE_UNSIGNED_RIGHT_SHIFT
+		return bir.InstructionKindBitwiseUnsignedRightShift
 	default:
 		panic("unexpected binary operator kind")
 	}
@@ -1755,7 +1751,7 @@ func simpleVariableReference(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BL
 	pkgId := packageIDFromIdentifier(ctx.compilerContext(), ctx.symbolPackage(symRef))
 	gv := &bir.BIRGlobalVariableDcl{}
 	gv.Name = model.Name(varName)
-	gv.PkgId = pkgId
+	gv.PkgID = pkgId
 	gv.GlobalVarLookupKey = buildGlobalVarLookupKey(pkgId, gv.Name)
 	return expressionEffect{
 		result: &bir.BIROperand{VariableDcl: gv},
@@ -1900,7 +1896,7 @@ func transformClassBody(
 
 func buildResourceMethodEntry(ctx *packageContext, rm *ast.BLangResourceMethod, fn *bir.BIRFunction) bir.BIRResourceMethod {
 	var pathSegments []bir.ResourcePathSegmentDef
-	var restTy = semtypes.NEVER
+	restTy := semtypes.NEVER
 	for i := range rm.ResourcePath {
 		seg := &rm.ResourcePath[i]
 		segTy := seg.GetDeterminedType()
@@ -2018,7 +2014,7 @@ func emitObjectInit(ctx context, curBB *bir.BIRBasicBlock, classLookupKey string
 	initMethodLookupKey := classLookupKey + ".init"
 	initResult := ctx.addTempVar(semtypes.Union(semtypes.NIL, semtypes.ERROR))
 	initDoneBB := ctx.function().addBB()
-	call := bir.NewCall(bir.INSTRUCTION_KIND_CALL, args, model.Name("init"), initDoneBB, initResult, ctx.function().loc(pos))
+	call := bir.NewCall(bir.InstructionKindCall, args, model.Name("init"), initDoneBB, initResult, ctx.function().loc(pos))
 	call.IsMethodCall = true
 	call.CachedMethodLookupKey = initMethodLookupKey
 	curBB.Terminator = call

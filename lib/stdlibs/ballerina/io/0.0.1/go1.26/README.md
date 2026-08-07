@@ -61,7 +61,7 @@ public function main() returns error? {
 
     // Byte channels
     io:WritableByteChannel writer = check io:openWritableFile("/tmp/channel.bin");
-    check writer.write([1, 2, 3, 4, 5], 0);
+    _ = check writer.write([1, 2, 3, 4, 5], 0);
     check writer.close();
 
     io:ReadableByteChannel reader = check io:openReadableFile("/tmp/channel.bin");
@@ -118,3 +118,4 @@ Support Levels:
 - **Streams are consumed via `next()`/`close()` only.** The returned streams are driven with explicit `.next()` and `.close()` calls. Iterating a stream with a `foreach` statement or a query (`from ... in`) expression is not yet supported at the language level, so those constructs cannot yet consume these streams.
 - **Write-from-stream accepts a generic `error?` completion.** jBallerina declares `fileWriteLinesFromStream`/`fileWriteBlocksFromStream` with a `stream<_, io:Error?>` parameter, which rejects a stream held as `stream<_, error?>` (e.g. `stream<byte[], error?> s = check io:fileReadBlocksAsStream(p); check io:fileWriteBlocksFromStream(out, s);` fails to compile in jBallerina). This port widens the parameter completion type to the generic `error?`, so both `io:Error?` and plain `error?` completion streams are accepted. This is a strict superset — every jBallerina-valid call still compiles — and the return type remains the specific `io:Error?`.
 - **`writeVarInt`/`readVarInt` round-trip the full `int` range.** jBallerina's variable-length integer implementation breaks for very large magnitudes: `readVarInt` panics on encodings longer than 8 bytes (so its own `writeVarInt` output for values needing 9-10 bytes cannot be read back), and `writeVarInt(int:MIN_VALUE)` silently writes a single `0x00` byte. This port encodes such values with the minimal correct width and reads encodings up to 10 bytes, so every `int` round-trips; the wire format is identical to jBallerina for all values jBallerina handles correctly.
+- **Unknown charset handling differs between `writeString` and `readString`.** `WritableDataChannel.writeString` surfaces an unsupported charset as a Go error, which the interpreter turns into a panic, matching jBallerina's unchecked `UnsupportedEncodingException`. `ReadableDataChannel.readString` instead returns it as an `io:Error` value.

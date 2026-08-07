@@ -225,22 +225,40 @@ func initByteChannelModule(rt *runtime.Runtime) {
 				}
 				return nil
 			}
+			buf := make([]byte, min(size, channelBufferSize))
 			next := func() values.BalValue {
-				buf := make([]byte, size)
-				n, err := reader.Read(buf)
-				if n > 0 && (err == nil || err == io.EOF) {
-					block := values.NewList(types.roByteArrTy, types.roByteArrAtom, true, nil, 0, bytesToItems(buf[:n]))
-					return values.NewMap(types.blockRecordTy, types.blockRecordAtm, false,
-						[]values.MapEntry{{Key: "value", Value: block}})
+				result := make([]byte, 0, len(buf))
+				var readErr error
+				for len(result) < size {
+					chunk := buf
+					if remaining := size - len(result); remaining < len(chunk) {
+						chunk = buf[:remaining]
+					}
+					n, err := reader.Read(chunk)
+					if n > 0 {
+						result = append(result, chunk[:n]...)
+					}
+					if err != nil {
+						readErr = err
+						break
+					}
+					if n == 0 {
+						break
+					}
 				}
-				if err == io.EOF || err == nil {
+				if readErr != nil && readErr != io.EOF {
+					_ = closeUnderlyingHandle()
+					return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error())
+				}
+				if len(result) == 0 {
 					if closeErr := closeUnderlyingHandle(); closeErr != nil {
 						return fileIOError("error occurred while closing the channel. " + closeErr.Error())
 					}
 					return nil
 				}
-				_ = closeUnderlyingHandle()
-				return fileIOError("error occurred while reading bytes from the channel. " + err.Error())
+				block := values.NewList(types.roByteArrTy, types.roByteArrAtom, true, nil, 0, bytesToItems(result))
+				return values.NewMap(types.blockRecordTy, types.blockRecordAtm, false,
+					[]values.MapEntry{{Key: "value", Value: block}})
 			}
 			closeFn := func() values.BalValue {
 				if err := closeUnderlyingHandle(); err != nil {

@@ -25,14 +25,14 @@
         (value-type int)) (expr
         (checked-expr
           (client-resource-access get expr:
-            (simple-var-ref store) name:price)))))
+            (simple-var-ref store) name:price <default>)))))
     (var-def
       (variable defaultTax (type
         (value-type int)) (expr
         (checked-expr
           (client-resource-access get expr:
             (simple-var-ref store) name:total
-            (literal 40))))))
+            (literal 40) <default>)))))
     (var-def
       (variable explicitTax (type
         (value-type int)) (expr

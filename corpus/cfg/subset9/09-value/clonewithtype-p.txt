@@ -20,6 +20,7 @@
         (value-type anydata)) (expr
         (check-panicked-expr
           (invocation lang.value cloneWithType (
-            (simple-var-ref cyclic)))))))
+            (simple-var-ref cyclic)
+            (typedesc-expr)))))))
   )
 )

@@ -350,7 +350,7 @@ func (br *birReader) readFunction() *bir.BIRFunction {
 
 	argsCount := br.readLength()
 
-	varMap := make(map[string]bir.BIRVariableDcl)
+	varMap := make(map[int32]*bir.BIRLocalVariableDcl)
 	bbMap := make(map[string]*bir.BIRBasicBlock)
 
 	var hasReturnVar bool
@@ -365,14 +365,23 @@ func (br *birReader) readFunction() *bir.BIRFunction {
 		returnVar = &bir.BIRLocalVariableDcl{}
 		returnVar.Name = returnVarName
 		returnVar.Type = returnVarType
-		varMap[returnVarName.Value()] = returnVar
 	}
 
 	localVarCount := br.readLength()
 	localVars := make([]bir.BIRLocalVariableDcl, localVarCount)
 	for j := 0; j < int(localVarCount); j++ {
-		localVar := br.readLocalVar(varMap)
+		localVar := br.readLocalVar()
 		localVars[j] = *localVar
+	}
+
+	localDclCount := br.readLength()
+	for id := int32(0); id < int32(localDclCount); id++ {
+		name := br.readStringCPEntry()
+		ty := br.readType()
+		dcl := &bir.BIRLocalVariableDcl{}
+		dcl.Name = name
+		dcl.Type = ty
+		varMap[id] = dcl
 	}
 
 	basicBlockCount := br.readLength()
@@ -465,7 +474,7 @@ func (br *birReader) readFunction() *bir.BIRFunction {
 	}
 }
 
-func (br *birReader) readLocalVar(varMap map[string]bir.BIRVariableDcl) *bir.BIRLocalVariableDcl {
+func (br *birReader) readLocalVar() *bir.BIRLocalVariableDcl {
 	_ = br.readKind()
 	ty := br.readType()
 	name := br.readStringCPEntry()
@@ -473,12 +482,10 @@ func (br *birReader) readLocalVar(varMap map[string]bir.BIRVariableDcl) *bir.BIR
 	localVar := &bir.BIRLocalVariableDcl{}
 	localVar.Name = name
 	localVar.Type = ty
-
-	varMap[name.Value()] = localVar
 	return localVar
 }
 
-func (br *birReader) readBasicBlock(varMap map[string]bir.BIRVariableDcl) *bir.BIRBasicBlock {
+func (br *birReader) readBasicBlock(varMap map[int32]*bir.BIRLocalVariableDcl) *bir.BIRBasicBlock {
 	id := br.readStringCPEntry()
 	instructionCount := br.readLength()
 
@@ -497,7 +504,7 @@ func (br *birReader) readBasicBlock(varMap map[string]bir.BIRVariableDcl) *bir.B
 	}
 }
 
-func (br *birReader) readInstruction(varMap map[string]bir.BIRVariableDcl) bir.BIRInstruction {
+func (br *birReader) readInstruction(varMap map[int32]*bir.BIRLocalVariableDcl) bir.BIRInstruction {
 	instructionKind := br.readInstructionKind()
 	pos := br.readPosition()
 
@@ -823,7 +830,7 @@ func (br *birReader) readInstruction(varMap map[string]bir.BIRVariableDcl) bir.B
 	}
 }
 
-func (br *birReader) readTerminator(varMap map[string]bir.BIRVariableDcl) bir.BIRTerminator {
+func (br *birReader) readTerminator(varMap map[int32]*bir.BIRLocalVariableDcl) bir.BIRTerminator {
 	var terminatorKind uint8
 	br.read(&terminatorKind)
 
@@ -996,7 +1003,7 @@ func (br *birReader) readTerminator(varMap map[string]bir.BIRVariableDcl) bir.BI
 	}
 }
 
-func (br *birReader) readOperand(varMap map[string]bir.BIRVariableDcl) *bir.BIROperand {
+func (br *birReader) readOperand(varMap map[int32]*bir.BIRLocalVariableDcl) *bir.BIROperand {
 	var ignoreVariable bool
 	br.read(&ignoreVariable)
 
@@ -1011,9 +1018,8 @@ func (br *birReader) readOperand(varMap map[string]bir.BIRVariableDcl) *bir.BIRO
 
 	kind := br.readKind()
 	_ = br.readScope() // scope (ignored)
-	name := br.readStringCPEntry()
-
 	if kind == bir.VAR_KIND_GLOBAL {
+		name := br.readStringCPEntry()
 		lookupKey := br.readStringCPEntry()
 		pkgId := br.readPackageCPEntry()
 		gv := &bir.BIRGlobalVariableDcl{
@@ -1024,11 +1030,11 @@ func (br *birReader) readOperand(varMap map[string]bir.BIRVariableDcl) *bir.BIRO
 		return &bir.BIROperand{VariableDcl: gv}
 	}
 
-	varDcl, ok := varMap[name.Value()]
+	var dclID int32
+	br.read(&dclID)
+	varDcl, ok := varMap[dclID]
 	if !ok {
-		varDcl = &bir.BIRLocalVariableDcl{}
-		varDcl.(*bir.BIRLocalVariableDcl).SetName(name)
-		varMap[name.Value()] = varDcl
+		panic(fmt.Sprintf("local variable declaration not found: %d", dclID))
 	}
 
 	var mode uint8

@@ -13,10 +13,10 @@ error[SEMANTIC_ERROR]: invocation of a non-isolated function
    |                            ^^^^^^^^^^^
 
 error[SEMANTIC_ERROR]: invocation of a non-isolated function
-  --> map-isolated-param-semantic-e.bal:32:24
+  --> map-isolated-param-semantic-e.bal:32:31
    |
 32 |         return [1].map(func = nonIsolated).length(); // @error
-   |                        ^^^^^^^^^^^^^^^^^^
+   |                               ^^^^^^^^^^^
 
 error[SEMANTIC_ERROR]: invocation of a non-isolated function
   --> map-isolated-param-semantic-e.bal:38:24

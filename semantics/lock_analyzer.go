@@ -214,7 +214,12 @@ func isolatedParamLambdas(ctx *context.CompilerContext, n *ast.BLangInvocation) 
 	if !ok {
 		return nil
 	}
-	paramNames := resolvedFn.ParamNames()
+	sig, ok := ctx.GetFunctionSignature(n.Symbol())
+	if !ok {
+		ctx.InternalError("function signature not found", n.GetPosition())
+		return nil
+	}
+	paramNames := sig.ParamNames
 	lambdas := make([]*ast.BLangLambdaFunction, 0)
 	for i, arg := range n.CallArgs() {
 		paramIndex := i
@@ -226,7 +231,7 @@ func isolatedParamLambdas(ctx *context.CompilerContext, n *ast.BLangInvocation) 
 		if paramIndex < 0 || !opaque.IsIsolatedParam(paramIndex) {
 			continue
 		}
-		if lambda, ok := argExpr.(*ast.BLangLambdaFunction); ok && lambda.InferredParams {
+		if lambda, ok := argExpr.(*ast.BLangLambdaFunction); ok && lambda.HasInferredParams() {
 			lambdas = append(lambdas, lambda)
 		}
 	}
@@ -261,7 +266,12 @@ func isolatedInvocationViolationInner(ctx *context.CompilerContext, tyCtx semtyp
 		return diagnostics.Location{}, false
 	}
 
-	paramNames := resolvedFn.ParamNames()
+	sig, ok := ctx.GetFunctionSignature(fnRef)
+	if !ok {
+		ctx.InternalError("function signature not found", n.GetPosition())
+		return diagnostics.Location{}, false
+	}
+	paramNames := sig.ParamNames
 	for i, arg := range n.CallArgs() {
 		paramIndex := i
 		argExpr := arg

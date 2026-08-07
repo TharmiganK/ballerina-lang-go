@@ -1829,6 +1829,9 @@ func (n *NodeBuilder) populateServiceAttachPoint(service *BLangService, node *tr
 	if node.HasDiagnostics() {
 		return
 	}
+	if paths.Size() > 0 {
+		service.AbsoluteResourcePath = []BLangIdentifier{}
+	}
 	for i := 0; i < paths.Size(); i++ {
 		seg := paths.Get(i)
 		if seg.Kind() == common.STRING_LITERAL {
@@ -1854,6 +1857,9 @@ func (n *NodeBuilder) populateServiceAttachPoint(service *BLangService, node *tr
 
 func (n *NodeBuilder) populateServiceAttachedExprs(service *BLangService, node *tree.ServiceDeclarationNode) {
 	exprs := node.Expressions()
+	if exprs.Size() > 0 {
+		service.AttachedExprsPosition = n.getPositionRange(exprs.Get(0), exprs.Get(exprs.Size()-1))
+	}
 	for i := 0; i < exprs.Size(); i += 2 {
 		service.AttachedExprs = append(service.AttachedExprs, n.createExpression(exprs.Get(i)))
 	}
@@ -4232,9 +4238,12 @@ func (n *NodeBuilder) createFunctionTypeParam(param tree.ParameterNode) BLangFun
 
 	ftParam.TypeDesc = n.createTypeNode(typeName).(BType)
 
-	if dp, ok := param.(*tree.DefaultableParameterNode); ok {
-		defaultExpr := dp.Expression()
+	switch p := param.(type) {
+	case *tree.DefaultableParameterNode:
+		defaultExpr := p.Expression()
 		ftParam.InitExpr = n.createExpression(defaultExpr)
+	case *tree.IncludedRecordParameterNode:
+		ftParam.SetIncludedRecordParam()
 	}
 
 	if annotations.Size() > 0 {
@@ -4538,7 +4547,8 @@ func (n *NodeBuilder) TransformImplicitAnonymousFunctionExpression(node *tree.Im
 	}
 	fn.Body.(*BLangExprFunctionBody).pos = n.getPosition(node.Expression())
 
-	lambda := &BLangLambdaFunction{Function: fn, InferredParams: true}
+	lambda := &BLangLambdaFunction{Function: fn}
+	lambda.SetInferredParams()
 	lambda.pos = fn.pos
 	return lambda
 }

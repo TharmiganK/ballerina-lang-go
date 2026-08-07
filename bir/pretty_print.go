@@ -110,7 +110,7 @@ func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 	}
 	if function.RestParams != nil {
 		variableIndex := paramStart + len(function.RequiredParams)
-		if variableIndex != 1 {
+		if variableIndex != paramStart {
 			p.write(",")
 		}
 		p.printAnnotations(function.RestParams.Annotations)

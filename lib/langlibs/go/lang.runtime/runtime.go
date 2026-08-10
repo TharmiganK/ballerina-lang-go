@@ -34,7 +34,7 @@ func initRuntimeModule(rt *runtime.Runtime) {
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "sleep",
 		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			seconds, _ := args[0].(*decimal.Decimal)
-			rt.Platform().Time.Sleep(time.Duration(seconds.Float64() * float64(time.Second)))
+			<-rt.Platform().Time.After(time.Duration(seconds.Float64() * float64(time.Second)))
 			return nil, nil
 		})
 }

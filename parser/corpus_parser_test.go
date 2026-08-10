@@ -24,7 +24,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ballerina-nutcracker/ballerina/parser/tree"
 	"github.com/ballerina-nutcracker/ballerina/test_util"
 	"github.com/ballerina-nutcracker/ballerina/tools/text"
 
@@ -169,15 +168,15 @@ func parseFile(t *testing.T, testCase test_util.TestCase) {
 
 	reader := text.CharReaderFromText(string(content))
 
-	lexer := NewLexer(reader)
+	lexer := newLexer(reader)
 
-	tokenReader := CreateTokenReader(lexer)
+	tokenReader := createTokenReader(lexer)
 
-	ballerinaParser := NewBallerinaParserFromTokenReader(tokenReader)
+	ballerinaParser := newBallerinaParserFromTokenReader(tokenReader)
 
 	ast := ballerinaParser.Parse()
 
-	actualJSON := tree.GenerateJSON(ast)
+	actualJSON := generateJSON(ast)
 
 	normalizedJSON := normalizeJSON(actualJSON)
 

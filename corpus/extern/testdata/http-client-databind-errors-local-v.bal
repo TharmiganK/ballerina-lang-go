@@ -73,6 +73,13 @@ public function main() returns error? {
         io:println(malformed.message()); // @output failed to parse JSON payload: invalid character 'o' in literal null (expecting 'u')
     }
 
+    // Trailing data after an otherwise well-formed JSON value is rejected rather than
+    // silently ignored.
+    Person|error trailing = c->get("/trailing-json");
+    if trailing is error {
+        io:println(trailing.message()); // @output failed to parse JSON payload: invalid character 'a' in literal true (expecting 'u')
+    }
+
     // A text/plain response cannot bind to a record.
     Person|error wrongMime = c->get("/text");
     if wrongMime is error {

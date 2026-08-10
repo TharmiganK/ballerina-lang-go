@@ -47,6 +47,11 @@ public function main() returns error? {
     map<string>|error viaForm = c->get("/trunc-form");
     io:println(viaForm is error); // @output true
 
+    // A () target discards the body without inspecting the Content-Type, but must still
+    // read it, so a read failure surfaces as an error rather than a silent ().
+    ()|error viaNil = c->get("/trunc-nil");
+    io:println(viaNil is error); // @output true
+
     // A 4xx whose detail body cannot be read reports the extraction failure.
     Person|error viaStatus = c->get("/trunc-404");
     if viaStatus is error {

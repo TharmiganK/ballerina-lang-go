@@ -22,6 +22,7 @@ package native
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -138,8 +139,13 @@ func copyResponseHeaders(tc semtypes.Context, resp *values.Object) *values.Map {
 // when the media type is absent or unknown.
 func performDataBinding(ctx *extern.Context, types *httpTypes, resp *values.Object, target semtypes.SemType) values.BalValue {
 	// jBallerina hands back a non-empty body here even though () was asked for; returning ()
-	// keeps the value within the requested type.
+	// keeps the value within the requested type. The body is still read so a read failure
+	// (for example exceeding responseLimits.maxEntityBodySize) surfaces as an error instead
+	// of being silently discarded, and so the underlying stream is drained and closed.
 	if semtypes.IsSubtype(ctx.TypeCtx(), target, semtypes.NIL) {
+		if _, err := responseBody(resp); err != nil {
+			return values.NewErrorWithMessage(err.Error())
+		}
 		return nil
 	}
 	contentType := baseContentType(resp)
@@ -312,13 +318,22 @@ func nilOnEmptyBody(tc semtypes.Context, target semtypes.SemType, payload values
 	return payload
 }
 
-// responseContentType returns the raw Content-Type header, or "" when it is absent.
+// responseContentType returns the raw Content-Type header, or "" when it is absent or
+// malformed.
 func responseContentType(resp *values.Object) string {
 	v, ok := responseHeaders(resp).Get("content-type")
 	if !ok {
 		return ""
 	}
-	return v.(*values.List).Get(0).(string)
+	list, ok := v.(*values.List)
+	if !ok || list.Len() == 0 {
+		return ""
+	}
+	s, ok := list.Get(0).(string)
+	if !ok {
+		return ""
+	}
+	return s
 }
 
 // jBallerina matches its patterns against the base type only.
@@ -383,6 +398,15 @@ func decodeJSONBody(ctx *extern.Context, types *httpTypes, body []byte) (values.
 	var v interface{}
 	if err := dec.Decode(&v); err != nil {
 		return nil, values.NewErrorWithMessage("failed to parse JSON payload: " + err.Error())
+	}
+	// Decode only consumes the first JSON value; without this check, trailing data after a
+	// well-formed value (a second document, or garbage) would be silently ignored.
+	if err := dec.Decode(new(json.RawMessage)); err != io.EOF {
+		message := "unexpected trailing data after JSON value"
+		if err != nil {
+			message = err.Error()
+		}
+		return nil, values.NewErrorWithMessage("failed to parse JSON payload: " + message)
 	}
 	return values.GoToBalValue(ctx.TypeCtx(), v, types.jsonListTy, types.jsonMapTy), nil
 }

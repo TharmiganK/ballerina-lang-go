@@ -34,27 +34,28 @@ func databindServer() *httptest.Server {
 		body        string
 	}
 	routes := map[string]canned{
-		"/person":      {200, "application/json", `{"name": "Alice", "age": 30}`},
-		"/person-hal":  {200, "application/hal+json", `{"name": "Alice", "age": 30}`},
-		"/employee":    {200, "application/json", `{"name": "Alice", "address": {"city": "Colombo", "zip": 100}}`},
-		"/people":      {200, "application/json", `[{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]`},
-		"/count":       {200, "application/json", `7`},
-		"/flag":        {200, "application/json", `true`},
-		"/broken-json": {200, "application/json", `{"name": "Alice", "age": nope}`},
-		"/text":        {200, "text/plain; charset=utf-8", "plain text body"},
-		"/blob":        {200, "application/octet-stream", "\x01\x02\x03"},
-		"/form":        {200, "application/x-www-form-urlencoded", "a=1&b=two"},
-		"/unknown":     {200, "application/vnd.custom", "opaque payload"},
-		"/xml":         {200, "application/xml", "<a>1</a>"},
-		"/empty":       {200, "text/plain", ""},
-		"/empty-json":  {200, "application/json", ""},
-		"/empty-blob":  {200, "application/octet-stream", ""},
-		"/empty-form":  {200, "application/x-www-form-urlencoded", ""},
-		"/bad-form":    {200, "application/x-www-form-urlencoded", "a=%zz"},
-		"/moved":       {302, "text/plain", "moved body"},
-		"/missing":     {404, "application/json", `{"error": "gone"}`},
-		"/gone-blob":   {410, "application/octet-stream", "\x09"},
-		"/boom":        {500, "text/plain", "kaboom"},
+		"/person":        {200, "application/json", `{"name": "Alice", "age": 30}`},
+		"/person-hal":    {200, "application/hal+json", `{"name": "Alice", "age": 30}`},
+		"/employee":      {200, "application/json", `{"name": "Alice", "address": {"city": "Colombo", "zip": 100}}`},
+		"/people":        {200, "application/json", `[{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]`},
+		"/count":         {200, "application/json", `7`},
+		"/flag":          {200, "application/json", `true`},
+		"/broken-json":   {200, "application/json", `{"name": "Alice", "age": nope}`},
+		"/trailing-json": {200, "application/json", `{"name": "Alice", "age": 30}trailing`},
+		"/text":          {200, "text/plain; charset=utf-8", "plain text body"},
+		"/blob":          {200, "application/octet-stream", "\x01\x02\x03"},
+		"/form":          {200, "application/x-www-form-urlencoded", "a=1&b=two"},
+		"/unknown":       {200, "application/vnd.custom", "opaque payload"},
+		"/xml":           {200, "application/xml", "<a>1</a>"},
+		"/empty":         {200, "text/plain", ""},
+		"/empty-json":    {200, "application/json", ""},
+		"/empty-blob":    {200, "application/octet-stream", ""},
+		"/empty-form":    {200, "application/x-www-form-urlencoded", ""},
+		"/bad-form":      {200, "application/x-www-form-urlencoded", "a=%zz"},
+		"/moved":         {302, "text/plain", "moved body"},
+		"/missing":       {404, "application/json", `{"error": "gone"}`},
+		"/gone-blob":     {410, "application/octet-stream", "\x09"},
+		"/boom":          {500, "text/plain", "kaboom"},
 		// A status error whose declared JSON body does not parse.
 		"/missing-broken-json": {404, "application/json", `{"error": nope}`},
 		// A valid enum member, for a target that is a proper subtype of string.
@@ -123,6 +124,9 @@ func truncatingServer() *httptest.Server {
 		"/trunc-blob": {200, "application/octet-stream", "\x01\x02"},
 		"/trunc-form": {200, "application/x-www-form-urlencoded", "a=1"},
 		"/trunc-404":  {404, "application/json", `{"error": "gone"}`},
+		// A () target discards the body without inspecting its Content-Type, so it must
+		// still surface the read failure rather than silently returning ().
+		"/trunc-nil": {200, "text/plain", "ignored"},
 	}
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		route, ok := routes[r.URL.Path]

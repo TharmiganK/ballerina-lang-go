@@ -109,9 +109,8 @@ func arrayMap(ctx *extern.Context, args []values.BalValue) (values.BalValue, err
 	return values.NewList(resultTy, atomic, false, filler, 0, items), nil
 }
 
-// arrayIndexOf bails out before the int64->int conversion below: on a
-// 32-bit int platform (e.g. wasm) a large startIndex would truncate,
-// possibly to a negative value, and list.Get is unchecked.
+// arrayIndexOf returns nil (no match) once startIndex reaches the list's
+// length, before the loop below ever indexes into it.
 func arrayIndexOf(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	list := args[0].(*values.List)
 	val := args[1]

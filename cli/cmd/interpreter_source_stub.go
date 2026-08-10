@@ -10,20 +10,16 @@
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
+// KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations
 // under the License.
 
 //go:build native_interp
 
-// Package interpsrc — stub used when building the native interpreter binary.
-// The native interpreter is always built from an already-extracted source tree,
-// so there is no need to embed the source again.
-package interpsrc
+package main
 
-import "errors"
+import "github.com/ballerina-nutcracker/ballerina/cli"
 
-// ExtractTo is a no-op in native interpreter builds.
-func ExtractTo(_, _ string) (string, error) {
-	return "", errors.New("interpreter source is not embedded in native interpreter builds")
+func extractDriverSource(cacheRoot, version string) (string, error) {
+	return cli.ExtractDriverSource(cacheRoot, version)
 }

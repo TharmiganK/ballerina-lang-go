@@ -13,9 +13,21 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-//
 
-package st
+package parser
 
-// This file is intentionally empty for now.
-// Utility functions for regular nodes will be added here when needed.
+import (
+	"fmt"
+	"strings"
+
+	"github.com/ballerina-nutcracker/ballerina/st"
+)
+
+// kindName returns the generated constant name for a SyntaxKind (matching Java enum.name()).
+func kindName(kind st.SyntaxKind) string {
+	name := kind.String()
+	if strings.HasPrefix(name, "SyntaxKind(") {
+		return fmt.Sprintf("UNKNOWN_KIND_%d", kind)
+	}
+	return name
+}

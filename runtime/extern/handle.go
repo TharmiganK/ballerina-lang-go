@@ -17,8 +17,8 @@
 package extern
 
 import (
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 // MethodHandle is an opaque reference to a resolved method on a Ballerina

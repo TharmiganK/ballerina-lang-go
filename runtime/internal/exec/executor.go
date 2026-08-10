@@ -19,11 +19,11 @@ package exec
 import (
 	"fmt"
 
-	"ballerina/bir"
-	"ballerina/runtime/extern"
-	runtimeframe "ballerina/runtime/internal/frame"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	runtimeframe "github.com/ballerina-nutcracker/ballerina/runtime/internal/frame"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const maxRecursionDepth = 5000

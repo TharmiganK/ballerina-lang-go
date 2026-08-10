@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"math"
 
-	"ballerina/bir"
-	"ballerina/decimal"
-	"ballerina/runtime/extern"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	"github.com/ballerina-nutcracker/ballerina/decimal"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 func execBinaryOpAdd(ctx *extern.Context, binaryOp *bir.BinaryOp, frame *Frame) {

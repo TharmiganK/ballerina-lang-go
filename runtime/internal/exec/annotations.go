@@ -17,9 +17,9 @@
 package exec
 
 import (
-	"ballerina/runtime/extern"
-	"ballerina/runtime/internal/modules"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/runtime/internal/modules"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 func dereferenceAnnotationValue(ctx *extern.Context, value values.AnnotationValue) (values.AnnotationValue, bool) {

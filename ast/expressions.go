@@ -178,6 +178,11 @@ func (b *BLangValueExpressionBase) IsOptionalAccess() bool {
 	return b.flags.Has(valueExpressionFlagOptionalAccess)
 }
 
+// IsLax reports whether this field access requires lax runtime semantics.
+func (b *BLangValueExpressionBase) IsLax() bool {
+	return b.flags.Has(valueExpressionFlagLax)
+}
+
 func (f BLangValueExpressionFlags) Has(flag BLangValueExpressionFlags) bool {
 	return f&flag == flag
 }
@@ -207,6 +212,7 @@ const (
 	valueExpressionFlagCompoundAssignmentLValue BLangValueExpressionFlags = 1 << iota
 	valueExpressionFlagLexpr
 	valueExpressionFlagOptionalAccess
+	valueExpressionFlagLax
 )
 
 const bLangLambdaFunctionFlagInferredParams bLangLambdaFunctionFlags = 1 << iota
@@ -976,6 +982,11 @@ func (b *BLangFieldBaseAccess) GetExpression() BLangExpression {
 
 func (b *BLangFieldBaseAccess) GetFieldName() IdentifierNode {
 	return b.Field
+}
+
+// SetLax marks this field access as requiring lax runtime semantics.
+func (b *BLangFieldBaseAccess) SetLax() {
+	b.flags |= valueExpressionFlagLax
 }
 
 func NewBLangListConstructorExpr(pos Location, exprs []BLangExpression, spreadMembers []bool) *BLangListConstructorExpr {

@@ -29,9 +29,9 @@ import (
 	"strconv"
 	"strings"
 
-	"ballerina/runtime/extern"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 // Copied verbatim from jBallerina's AbstractPayloadBuilder, so the same media type picks

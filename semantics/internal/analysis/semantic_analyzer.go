@@ -830,7 +830,7 @@ func (ca *constantAnalyzer) Visit(node ast.BLangNode) ast.Visitor {
 	case ast.BLangExpression:
 		bLangExpr := n
 		hasErrors := false
-		validateConstantExpr(ca.ctx(), bLangExpr, func(e ast.BLangExpression) {
+		common.ValidateConstantExpr(ca.ctx(), bLangExpr, func(e ast.BLangExpression) {
 			ca.semanticErr("expression is not a constant expression", e.GetPosition())
 			hasErrors = true
 		})
@@ -841,50 +841,6 @@ func (ca *constantAnalyzer) Visit(node ast.BLangNode) ast.Visitor {
 		return nil
 	}
 	return ca
-}
-
-func validateConstantExpr(ctx *context.CompilerContext, expr ast.BLangExpression, onNonConst func(ast.BLangExpression)) {
-	switch e := expr.(type) {
-	case *ast.BLangLiteral, *ast.BLangNumericLiteral, *ast.BLangConstRef:
-		// always valid
-	case *ast.BLangVarRef:
-		sym := ctx.GetSymbol(e.Symbol())
-		if vs, ok := sym.(model.ValueSymbol); ok && vs.IsConst() {
-			return
-		}
-		onNonConst(expr)
-	case *ast.BLangUnaryExpr:
-		validateConstantExpr(ctx, e.Expr, onNonConst)
-	case *ast.BLangTypeConversionExpr:
-		validateConstantExpr(ctx, e.Expression, onNonConst)
-	case *ast.BLangGroupExpr:
-		validateConstantExpr(ctx, e.Expression, onNonConst)
-	case *ast.BLangBinaryExpr:
-		validateConstantExpr(ctx, e.LhsExpr, onNonConst)
-		validateConstantExpr(ctx, e.RhsExpr, onNonConst)
-	case *ast.BLangListConstructorExpr:
-		for _, member := range e.Exprs {
-			validateConstantExpr(ctx, member, onNonConst)
-		}
-	case *ast.BLangMappingConstructorExpr:
-		for _, field := range e.Fields {
-			if kv, ok := field.(*ast.BLangMappingKeyValueField); ok {
-				validateConstantExpr(ctx, kv.ValueExpr, onNonConst)
-			}
-		}
-	case *ast.BLangTemplateExpr:
-		for _, ins := range e.Insertions {
-			validateConstantExpr(ctx, ins, onNonConst)
-		}
-	case *ast.BLangAnnotAccessExpr:
-		validateConstantExpr(ctx, e.Expr, onNonConst)
-	case *ast.BLangXMLTemplateExpr:
-		for _, ins := range e.Insertions {
-			validateConstantExpr(ctx, ins, onNonConst)
-		}
-	default:
-		onNonConst(expr)
-	}
 }
 
 // validateResolvedType validates that a resolved expression type is compatible with the expected type
@@ -1797,11 +1753,6 @@ func visitInner[A analyzer](a A, node ast.BLangNode) ast.Visitor {
 	case *ast.BLangBreak, *ast.BLangContinue:
 		return nil
 	case *ast.BLangXMLNS:
-		expr := n.GetNamespaceURI()
-		validateResolvedType(a, expr, semtypes.String)
-		validateConstantExpr(a.ctx(), expr, func(e ast.BLangExpression) {
-			a.semanticErr("expression is not a constant expression", e.GetPosition())
-		})
 		return nil
 	case *ast.BLangMatchStatement:
 		return a

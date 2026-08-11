@@ -172,11 +172,11 @@ func builderFromType(ctx *extern.Context, types *httpTypes, resp *values.Object,
 	tc := ctx.TypeCtx()
 	switch {
 	case narrowsTo(tc, target, semtypes.STRING):
-		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
+		return bindAtTarget(tc, resp, textValue(resp), semtypes.STRING, target)
 	case semtypes.IsSubtype(tc, target, semtypes.Union(semtypes.XML, semtypes.NIL)):
 		return unsupportedXMLTarget("")
 	case narrowsTo(tc, target, types.byteArrTy):
-		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
+		return bindAtTarget(tc, resp, binaryValue(ctx, types, resp), types.byteArrTy, target)
 	default:
 		return jsonPayloadBuilder(ctx, types, resp, target)
 	}
@@ -187,9 +187,9 @@ func textPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	tc := ctx.TypeCtx()
 	switch {
 	case narrowsTo(tc, target, semtypes.STRING), admits(tc, target, semtypes.STRING):
-		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
+		return bindAtTarget(tc, resp, textValue(resp), semtypes.STRING, target)
 	case narrowsTo(tc, target, types.byteArrTy), admits(tc, target, types.byteArrTy):
-		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
+		return bindAtTarget(tc, resp, binaryValue(ctx, types, resp), types.byteArrTy, target)
 	default:
 		return incompatibleTargetError(tc, target, contentType)
 	}
@@ -200,9 +200,9 @@ func formPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	tc := ctx.TypeCtx()
 	switch {
 	case narrowsTo(tc, target, types.mapStringTy), admits(tc, target, types.mapStringTy):
-		return bindAtTarget(tc, formDataValue(ctx, types, resp), types.mapStringTy, target)
+		return bindAtTarget(tc, resp, formDataValue(ctx, types, resp), types.mapStringTy, target)
 	case narrowsTo(tc, target, semtypes.STRING), admits(tc, target, semtypes.STRING):
-		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
+		return bindAtTarget(tc, resp, textValue(resp), semtypes.STRING, target)
 	default:
 		return incompatibleTargetError(tc, target, contentType)
 	}
@@ -213,7 +213,7 @@ func blobPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	tc := ctx.TypeCtx()
 	switch {
 	case narrowsTo(tc, target, types.byteArrTy), admits(tc, target, types.byteArrTy):
-		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
+		return bindAtTarget(tc, resp, binaryValue(ctx, types, resp), types.byteArrTy, target)
 	default:
 		return incompatibleTargetError(tc, target, contentType)
 	}
@@ -229,8 +229,8 @@ func narrowsTo(tc semtypes.Context, target, builderTy semtypes.SemType) bool {
 // Turns a payload built at builderTy into the value target asks for. Targets narrower than
 // builderTy (an enum, a closed record, a tuple) must be converted, or the call site ends up
 // holding a value outside its declared type; a target builderTy already fits skips the clone.
-func bindAtTarget(tc semtypes.Context, payload values.BalValue, builderTy, target semtypes.SemType) values.BalValue {
-	payload = nilOnEmptyBody(tc, target, payload)
+func bindAtTarget(tc semtypes.Context, resp *values.Object, payload values.BalValue, builderTy, target semtypes.SemType) values.BalValue {
+	payload = nilOnEmptyBody(tc, resp, target, payload)
 	if payload == nil || admits(tc, target, builderTy) {
 		return payload
 	}
@@ -296,24 +296,19 @@ func admits(tc semtypes.Context, target, member semtypes.SemType) bool {
 	return semtypes.IsSubtype(tc, member, target)
 }
 
-// The spec's "absent payload binds to ()" behaviour.
-func nilOnEmptyBody(tc semtypes.Context, target semtypes.SemType, payload values.BalValue) values.BalValue {
+// The spec's "absent payload binds to ()" behaviour. Emptiness is judged from the raw body
+// bytes, not the decoded payload's shape — a form body of "&" is non-empty even though it
+// decodes to an empty map, and must still be handed to its builder rather than turned into ().
+func nilOnEmptyBody(tc semtypes.Context, resp *values.Object, target semtypes.SemType, payload values.BalValue) values.BalValue {
+	if _, failed := payload.(*values.Error); failed {
+		return payload
+	}
 	if !admits(tc, target, semtypes.NIL) {
 		return payload
 	}
-	switch v := payload.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-	case *values.List:
-		if v.Len() == 0 {
-			return nil
-		}
-	case *values.Map:
-		if v.Len() == 0 {
-			return nil
-		}
+	body, _ := responseBody(resp)
+	if len(body) == 0 {
+		return nil
 	}
 	return payload
 }

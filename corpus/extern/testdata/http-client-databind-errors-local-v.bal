@@ -169,6 +169,11 @@ public function main() returns error? {
     map<string>? emptyForm = check c->get("/empty-form");
     io:println(emptyForm is ()); // @output true
 
+    // A body of "&" is non-empty on the wire even though it decodes to an empty map, so it
+    // must still bind to that empty map rather than ().
+    map<string>? blankForm = check c->get("/blank-form");
+    io:println(blankForm is ()); // @output false
+
     // With no Content-Type, an empty body still binds to () for nilable targets.
     string? untypedEmpty = check c->get("/no-type-empty");
     io:println(untypedEmpty is ()); // @output true

@@ -22,6 +22,7 @@ http:ApplicationResponseError creation failed: 404 response payload extraction f
 true
 true
 true
+false
 true
 true
 failed to parse JSON payload: EOF

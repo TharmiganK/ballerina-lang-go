@@ -51,11 +51,13 @@ func databindServer() *httptest.Server {
 		"/empty-json":    {200, "application/json", ""},
 		"/empty-blob":    {200, "application/octet-stream", ""},
 		"/empty-form":    {200, "application/x-www-form-urlencoded", ""},
-		"/bad-form":      {200, "application/x-www-form-urlencoded", "a=%zz"},
-		"/moved":         {302, "text/plain", "moved body"},
-		"/missing":       {404, "application/json", `{"error": "gone"}`},
-		"/gone-blob":     {410, "application/octet-stream", "\x09"},
-		"/boom":          {500, "text/plain", "kaboom"},
+		// Non-empty on the wire but decodes to an empty map: must not be treated as absent.
+		"/blank-form": {200, "application/x-www-form-urlencoded", "&"},
+		"/bad-form":   {200, "application/x-www-form-urlencoded", "a=%zz"},
+		"/moved":      {302, "text/plain", "moved body"},
+		"/missing":    {404, "application/json", `{"error": "gone"}`},
+		"/gone-blob":  {410, "application/octet-stream", "\x09"},
+		"/boom":       {500, "text/plain", "kaboom"},
 		// A status error whose declared JSON body does not parse.
 		"/missing-broken-json": {404, "application/json", `{"error": nope}`},
 		// A valid enum member, for a target that is a proper subtype of string.

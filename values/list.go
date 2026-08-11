@@ -17,10 +17,12 @@
 package values
 
 import (
-	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"fmt"
 	"math"
 	"strings"
 	"unsafe"
+
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
 )
 
 type List struct {
@@ -131,10 +133,13 @@ func (l *List) Append(tc semtypes.Context, vs ...BalValue) {
 }
 
 // RemoveAt removes and returns the element at idx, shifting subsequent elements down.
-// Panics if the list's inherent type is fixed-length.
-func (l *List) RemoveAt(idx int) BalValue {
+// Panics if the removal would leave a value outside its own inherent type, either
+// by dropping a mandatory member or by sliding a member into a slot it does not
+// belong to.
+func (l *List) RemoveAt(tc semtypes.Context, idx int) BalValue {
 	l.checkMutable()
-	l.checkNotFixedLength()
+	l.checkCanShrinkTo(len(l.elems) - 1)
+	l.checkShiftedMemberTypes(tc, idx)
 	val := l.elems[idx]
 	copy(l.elems[idx:], l.elems[idx+1:])
 	last := len(l.elems) - 1
@@ -144,19 +149,37 @@ func (l *List) RemoveAt(idx int) BalValue {
 }
 
 // Clear removes all elements from the list.
-// Panics if the list's inherent type is fixed-length.
+// Panics if the inherent type mandates any member.
 func (l *List) Clear() {
 	l.checkMutable()
-	l.checkNotFixedLength()
+	l.checkCanShrinkTo(0)
 	clear(l.elems) // release references before truncating so the GC can reclaim them
 	l.elems = l.elems[:0]
 }
 
-// checkNotFixedLength panics if the list's inherent type has no rest member
-// type, i.e. its length cannot change (e.g. `int[2]`).
-func (l *List) checkNotFixedLength() {
+// checkCanShrinkTo panics if newLen is below the number of members the inherent
+// type mandates. Both `int[2]` and `[int, string, int...]` fix their leading
+// members; only members past that prefix are backed by the rest type and may be
+// removed. Testing the mandatory count rather than the rest type covers the
+// fixed-length case too, since there every member is mandatory.
+func (l *List) checkCanShrinkTo(newLen int) {
+	mandatory := l.atomic.Members.FixedLength
+	if newLen >= mandatory {
+		return
+	}
 	if semtypes.IsNever(l.atomic.Rest()) {
 		panic(NewErrorWithMessage("inherent type violation: cannot change the length of a fixed-length list"))
+	}
+	panic(NewErrorWithMessage(fmt.Sprintf(
+		"inherent type violation: cannot reduce the length of a tuple below its %d mandatory member(s)", mandatory)))
+}
+
+// checkShiftedMemberTypes panics if removing idx would slide a member into a
+// mandatory slot whose type it does not belong to — removing index 0 of
+// `[int, string, int...]` would otherwise leave the string in the int slot.
+func (l *List) checkShiftedMemberTypes(tc semtypes.Context, idx int) {
+	for pos := idx; pos < l.atomic.Members.FixedLength; pos++ {
+		l.checkMemberType(tc, pos, l.elems[pos+1])
 	}
 }
 

@@ -84,4 +84,11 @@ public function main() returns error? {
     io:println(check strSchema.fromAvro(check strSchema.toAvro(5))); // @output 5
     io:println(check strSchema.fromAvro(check strSchema.toAvro(true))); // @output true
     io:println(check strSchema.fromAvro(check strSchema.toAvro({a: 1}))); // @output {"a":1}
+
+    // A logicalType annotation is ignored — the schema behaves as its plain
+    // underlying primitive, matching jBallerina's GenericDatumReader/Writer,
+    // which registers no logical-type conversions.
+    avro:Schema tsSchema = check new (string `{"type": "long", "logicalType": "timestamp-millis"}`);
+    int millis = check tsSchema.fromAvro(check tsSchema.toAvro(1234567890));
+    io:println(millis); // @output 1234567890
 }

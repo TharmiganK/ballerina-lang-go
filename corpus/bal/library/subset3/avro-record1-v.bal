@@ -97,4 +97,19 @@ public function main() returns error? {
             {"name": "b", "type": "int"}]}`);
     byte[]|avro:Error incomplete = needsBoth.toAvro({a: "only"});
     io:println(incomplete is avro:Error); // @output true
+
+    // A dotted name carries its own namespace, with no separate "namespace" key.
+    avro:Schema dotted = check new (string `{"type": "fixed", "name": "demo.dotted.Hash", "size": 2}`);
+    byte[] dottedBytes = check dotted.toAvro([9, 8]);
+    io:println(dottedBytes.length()); // @output 2
+
+    // A recursive schema with no namespace at all resolves the self-reference
+    // as a bare name, not through the namespace-abbreviation fallback.
+    avro:Schema plainNode = check new (string `{
+        "type": "record", "name": "PlainNode",
+        "fields": [
+            {"name": "value", "type": "int"},
+            {"name": "next", "type": ["null", "PlainNode"]}]}`);
+    map<anydata> plain = check plainNode.fromAvro(check plainNode.toAvro({value: 1, next: ()}));
+    io:println(plain["value"]); // @output 1
 }

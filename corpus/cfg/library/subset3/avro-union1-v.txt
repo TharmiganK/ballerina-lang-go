@@ -350,5 +350,52 @@
         (type-test-expr is
           (simple-var-ref rejected)
           (user-defined-type avro Error)))))
+    (var-def
+      (variable nullableRecord (type
+        (user-defined-type avro Schema)) (expr
+        (checked-expr
+          (new (
+            (string-template-literal
+              (template-string "[\"null\", {\n        \"type\": \"record\", \"name\": \"P\",\n        \"fields\": [{\"name\": \"a\", \"type\": \"int\"}, {\"name\": \"b\", \"type\": \"int\"}]}]"))))))))
+    (expression-stmt
+      (invocation io println (
+        (type-test-expr is
+          (invocation toAvro expr:
+            (simple-var-ref nullableRecord) (
+            (mapping-constructor-expr
+              (key-value
+                (literal a)
+                (literal 1)))))
+          (user-defined-type avro Error)))))
+    (var-def
+      (variable stringOrFloat (type
+        (user-defined-type avro Schema)) (expr
+        (checked-expr
+          (new (
+            (string-template-literal
+              (template-string "[\"string\", \"float\"]"))))))))
+    (var-def
+      (variable widenedToFloat (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation toAvro expr:
+            (simple-var-ref stringOrFloat) (
+            (literal 5)))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (simple-var-ref widenedToFloat))))))
+    (var-def
+      (variable floatFromInt (type
+        (value-type float)) (expr
+        (checked-expr
+          (invocation fromAvro expr:
+            (simple-var-ref stringOrFloat) (
+            (simple-var-ref widenedToFloat)
+            (typedesc-expr)))))))
+    (expression-stmt
+      (invocation io println (
+        (simple-var-ref floatFromInt))))
   )
 )

@@ -356,5 +356,26 @@
                     (literal a)
                     (literal 1))))))
             (typedesc-expr)))))))
+    (var-def
+      (variable tsSchema (type
+        (user-defined-type avro Schema)) (expr
+        (checked-expr
+          (new (
+            (string-template-literal
+              (template-string "{\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}"))))))))
+    (var-def
+      (variable millis (type
+        (value-type int)) (expr
+        (checked-expr
+          (invocation fromAvro expr:
+            (simple-var-ref tsSchema) (
+            (checked-expr
+              (invocation toAvro expr:
+                (simple-var-ref tsSchema) (
+                (literal 1234567890))))
+            (typedesc-expr)))))))
+    (expression-stmt
+      (invocation io println (
+        (simple-var-ref millis))))
   )
 )

@@ -11,4 +11,6 @@ true
 second
 first
 true
+2
+1
 -- stderr --

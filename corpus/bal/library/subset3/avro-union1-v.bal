@@ -96,4 +96,20 @@ public function main() returns error? {
     avro:Schema noMatch = check new (string `["null", "boolean"]`);
     byte[]|avro:Error rejected = noMatch.toAvro("text");
     io:println(rejected is avro:Error); // @output true
+
+    // A branch can be selected by type and still fail deeper — here the
+    // record branch matches because the value is a mapping, but the record
+    // itself is missing a required field.
+    avro:Schema nullableRecord = check new (string `["null", {
+        "type": "record", "name": "P",
+        "fields": [{"name": "a", "type": "int"}, {"name": "b", "type": "int"}]}]`);
+    io:println(nullableRecord.toAvro({a: 1}) is avro:Error); // @output true
+
+    // With no integral branch at all, an int still widens into a float branch,
+    // the same way it already widens into a double branch.
+    avro:Schema stringOrFloat = check new (string `["string", "float"]`);
+    byte[] widenedToFloat = check stringOrFloat.toAvro(5);
+    io:println(widenedToFloat.length()); // @output 5
+    float floatFromInt = check stringOrFloat.fromAvro(widenedToFloat);
+    io:println(floatFromInt); // @output 5.0
 }

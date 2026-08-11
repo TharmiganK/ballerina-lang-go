@@ -430,7 +430,7 @@ main() -> nil|error{
     GOTO bb84;
   }
   bb84 {
-    PushScopeFrame 149
+    PushScopeFrame 188
     %0 = newObject ballerina/avro:Schema
     %1 = ConstantLoad ["double", "long"]
     %2 = init(%0,%1) -> bb85;
@@ -928,6 +928,129 @@ main() -> nil|error{
     %148 = println(%147) -> bb178;
   }
   bb178 {
+    %149 = newObject ballerina/avro:Schema
+    %150 = ConstantLoad ["null", {
+        "type": "record", "name": "P",
+        "fields": [{"name": "a", "type": "int"}, {"name": "b", "type": "int"}]}]
+    %151 = init(%149,%150) -> bb179;
+  }
+  bb179 {
+    %153 = %151 is nil
+    %153 ? bb180 : bb181;
+  }
+  bb180 {
+    %152 = %149;
+    GOTO bb182;
+  }
+  bb181 {
+    %152 = %151;
+    GOTO bb182;
+  }
+  bb182 {
+    $desugar$37 = %152;
+    %155 = $desugar$37 is error
+    %155 ? bb183 : bb184;
+  }
+  bb183 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$37);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb184 {
+    nullableRecord = $desugar$37;
+    %157 = ConstantLoad a
+    %158 = ConstantLoad 1
+    %159 = newMap {| anydata... |}{%157=%158}
+    %160 = toAvro(nullableRecord,%159) -> bb185;
+  }
+  bb185 {
+    %161 = %160 is error
+    %162 = %161;
+    %163 = println(%162) -> bb186;
+  }
+  bb186 {
+    %164 = newObject ballerina/avro:Schema
+    %165 = ConstantLoad ["string", "float"]
+    %166 = init(%164,%165) -> bb187;
+  }
+  bb187 {
+    %168 = %166 is nil
+    %168 ? bb188 : bb189;
+  }
+  bb188 {
+    %167 = %164;
+    GOTO bb190;
+  }
+  bb189 {
+    %167 = %166;
+    GOTO bb190;
+  }
+  bb190 {
+    $desugar$38 = %167;
+    %170 = $desugar$38 is error
+    %170 ? bb191 : bb192;
+  }
+  bb191 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$38);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb192 {
+    stringOrFloat = $desugar$38;
+    %172 = ConstantLoad 5
+    %173 = %172;
+    %174 = toAvro(stringOrFloat,%173) -> bb193;
+  }
+  bb193 {
+    $desugar$39 = %174;
+    %176 = $desugar$39 is error
+    %176 ? bb194 : bb195;
+  }
+  bb194 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$39);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb195 {
+    widenedToFloat = $desugar$39;
+    %178 = length(widenedToFloat) -> bb196;
+  }
+  bb196 {
+    %179 = %178;
+    %180 = println(%179) -> bb197;
+  }
+  bb197 {
+    %181 = ConstantLoad typedesc
+    %182 = fromAvro(stringOrFloat,widenedToFloat,%181) -> bb198;
+  }
+  bb198 {
+    $desugar$40 = %182;
+    %184 = $desugar$40 is error
+    %184 ? bb199 : bb200;
+  }
+  bb199 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$40);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb200 {
+    floatFromInt = $desugar$40;
+    %186 = floatFromInt;
+    %187 = println(%186) -> bb201;
+  }
+  bb201 {
     PopScopeFrame
     PopScopeFrame
     return;

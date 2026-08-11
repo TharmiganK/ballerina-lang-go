@@ -16,4 +16,7 @@ true
 3
 in
 true
+true
+5
+5.0
 -- stderr --

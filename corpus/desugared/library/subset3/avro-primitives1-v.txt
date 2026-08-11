@@ -754,4 +754,48 @@
             (simple-var-ref $desugar$49))) ())
       (expression-stmt
         (invocation io println (
-          (simple-var-ref $desugar$49)))))))
+          (simple-var-ref $desugar$49))))
+      (var-def
+        (variable $desugar$50 (expr
+          (new (
+            (literal {"type": "long", "logicalType": "timestamp-millis"}))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$50))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$50))) ())
+      (var-def
+        (variable tsSchema (type
+          (user-defined-type avro Schema)) (expr
+          (simple-var-ref $desugar$50))))
+      (var-def
+        (variable $desugar$51 (expr
+          (invocation toAvro expr:
+            (simple-var-ref tsSchema) (
+            (literal 1234567890))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$51))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$51))) ())
+      (var-def
+        (variable $desugar$52 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref tsSchema) (
+            (simple-var-ref $desugar$51)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$52))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$52))) ())
+      (var-def
+        (variable millis (type
+          (value-type int)) (expr
+          (simple-var-ref $desugar$52))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref millis)))))))

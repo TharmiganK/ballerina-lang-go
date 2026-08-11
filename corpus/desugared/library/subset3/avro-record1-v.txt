@@ -1,6 +1,7 @@
 (package
   (import-package ballerina avro (as avro))
   (import-package ballerina io (as io))
+  (import-package ballerina lang array (as lang.array))
   (type-definition Inner
     (record-type
       (field label
@@ -397,4 +398,98 @@
           (invocation io println (
             (type-test-expr is
               (simple-var-ref incomplete)
-              (user-defined-type avro Error)))))))))
+              (user-defined-type avro Error)))))
+        (var-def
+          (variable $desugar$15 (expr
+            (new (
+              (literal {"type": "fixed", "name": "demo.dotted.Hash", "size": 2}))))))
+        (if
+          (type-test-expr is
+            (simple-var-ref $desugar$15))
+          (block-stmt
+            (return
+              (simple-var-ref $desugar$15))) ())
+        (var-def
+          (variable dotted (type
+            (user-defined-type avro Schema)) (expr
+            (simple-var-ref $desugar$15))))
+        (var-def
+          (variable $desugar$16 (expr
+            (invocation toAvro expr:
+              (simple-var-ref dotted) (
+              (list-constructor-expr
+                (literal 9)
+                (literal 8)))))))
+        (if
+          (type-test-expr is
+            (simple-var-ref $desugar$16))
+          (block-stmt
+            (return
+              (simple-var-ref $desugar$16))) ())
+        (var-def
+          (variable dottedBytes (type
+            (array-type
+              (value-type byte) dimensions: 1 ([]))) (expr
+            (simple-var-ref $desugar$16))))
+        (expression-stmt
+          (invocation io println (
+            (invocation lang.array length (
+              (simple-var-ref dottedBytes))))))
+        (var-def
+          (variable $desugar$17 (expr
+            (new (
+              (literal {
+        "type": "record", "name": "PlainNode",
+        "fields": [
+            {"name": "value", "type": "int"},
+            {"name": "next", "type": ["null", "PlainNode"]}]}))))))
+        (if
+          (type-test-expr is
+            (simple-var-ref $desugar$17))
+          (block-stmt
+            (return
+              (simple-var-ref $desugar$17))) ())
+        (var-def
+          (variable plainNode (type
+            (user-defined-type avro Schema)) (expr
+            (simple-var-ref $desugar$17))))
+        (var-def
+          (variable $desugar$18 (expr
+            (invocation toAvro expr:
+              (simple-var-ref plainNode) (
+              (mapping-constructor-expr
+                (key-value
+                  (literal value)
+                  (literal 1))
+                (key-value
+                  (literal next)
+                  (literal <nil>))))))))
+        (if
+          (type-test-expr is
+            (simple-var-ref $desugar$18))
+          (block-stmt
+            (return
+              (simple-var-ref $desugar$18))) ())
+        (var-def
+          (variable $desugar$19 (expr
+            (invocation fromAvro expr:
+              (simple-var-ref plainNode) (
+              (simple-var-ref $desugar$18)
+              (typedesc-expr))))))
+        (if
+          (type-test-expr is
+            (simple-var-ref $desugar$19))
+          (block-stmt
+            (return
+              (simple-var-ref $desugar$19))) ())
+        (var-def
+          (variable plain (type
+            (constrained-type
+              (builtin-ref-type map)
+              (value-type anydata))) (expr
+            (simple-var-ref $desugar$19))))
+        (expression-stmt
+          (invocation io println (
+            (index-based-access
+              (simple-var-ref plain)
+              (literal value)))))))))

@@ -225,5 +225,57 @@
         (type-test-expr is
           (simple-var-ref incomplete)
           (user-defined-type avro Error)))))
+    (var-def
+      (variable dotted (type
+        (user-defined-type avro Schema)) (expr
+        (checked-expr
+          (new (
+            (string-template-literal
+              (template-string "{\"type\": \"fixed\", \"name\": \"demo.dotted.Hash\", \"size\": 2}"))))))))
+    (var-def
+      (variable dottedBytes (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation toAvro expr:
+            (simple-var-ref dotted) (
+            (list-constructor-expr
+              (literal 9)
+              (literal 8))))))))
+    (expression-stmt
+      (invocation io println (
+        (invocation lang.array length (
+          (simple-var-ref dottedBytes))))))
+    (var-def
+      (variable plainNode (type
+        (user-defined-type avro Schema)) (expr
+        (checked-expr
+          (new (
+            (string-template-literal
+              (template-string "{\n        \"type\": \"record\", \"name\": \"PlainNode\",\n        \"fields\": [\n            {\"name\": \"value\", \"type\": \"int\"},\n            {\"name\": \"next\", \"type\": [\"null\", \"PlainNode\"]}]}"))))))))
+    (var-def
+      (variable plain (type
+        (constrained-type
+          (builtin-ref-type map)
+          (value-type anydata))) (expr
+        (checked-expr
+          (invocation fromAvro expr:
+            (simple-var-ref plainNode) (
+            (checked-expr
+              (invocation toAvro expr:
+                (simple-var-ref plainNode) (
+                (mapping-constructor-expr
+                  (key-value
+                    (literal value)
+                    (literal 1))
+                  (key-value
+                    (literal next)
+                    (literal <nil>))))))
+            (typedesc-expr)))))))
+    (expression-stmt
+      (invocation io println (
+        (index-based-access
+          (simple-var-ref plain)
+          (literal value)))))
   )
 )

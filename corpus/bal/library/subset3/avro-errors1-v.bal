@@ -102,4 +102,33 @@ public function main() returns error? {
         "type": "record", "name": "OnlyA", "fields": [{"name": "a", "type": "int"}]}`);
     Strict|avro:Error incomplete = onlyA.fromAvro(check onlyA.toAvro({a: 1}));
     io:println(incomplete is avro:Error); // @output true
+
+    // A string schema takes only a string; nil is not stringified like other values.
+    io:println(strSchema.toAvro(()) is avro:Error); // @output true
+
+    // A map or array value that fails partway through still reports an error,
+    // naming the offending key or index.
+    avro:Schema mapIntSchema = check new (string `{"type": "map", "values": "int"}`);
+    io:println(mapIntSchema.toAvro({"a": "text"}) is avro:Error); // @output true
+    avro:Schema arrayIntSchema = check new (string `{"type": "array", "items": "int"}`);
+    io:println(arrayIntSchema.toAvro([1, "bad"]) is avro:Error); // @output true
+
+    // Malformed schemas are rejected at parse time with a clear cause,
+    // whichever part of the schema is missing or wrong.
+    io:println((new avro:Schema(string `{"type": "map"}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "array", "items": 5}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string
+        `{"type": "record", "name": "R", "fields": [{"type": "int"}]}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string
+        `{"type": "record", "name": "R", "fields": [{"name": "f"}]}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "fixed", "size": 4}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "fixed", "name": "F"}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "enum", "symbols": ["A"]}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "record", "name": "R", "fields": [5]}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `["null", {"type": "array"}]`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"name": "x"}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "map", "values": 5}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "record", "fields": []}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "record", "name": "R"}`)) is avro:Error); // @output true
+    io:println((new avro:Schema(string `{"type": "SomeUnknownName"}`)) is avro:Error); // @output true
 }

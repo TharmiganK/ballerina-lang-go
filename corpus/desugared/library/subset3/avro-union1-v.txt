@@ -644,4 +644,83 @@
             (invocation io println (
               (type-test-expr is
                 (simple-var-ref rejected)
-                (user-defined-type avro Error))))))))))
+                (user-defined-type avro Error)))))
+          (var-def
+            (variable $desugar$37 (expr
+              (new (
+                (literal ["null", {
+        "type": "record", "name": "P",
+        "fields": [{"name": "a", "type": "int"}, {"name": "b", "type": "int"}]}]))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$37))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$37))) ())
+          (var-def
+            (variable nullableRecord (type
+              (user-defined-type avro Schema)) (expr
+              (simple-var-ref $desugar$37))))
+          (expression-stmt
+            (invocation io println (
+              (type-test-expr is
+                (invocation toAvro expr:
+                  (simple-var-ref nullableRecord) (
+                  (mapping-constructor-expr
+                    (key-value
+                      (literal a)
+                      (literal 1)))))
+                (user-defined-type avro Error)))))
+          (var-def
+            (variable $desugar$38 (expr
+              (new (
+                (literal ["string", "float"]))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$38))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$38))) ())
+          (var-def
+            (variable stringOrFloat (type
+              (user-defined-type avro Schema)) (expr
+              (simple-var-ref $desugar$38))))
+          (var-def
+            (variable $desugar$39 (expr
+              (invocation toAvro expr:
+                (simple-var-ref stringOrFloat) (
+                (literal 5))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$39))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$39))) ())
+          (var-def
+            (variable widenedToFloat (type
+              (array-type
+                (value-type byte) dimensions: 1 ([]))) (expr
+              (simple-var-ref $desugar$39))))
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (simple-var-ref widenedToFloat))))))
+          (var-def
+            (variable $desugar$40 (expr
+              (invocation fromAvro expr:
+                (simple-var-ref stringOrFloat) (
+                (simple-var-ref widenedToFloat)
+                (typedesc-expr))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$40))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$40))) ())
+          (var-def
+            (variable floatFromInt (type
+              (value-type float)) (expr
+              (simple-var-ref $desugar$40))))
+          (expression-stmt
+            (invocation io println (
+              (simple-var-ref floatFromInt)))))))))

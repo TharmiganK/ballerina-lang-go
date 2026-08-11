@@ -1010,6 +1010,71 @@ main() -> nil|error{
     %323 = println($desugar$49) -> bb202;
   }
   bb202 {
+    %324 = newObject ballerina/avro:Schema
+    %325 = ConstantLoad {"type": "long", "logicalType": "timestamp-millis"}
+    %326 = init(%324,%325) -> bb203;
+  }
+  bb203 {
+    %328 = %326 is nil
+    %328 ? bb204 : bb205;
+  }
+  bb204 {
+    %327 = %324;
+    GOTO bb206;
+  }
+  bb205 {
+    %327 = %326;
+    GOTO bb206;
+  }
+  bb206 {
+    $desugar$50 = %327;
+    %330 = $desugar$50 is error
+    %330 ? bb207 : bb208;
+  }
+  bb207 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$50);
+    PopScopeFrame
+    return;
+  }
+  bb208 {
+    tsSchema = $desugar$50;
+    %332 = ConstantLoad 1234567890
+    %333 = %332;
+    %334 = toAvro(tsSchema,%333) -> bb209;
+  }
+  bb209 {
+    $desugar$51 = %334;
+    %336 = $desugar$51 is error
+    %336 ? bb210 : bb211;
+  }
+  bb210 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$51);
+    PopScopeFrame
+    return;
+  }
+  bb211 {
+    %337 = ConstantLoad typedesc
+    %338 = fromAvro(tsSchema,$desugar$51,%337) -> bb212;
+  }
+  bb212 {
+    $desugar$52 = %338;
+    %340 = $desugar$52 is error
+    %340 ? bb213 : bb214;
+  }
+  bb213 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$52);
+    PopScopeFrame
+    return;
+  }
+  bb214 {
+    millis = $desugar$52;
+    %342 = millis;
+    %343 = println(%342) -> bb215;
+  }
+  bb215 {
     return;
   }
 }

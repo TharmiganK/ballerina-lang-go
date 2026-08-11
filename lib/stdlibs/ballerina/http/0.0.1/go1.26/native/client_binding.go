@@ -57,7 +57,13 @@ func bindResponse(ctx *extern.Context, types *httpTypes, resp *values.Object, ta
 	if statusCode >= 400 && statusCode <= 599 {
 		return statusCodeError(ctx, types, resp, statusCode)
 	}
-	return performDataBinding(ctx, types, resp, target)
+	result := performDataBinding(ctx, types, resp, target)
+	if _, failed := result.(*values.Error); failed {
+		// A mismatch error (e.g. incompatibleTargetError, unsupportedXMLTarget) can return
+		// before the body is ever read, leaving the underlying stream/connection open.
+		_, _ = responseBody(resp)
+	}
+	return result
 }
 
 // Responses are stamped with the top object type, so any object member counts — matching

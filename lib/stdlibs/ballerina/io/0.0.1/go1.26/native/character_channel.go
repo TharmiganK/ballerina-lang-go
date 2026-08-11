@@ -79,13 +79,37 @@ func byteChannelOf(self *values.Object) (*values.Object, bool) {
 	return obj, ok
 }
 
-func charsetOf(self *values.Object) (encoding.Encoding, bool) {
-	v, ok := self.Get("$charset")
+// countingWriter tracks the number of bytes written to the underlying
+// writer, so writeEncoded can report the destination byte count for a
+// single call even though the encoder itself is shared across calls.
+type countingWriter struct {
+	w io.Writer
+	n int
+}
+
+func (cw *countingWriter) Write(p []byte) (int, error) {
+	n, err := cw.w.Write(p)
+	cw.n += n
+	return n, err
+}
+
+// charWriterState is the persistent per-channel encoding writer. The
+// encoder must be created once per channel and reused across write() calls
+// (like charReaderOf's decoder), not recreated per call, since a stateful
+// encoding (e.g. UTF-16) would otherwise emit its byte-order mark on every
+// single write instead of once for the whole channel.
+type charWriterState struct {
+	writer  *transform.Writer
+	counter *countingWriter
+}
+
+func charWriterOf(self *values.Object) (*charWriterState, bool) {
+	v, ok := self.Get("$charWriter")
 	if !ok {
 		return nil, false
 	}
-	enc, ok := v.(encoding.Encoding)
-	return enc, ok
+	st, ok := v.(*charWriterState)
+	return st, ok
 }
 
 func eofReached(self *values.Object) bool {
@@ -127,23 +151,19 @@ func closeUnderlyingByteChannel(self *values.Object) error {
 	return nil
 }
 
-// writeEncoded encodes content using the channel's charset and writes it to
-// the underlying byte channel, returning the number of bytes written.
+// writeEncoded encodes content using the channel's persistent encoder and
+// writes it to the underlying byte channel, returning the number of
+// destination bytes written for this call.
 func writeEncoded(self *values.Object, content string) (int, values.BalValue) {
-	enc, _ := charsetOf(self)
-	byteCh, _ := byteChannelOf(self)
-	writer, ok := writerOf(byteCh)
+	st, ok := charWriterOf(self)
 	if !ok {
 		return 0, fileIOError("Byte channel is not initialized")
 	}
-	data, err := enc.NewEncoder().Bytes([]byte(content))
-	if err != nil {
+	before := st.counter.n
+	if _, err := st.writer.Write([]byte(content)); err != nil {
 		return 0, fileIOError("error occurred while writing characters to the channel. " + err.Error())
 	}
-	if _, err := writer.Write(data); err != nil {
-		return 0, fileIOError("error occurred while writing characters to the channel. " + err.Error())
-	}
-	return len(data), nil
+	return st.counter.n - before, nil
 }
 
 // channelProperties returns the parsed .properties content of the channel,
@@ -603,7 +623,15 @@ func (e *characterChannelExterns) writableInitChannel(_ *extern.Context, args []
 		// jBallerina, where init throws for an unsupported charset.
 		return nil, err
 	}
-	self.Put("$charset", enc)
+	writer, ok := writerOf(byteCh)
+	if !ok {
+		return nil, fmt.Errorf("byte channel is not initialized")
+	}
+	counter := &countingWriter{w: writer}
+	self.Put("$charWriter", &charWriterState{
+		writer:  transform.NewWriter(counter, enc.NewEncoder()),
+		counter: counter,
+	})
 	self.Put("$byteChannel", byteCh)
 	return nil, nil
 }
@@ -698,6 +726,11 @@ func (e *characterChannelExterns) writableClose(_ *extern.Context, args []values
 		return charChannelClosedError(), nil
 	}
 	markClosed(self)
+	if st, ok := charWriterOf(self); ok {
+		if err := st.writer.Close(); err != nil {
+			return fileIOError("error occurred while closing the channel. " + err.Error()), nil
+		}
+	}
 	if err := closeUnderlyingByteChannel(self); err != nil {
 		return fileIOError("error occurred while closing the channel. " + err.Error()), nil
 	}

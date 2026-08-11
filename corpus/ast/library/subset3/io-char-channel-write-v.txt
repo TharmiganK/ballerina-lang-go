@@ -185,4 +185,65 @@
           (expression-stmt
             (checked-expr
               (invocation close expr:
-                (simple-var-ref lrc) ()))))))))
+                (simple-var-ref lrc) ())))
+          (var-def
+            (variable upath (type
+              (value-type string)) (expr
+              (literal /tmp/bal_io_char_write_utf16.bin))))
+          (var-def
+            (variable ub (type
+              (user-defined-type io WritableByteChannel)) (expr
+              (checked-expr
+                (invocation io openWritableFile (
+                  (simple-var-ref upath)))))))
+          (var-def
+            (variable uc (type
+              (user-defined-type io WritableCharacterChannel)) (expr
+              (new (
+                (simple-var-ref ub)
+                (literal UTF-16))))))
+          (expression-stmt
+            (checked-expr
+              (invocation writeLine expr:
+                (simple-var-ref uc) (
+                (literal hi)))))
+          (expression-stmt
+            (checked-expr
+              (invocation writeLine expr:
+                (simple-var-ref uc) (
+                (literal bye)))))
+          (expression-stmt
+            (checked-expr
+              (invocation close expr:
+                (simple-var-ref uc) ())))
+          (var-def
+            (variable utf16Bytes (type
+              (array-type
+                (value-type byte) dimensions: 1 ([]))) (expr
+              (checked-expr
+                (invocation io fileReadBytes (
+                  (simple-var-ref upath)))))))
+          (expression-stmt
+            (invocation io println (
+              (invocation length expr:
+                (simple-var-ref utf16Bytes) ()))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 0)))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 1)))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 8)))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 9))))))))))

@@ -338,4 +338,113 @@
               (return
                 (simple-var-ref $desugar$20))) ())
           (expression-stmt
-            (simple-var-ref $desugar$20)))))))
+            (simple-var-ref $desugar$20))
+          (var-def
+            (variable upath (type
+              (value-type string)) (expr
+              (literal /tmp/bal_io_char_write_utf16.bin))))
+          (var-def
+            (variable $desugar$21 (expr
+              (simple-var-ref upath))))
+          (var-def
+            (variable $desugar$22 (expr
+              (invocation $default$11 (
+                (simple-var-ref $desugar$21))))))
+          (var-def
+            (variable $desugar$23 (expr
+              (invocation io openWritableFile (
+                (simple-var-ref $desugar$21)
+                (simple-var-ref $desugar$22))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$23))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$23))) ())
+          (var-def
+            (variable ub (type
+              (user-defined-type io WritableByteChannel)) (expr
+              (simple-var-ref $desugar$23))))
+          (var-def
+            (variable uc (type
+              (user-defined-type io WritableCharacterChannel)) (expr
+              (new (
+                (simple-var-ref ub)
+                (literal UTF-16))))))
+          (var-def
+            (variable $desugar$24 (expr
+              (invocation writeLine expr:
+                (simple-var-ref uc) (
+                (literal hi))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$24))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$24))) ())
+          (expression-stmt
+            (simple-var-ref $desugar$24))
+          (var-def
+            (variable $desugar$25 (expr
+              (invocation writeLine expr:
+                (simple-var-ref uc) (
+                (literal bye))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$25))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$25))) ())
+          (expression-stmt
+            (simple-var-ref $desugar$25))
+          (var-def
+            (variable $desugar$26 (expr
+              (invocation close expr:
+                (simple-var-ref uc) ()))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$26))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$26))) ())
+          (expression-stmt
+            (simple-var-ref $desugar$26))
+          (var-def
+            (variable $desugar$27 (expr
+              (invocation io fileReadBytes (
+                (simple-var-ref upath))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$27))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$27))) ())
+          (var-def
+            (variable utf16Bytes (type
+              (array-type
+                (value-type byte) dimensions: 1 ([]))) (expr
+              (simple-var-ref $desugar$27))))
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (simple-var-ref utf16Bytes))))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 0)))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 1)))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 8)))))
+          (expression-stmt
+            (invocation io println (
+              (index-based-access
+                (simple-var-ref utf16Bytes)
+                (literal 9))))))))))

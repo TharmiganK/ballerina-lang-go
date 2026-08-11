@@ -59,4 +59,19 @@ public function main() returns error? {
     io:ReadableCharacterChannel lrc = new (lrb, "ISO-8859-1");
     io:println(check lrc.readString()); // @output café
     check lrc.close();
+
+    // UTF-16 is stateful: the byte-order mark must be written once per
+    // channel, not once per write()/writeLine() call.
+    string upath = "/tmp/bal_io_char_write_utf16.bin";
+    io:WritableByteChannel ub = check io:openWritableFile(upath);
+    io:WritableCharacterChannel uc = new (ub, "UTF-16");
+    check uc.writeLine("hi");
+    check uc.writeLine("bye");
+    check uc.close();
+    byte[] utf16Bytes = check io:fileReadBytes(upath);
+    io:println(utf16Bytes.length()); // @output 16
+    io:println(utf16Bytes[0]); // @output 254
+    io:println(utf16Bytes[1]); // @output 255
+    io:println(utf16Bytes[8]); // @output 0
+    io:println(utf16Bytes[9]); // @output 98
 }

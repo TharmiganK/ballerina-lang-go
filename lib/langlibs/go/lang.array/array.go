@@ -134,13 +134,13 @@ func arrayIndexOf(_ *extern.Context, args []values.BalValue) (values.BalValue, e
 	return nil, nil
 }
 
-func arrayRemove(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+func arrayRemove(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	list := args[0].(*values.List)
 	index := args[1].(int64)
 	if index < 0 || index >= int64(list.Len()) {
 		panic(values.NewErrorWithMessage(fmt.Sprintf("invalid array index: %d", index)))
 	}
-	return list.RemoveAt(int(index)), nil
+	return list.RemoveAt(ctx.TypeCtx(), int(index)), nil
 }
 
 func arrayRemoveAll(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {

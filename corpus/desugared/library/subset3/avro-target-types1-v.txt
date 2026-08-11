@@ -1,0 +1,436 @@
+(package
+  (import-package ballerina avro (as avro))
+  (import-package ballerina io (as io))
+  (import-package ballerina lang array (as lang.array))
+  (import-package ballerina lang map (as lang.map))
+  (type-definition Pair
+    (record-type
+      (field k
+        (value-type string))
+      (field v
+        (value-type int))))
+  (function main () (
+    (union-type
+      (error-type)
+      (value-type null)))
+    (block-function-body
+      (var-def
+        (variable $desugar$0 (expr
+          (new (
+            (literal {
+    "type": "record", "name": "Pair", "namespace": "demo", "fields": [
+        {"name": "k", "type": "string"},
+        {"name": "v", "type": "long"}]}))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$0))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$0))) ())
+      (var-def
+        (variable pairSchema (type
+          (user-defined-type avro Schema)) (expr
+          (simple-var-ref $desugar$0))))
+      (var-def
+        (variable $desugar$1 (expr
+          (invocation toAvro expr:
+            (simple-var-ref pairSchema) (
+            (mapping-constructor-expr
+              (key-value
+                (literal k)
+                (literal one))
+              (key-value
+                (literal v)
+                (literal 1))))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$1))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$1))) ())
+      (var-def
+        (variable encoded (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (simple-var-ref $desugar$1))))
+      (var-def
+        (variable $desugar$2 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$2))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$2))) ())
+      (var-def
+        (variable asRecord (type
+          (user-defined-type Pair)) (expr
+          (simple-var-ref $desugar$2))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref asRecord)
+            (literal k)))))
+      (var-def
+        (variable $desugar$3 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (simple-var-ref Pair))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$3))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$3))) ())
+      (var-def
+        (variable named (type
+          (user-defined-type Pair)) (expr
+          (simple-var-ref $desugar$3))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref named)
+            (literal v)))))
+      (var-def
+        (variable $desugar$4 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$4))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$4))) ())
+      (var-def
+        (variable asJson (type
+          (builtin-ref-type json)) (expr
+          (simple-var-ref $desugar$4))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref asJson))))
+      (var-def
+        (variable $desugar$5 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$5))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$5))) ())
+      (var-def
+        (variable asAnydata (type
+          (value-type anydata)) (expr
+          (simple-var-ref $desugar$5))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref asAnydata)
+            (constrained-type
+              (builtin-ref-type map)
+              (value-type anydata))))))
+      (var-def
+        (variable $desugar$6 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$6))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$6))) ())
+      (var-def
+        (variable asJsonMap (type
+          (constrained-type
+            (builtin-ref-type map)
+            (builtin-ref-type json))) (expr
+          (simple-var-ref $desugar$6))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref asJsonMap)
+            (literal k)))))
+      (var-def
+        (variable $desugar$7 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$7))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$7))) ())
+      (var-def
+        (variable asAnydataMap (type
+          (constrained-type
+            (builtin-ref-type map)
+            (value-type anydata))) (expr
+          (simple-var-ref $desugar$7))))
+      (expression-stmt
+        (invocation io println (
+          (invocation lang.map length (
+            (simple-var-ref asAnydataMap))))))
+      (var-def
+        (variable $desugar$8 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$8))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$8))) ())
+      (var-def
+        (variable nilable (type
+          (union-type
+            (user-defined-type Pair)
+            (value-type null))) (expr
+          (simple-var-ref $desugar$8))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref nilable)
+            (user-defined-type Pair)))))
+      (var-def
+        (variable $desugar$9 (expr
+          (new (
+            (literal {"type": "int"}))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$9))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$9))) ())
+      (var-def
+        (variable intSchema (type
+          (user-defined-type avro Schema)) (expr
+          (simple-var-ref $desugar$9))))
+      (var-def
+        (variable $desugar$10 (expr
+          (invocation toAvro expr:
+            (simple-var-ref intSchema) (
+            (literal 5))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$10))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$10))) ())
+      (var-def
+        (variable $desugar$11 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref intSchema) (
+            (simple-var-ref $desugar$10)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$11))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$11))) ())
+      (var-def
+        (variable five (type
+          (finite-type
+            (literal 5))) (expr
+          (simple-var-ref $desugar$11))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref five))))
+      (var-def
+        (variable $desugar$12 (expr
+          (new (
+            (literal {"type": "string"}))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$12))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$12))) ())
+      (var-def
+        (variable strSchema (type
+          (user-defined-type avro Schema)) (expr
+          (simple-var-ref $desugar$12))))
+      (var-def
+        (variable $desugar$13 (expr
+          (invocation toAvro expr:
+            (simple-var-ref strSchema) (
+            (literal yes))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$13))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$13))) ())
+      (var-def
+        (variable $desugar$14 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref strSchema) (
+            (simple-var-ref $desugar$13)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$14))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$14))) ())
+      (var-def
+        (variable answer (type
+          (union-type
+            (finite-type
+              (literal yes))
+            (finite-type
+              (literal no)))) (expr
+          (simple-var-ref $desugar$14))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref answer))))
+      (var-def
+        (variable $desugar$15 (expr
+          (invocation toAvro expr:
+            (simple-var-ref intSchema) (
+            (literal 3))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$15))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$15))) ())
+      (var-def
+        (variable $desugar$16 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref intSchema) (
+            (simple-var-ref $desugar$15)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$16))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$16))) ())
+      (var-def
+        (variable widened (type
+          (value-type float)) (expr
+          (simple-var-ref $desugar$16))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref widened))))
+      (var-def
+        (variable $desugar$17 (expr
+          (invocation toAvro expr:
+            (simple-var-ref intSchema) (
+            (literal 3))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$17))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$17))) ())
+      (var-def
+        (variable $desugar$18 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref intSchema) (
+            (simple-var-ref $desugar$17)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$18))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$18))) ())
+      (var-def
+        (variable asDecimal (type
+          (value-type decimal)) (expr
+          (simple-var-ref $desugar$18))))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref asDecimal))))
+      (var-def
+        (variable $desugar$19 (expr
+          (new (
+            (literal {"type": "array", "items": "int"}))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$19))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$19))) ())
+      (var-def
+        (variable pairArray (type
+          (user-defined-type avro Schema)) (expr
+          (simple-var-ref $desugar$19))))
+      (var-def
+        (variable $desugar$20 (expr
+          (invocation toAvro expr:
+            (simple-var-ref pairArray) (
+            (list-constructor-expr
+              (literal 1)
+              (literal 2)))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$20))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$20))) ())
+      (var-def
+        (variable two (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (simple-var-ref $desugar$20))))
+      (var-def
+        (variable $desugar$21 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairArray) (
+            (simple-var-ref two)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$21))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$21))) ())
+      (var-def
+        (variable tuple (type
+          (tuple-type
+            (value-type int)
+            (value-type int))) (expr
+          (simple-var-ref $desugar$21))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref tuple)
+            (literal 1)))))
+      (var-def
+        (variable $desugar$22 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairArray) (
+            (simple-var-ref two)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$22))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$22))) ())
+      (var-def
+        (variable list (type
+          (array-type
+            (value-type int) dimensions: 1 ([]))) (expr
+          (simple-var-ref $desugar$22))))
+      (expression-stmt
+        (invocation io println (
+          (invocation lang.array length (
+            (simple-var-ref list)))))))))

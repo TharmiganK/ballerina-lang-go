@@ -1,0 +1,449 @@
+module $anon.. v 0.0.0;
+main() -> nil|error{
+  bb0 {
+    %1 = newObject ballerina/avro:Schema
+    %2 = ConstantLoad {
+    "type": "record", "name": "Outer", "namespace": "demo",
+    "fields": [
+        {"name": "id", "type": "int"},
+        {"name": "inner", "type": {"type": "record", "name": "Inner",
+            "fields": [{"name": "label", "type": "string"}]}}
+    ]}
+    %3 = init(%1,%2) -> bb1;
+  }
+  bb1 {
+    %5 = %3 is nil
+    %5 ? bb2 : bb3;
+  }
+  bb2 {
+    %4 = %1;
+    GOTO bb4;
+  }
+  bb3 {
+    %4 = %3;
+    GOTO bb4;
+  }
+  bb4 {
+    $desugar$0 = %4;
+    %7 = $desugar$0 is error
+    %7 ? bb5 : bb6;
+  }
+  bb5 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$0);
+    PopScopeFrame
+    return;
+  }
+  bb6 {
+    nested = $desugar$0;
+    %9 = ConstantLoad id
+    %10 = ConstantLoad 7
+    %11 = ConstantLoad inner
+    %12 = ConstantLoad label
+    %13 = ConstantLoad deep
+    %14 = newMap {| label: string, never... |}{%12=%13}
+    %15 = newMap {| id: int, inner: {| label: string, never... |}, never... |}{%9=%10, %11=%14}
+    nestedValue = %15;
+    %17 = toAvro(nested,nestedValue) -> bb7;
+  }
+  bb7 {
+    $desugar$1 = %17;
+    %19 = $desugar$1 is error
+    %19 ? bb8 : bb9;
+  }
+  bb8 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$1);
+    PopScopeFrame
+    return;
+  }
+  bb9 {
+    %20 = ConstantLoad typedesc
+    %21 = fromAvro(nested,$desugar$1,%20) -> bb10;
+  }
+  bb10 {
+    $desugar$2 = %21;
+    %23 = $desugar$2 is error
+    %23 ? bb11 : bb12;
+  }
+  bb11 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$2);
+    PopScopeFrame
+    return;
+  }
+  bb12 {
+    back = $desugar$2;
+    %26 = ConstantLoad id
+    %25 = back[%26];
+    %27 = %25;
+    %28 = println(%27) -> bb13;
+  }
+  bb13 {
+    %30 = ConstantLoad label
+    %32 = ConstantLoad inner
+    %31 = back[%32];
+    %29 = %31[%30];
+    %33 = println(%29) -> bb14;
+  }
+  bb14 {
+    %34 = newObject ballerina/avro:Schema
+    %35 = ConstantLoad {
+        "type": "record", "name": "IdOnly", "fields": [{"name": "id", "type": "int"}]}
+    %36 = init(%34,%35) -> bb15;
+  }
+  bb15 {
+    %38 = %36 is nil
+    %38 ? bb16 : bb17;
+  }
+  bb16 {
+    %37 = %34;
+    GOTO bb18;
+  }
+  bb17 {
+    %37 = %36;
+    GOTO bb18;
+  }
+  bb18 {
+    $desugar$3 = %37;
+    %40 = $desugar$3 is error
+    %40 ? bb19 : bb20;
+  }
+  bb19 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$3);
+    PopScopeFrame
+    return;
+  }
+  bb20 {
+    idOnly = $desugar$3;
+    %42 = ConstantLoad id
+    %43 = ConstantLoad 3
+    %44 = newMap {| anydata... |}{%42=%43}
+    %45 = toAvro(idOnly,%44) -> bb21;
+  }
+  bb21 {
+    $desugar$4 = %45;
+    %47 = $desugar$4 is error
+    %47 ? bb22 : bb23;
+  }
+  bb22 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$4);
+    PopScopeFrame
+    return;
+  }
+  bb23 {
+    %48 = ConstantLoad typedesc
+    %49 = fromAvro(idOnly,$desugar$4,%48) -> bb24;
+  }
+  bb24 {
+    $desugar$5 = %49;
+    %51 = $desugar$5 is error
+    %51 ? bb25 : bb26;
+  }
+  bb25 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$5);
+    PopScopeFrame
+    return;
+  }
+  bb26 {
+    open = $desugar$5;
+    %54 = ConstantLoad id
+    %53 = open[%54];
+    %55 = %53;
+    %56 = println(%55) -> bb27;
+  }
+  bb27 {
+    %58 = ConstantLoad note
+    %57 = open[%58];
+    %59 = %57 is nil
+    %60 = %59;
+    %61 = println(%60) -> bb28;
+  }
+  bb28 {
+    %62 = ConstantLoad id
+    %63 = ConstantLoad 4
+    %64 = ConstantLoad extra
+    %65 = ConstantLoad dropped
+    %66 = newMap {| anydata... |}{%62=%63, %64=%65}
+    %67 = toAvro(idOnly,%66) -> bb29;
+  }
+  bb29 {
+    $desugar$6 = %67;
+    %69 = $desugar$6 is error
+    %69 ? bb30 : bb31;
+  }
+  bb30 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$6);
+    PopScopeFrame
+    return;
+  }
+  bb31 {
+    ignoring = $desugar$6;
+    %71 = ConstantLoad typedesc
+    %72 = fromAvro(idOnly,ignoring,%71) -> bb32;
+  }
+  bb32 {
+    $desugar$7 = %72;
+    %74 = $desugar$7 is error
+    %74 ? bb33 : bb34;
+  }
+  bb33 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$7);
+    PopScopeFrame
+    return;
+  }
+  bb34 {
+    trimmed = $desugar$7;
+    %77 = ConstantLoad id
+    %76 = trimmed[%77];
+    %78 = %76;
+    %79 = println(%78) -> bb35;
+  }
+  bb35 {
+    %81 = ConstantLoad extra
+    %80 = trimmed[%81];
+    %82 = %80 is nil
+    %83 = %82;
+    %84 = println(%83) -> bb36;
+  }
+  bb36 {
+    %85 = newObject ballerina/avro:Schema
+    %86 = ConstantLoad {
+        "type": "record", "name": "Node", "namespace": "demo",
+        "fields": [
+            {"name": "value", "type": "int"},
+            {"name": "next", "type": ["null", "Node"]}
+        ]}
+    %87 = init(%85,%86) -> bb37;
+  }
+  bb37 {
+    %89 = %87 is nil
+    %89 ? bb38 : bb39;
+  }
+  bb38 {
+    %88 = %85;
+    GOTO bb40;
+  }
+  bb39 {
+    %88 = %87;
+    GOTO bb40;
+  }
+  bb40 {
+    $desugar$8 = %88;
+    %91 = $desugar$8 is error
+    %91 ? bb41 : bb42;
+  }
+  bb41 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$8);
+    PopScopeFrame
+    return;
+  }
+  bb42 {
+    nodeSchema = $desugar$8;
+    %93 = ConstantLoad value
+    %94 = ConstantLoad 1
+    %95 = ConstantLoad next
+    %96 = ConstantLoad value
+    %97 = ConstantLoad 2
+    %98 = ConstantLoad next
+    %99 = ConstantLoad <nil>
+    %100 = newMap {| next: nil|..., value: int, never... |}{%96=%97, %98=%99}
+    %101 = newMap {| next: nil|..., value: int, never... |}{%93=%94, %95=%100}
+    chain = %101;
+    %103 = toAvro(nodeSchema,chain) -> bb43;
+  }
+  bb43 {
+    $desugar$9 = %103;
+    %105 = $desugar$9 is error
+    %105 ? bb44 : bb45;
+  }
+  bb44 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$9);
+    PopScopeFrame
+    return;
+  }
+  bb45 {
+    %106 = ConstantLoad typedesc
+    %107 = fromAvro(nodeSchema,$desugar$9,%106) -> bb46;
+  }
+  bb46 {
+    $desugar$10 = %107;
+    %109 = $desugar$10 is error
+    %109 ? bb47 : bb48;
+  }
+  bb47 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$10);
+    PopScopeFrame
+    return;
+  }
+  bb48 {
+    backChain = $desugar$10;
+    %112 = ConstantLoad value
+    %111 = backChain[%112];
+    %113 = %111;
+    %114 = println(%113) -> bb49;
+  }
+  bb49 {
+    %116 = ConstantLoad next
+    %115 = backChain[%116];
+    tail = %115;
+    %118 = tail is {| next: nil|..., value: int, never... |}
+    %118 ? bb50 : bb53;
+  }
+  bb50 {
+    PushScopeFrame 9
+    %1 = ConstantLoad value
+    %0 = (1, tail)[%1];
+    %2 = %0;
+    %3 = println(%2) -> bb51;
+  }
+  bb51 {
+    %5 = ConstantLoad next
+    %4 = (1, tail)[%5];
+    %6 = %4 is nil
+    %7 = %6;
+    %8 = println(%7) -> bb52;
+  }
+  bb52 {
+    PopScopeFrame
+    GOTO bb53;
+  }
+  bb53 {
+    PushScopeFrame 43
+    %0 = newObject ballerina/avro:Schema
+    %1 = ConstantLoad {
+        "type": "record", "name": "Ordered", "fields": [
+            {"name": "b", "type": "string"},
+            {"name": "a", "type": "string"}]}
+    %2 = init(%0,%1) -> bb54;
+  }
+  bb54 {
+    %4 = %2 is nil
+    %4 ? bb55 : bb56;
+  }
+  bb55 {
+    %3 = %0;
+    GOTO bb57;
+  }
+  bb56 {
+    %3 = %2;
+    GOTO bb57;
+  }
+  bb57 {
+    $desugar$11 = %3;
+    %6 = $desugar$11 is error
+    %6 ? bb58 : bb59;
+  }
+  bb58 {
+    PushScopeFrame 0
+    (2, %0) = (1, $desugar$11);
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb59 {
+    ordered = $desugar$11;
+    %8 = ConstantLoad a
+    %9 = ConstantLoad first
+    %10 = ConstantLoad b
+    %11 = ConstantLoad second
+    %12 = newMap {| anydata... |}{%8=%9, %10=%11}
+    %13 = toAvro(ordered,%12) -> bb60;
+  }
+  bb60 {
+    $desugar$12 = %13;
+    %15 = $desugar$12 is error
+    %15 ? bb61 : bb62;
+  }
+  bb61 {
+    PushScopeFrame 0
+    (2, %0) = (1, $desugar$12);
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb62 {
+    %16 = ConstantLoad typedesc
+    %17 = fromAvro(ordered,$desugar$12,%16) -> bb63;
+  }
+  bb63 {
+    $desugar$13 = %17;
+    %19 = $desugar$13 is error
+    %19 ? bb64 : bb65;
+  }
+  bb64 {
+    PushScopeFrame 0
+    (2, %0) = (1, $desugar$13);
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb65 {
+    pair = $desugar$13;
+    %22 = ConstantLoad b
+    %21 = pair[%22];
+    %23 = println(%21) -> bb66;
+  }
+  bb66 {
+    %25 = ConstantLoad a
+    %24 = pair[%25];
+    %26 = println(%24) -> bb67;
+  }
+  bb67 {
+    %27 = newObject ballerina/avro:Schema
+    %28 = ConstantLoad {
+        "type": "record", "name": "Both", "fields": [
+            {"name": "a", "type": "string"},
+            {"name": "b", "type": "int"}]}
+    %29 = init(%27,%28) -> bb68;
+  }
+  bb68 {
+    %31 = %29 is nil
+    %31 ? bb69 : bb70;
+  }
+  bb69 {
+    %30 = %27;
+    GOTO bb71;
+  }
+  bb70 {
+    %30 = %29;
+    GOTO bb71;
+  }
+  bb71 {
+    $desugar$14 = %30;
+    %33 = $desugar$14 is error
+    %33 ? bb72 : bb73;
+  }
+  bb72 {
+    PushScopeFrame 0
+    (2, %0) = (1, $desugar$14);
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb73 {
+    needsBoth = $desugar$14;
+    %35 = ConstantLoad a
+    %36 = ConstantLoad only
+    %37 = newMap {| anydata... |}{%35=%36}
+    %38 = toAvro(needsBoth,%37) -> bb74;
+  }
+  bb74 {
+    incomplete = %38;
+    %40 = incomplete is error
+    %41 = %40;
+    %42 = println(%41) -> bb75;
+  }
+  bb75 {
+    PopScopeFrame
+    return;
+  }
+}

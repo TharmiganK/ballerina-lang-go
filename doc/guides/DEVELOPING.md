@@ -176,7 +176,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/bal ./cli/cmd
 
 Releases are produced for `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, and `windows/amd64`.
 
-`bal version` reads the repo's own `VERSION` file automatically, so a plain build already reports the right version. To strip symbols/debug info (matching release builds) or override to an arbitrary version string, pass ldflags explicitly:
+A plain build reports `bal version` as `dev`. To strip symbols/debug info (matching release builds) or set a real version string, pass ldflags explicitly:
 
 ```bash
 go build -ldflags="-s -w -X main.Version=0.7.0" -o bal ./cli/cmd

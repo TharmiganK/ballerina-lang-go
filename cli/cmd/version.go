@@ -18,24 +18,19 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
 
-// Version is set via ldflags at build time. Kept a plain literal so -X
-// still works. cli.ExtractDriverSource treats "dev" as a sentinel, so
-// never overwrite this — only displayVersion() may use the file fallback.
+// Version is set via ldflags at build time (-X main.Version=...). Kept a
+// plain literal so an unflagged build just shows "dev".
 var Version = "dev"
 
 const (
-	// Channel mirrors jBallerina's "(Swan Lake)" suffix.
-	Channel = "Nutcracker"
-	// LanguageSpecVersion matches jBallerina's currently targeted spec.
-	LanguageSpecVersion = "2024R1"
+	// channel names this distribution.
+	channel = "Nutcracker"
+	// languageSpecVersion is the targeted Ballerina language spec.
+	languageSpecVersion = "2024R1"
 )
 
 var versionCmd = &cobra.Command{
@@ -48,38 +43,12 @@ var versionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Version = Version
-	rootCmd.SetVersionTemplate(versionOutput())
-}
-
-// readVersionFile reads the repo's VERSION file relative to this source
-// file's own path — only resolvable for a binary built from a source
-// checkout, not an installed/distributed one.
-func readVersionFile() (string, bool) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", false
-	}
-	data, err := os.ReadFile(filepath.Join(filepath.Dir(file), "..", "..", "VERSION"))
-	if err != nil {
-		return "", false
-	}
-	return strings.TrimSpace(string(data)), true
-}
-
-// displayVersion is what bal -v/bal version print, falling back to the
-// VERSION file only when Version is still the unflagged-build default.
-func displayVersion() string {
-	v := Version
-	if v == "dev" {
-		if fileVersion, ok := readVersionFile(); ok {
-			v = fileVersion
-		}
-	}
-	return strings.TrimSuffix(v, "-SNAPSHOT")
+	cobra.AddTemplateFunc("versionOutput", versionOutput)
+	rootCmd.SetVersionTemplate("{{ versionOutput }}")
 }
 
 func versionOutput() string {
-	return fmt.Sprintf("Ballerina %s (%s)\nLanguage specification %s\n", displayVersion(), Channel, LanguageSpecVersion)
+	return fmt.Sprintf("Ballerina %s (%s)\nLanguage specification %s\n", Version, channel, languageSpecVersion)
 }
 
 func printVersion() {

@@ -87,142 +87,151 @@ func (h *closableHandle) closeOnce() error {
 	return h.handle.Close()
 }
 
+// streamIOExterns implements the stream-based file I/O extern functions;
+// each is registered as a named method rather than an inline closure.
+type streamIOExterns struct {
+	rt    *runtime.Runtime
+	types fileIOTypes
+}
+
+func (e *streamIOExterns) fileReadLinesAsStream(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	path, _ := args[0].(string)
+	file, err := e.rt.Platform().FS.OpenReadable(path)
+	if err != nil {
+		return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, err.Error())), nil
+	}
+	handle := &closableHandle{handle: file}
+	reader := bufio.NewReader(file)
+	next := func() values.BalValue {
+		line, ok, readErr := readLineCRLF(reader)
+		if readErr != nil {
+			_ = handle.closeOnce()
+			return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, readErr.Error()))
+		}
+		if !ok {
+			if closeErr := handle.closeOnce(); closeErr != nil {
+				return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, closeErr.Error()))
+			}
+			return nil
+		}
+		return values.NewMap(e.types.lineRecordTy, e.types.lineRecordAtom, false,
+			[]values.MapEntry{{Key: "value", Value: line}})
+	}
+	closeFn := func() values.BalValue {
+		if err := handle.closeOnce(); err != nil {
+			return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, err.Error()))
+		}
+		return nil
+	}
+	return values.NewStream(e.types.lineStreamTy, next, closeFn), nil
+}
+
+func (e *streamIOExterns) fileReadBlocksAsStream(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	path, _ := args[0].(string)
+	blockSize64, _ := args[1].(int64)
+	blockSize := int(blockSize64)
+	if blockSize <= 0 {
+		return fileIOError(fmt.Sprintf("invalid block size: %d", blockSize)), nil
+	}
+	file, err := e.rt.Platform().FS.OpenReadable(path)
+	if err != nil {
+		return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, err.Error())), nil
+	}
+	handle := &closableHandle{handle: file}
+	next := func() values.BalValue {
+		buf := make([]byte, blockSize)
+		n, readErr := io.ReadFull(file, buf)
+		if n > 0 && (readErr == nil || readErr == io.ErrUnexpectedEOF) {
+			block := bytesToBlockList(e.types.roByteArrTy, e.types.roByteArrAtom, buf[:n])
+			return values.NewMap(e.types.blockRecordTy, e.types.blockRecordAtom, false,
+				[]values.MapEntry{{Key: "value", Value: block}})
+		}
+		if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+			if closeErr := handle.closeOnce(); closeErr != nil {
+				return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, closeErr.Error()))
+			}
+			return nil
+		}
+		_ = handle.closeOnce()
+		return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, readErr.Error()))
+	}
+	closeFn := func() values.BalValue {
+		if err := handle.closeOnce(); err != nil {
+			return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, err.Error()))
+		}
+		return nil
+	}
+	return values.NewStream(e.types.blockStreamTy, next, closeFn), nil
+}
+
+func (e *streamIOExterns) fileWriteLinesFromStream(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	path, _ := args[0].(string)
+	lineStream, _ := args[1].(*values.Stream)
+	option, _ := args[2].(string)
+
+	w, err := e.rt.Platform().FS.OpenWritable(path, option == "APPEND")
+	if err != nil {
+		return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
+	}
+	for {
+		elem := lineStream.Next()
+		if elem == nil {
+			break
+		}
+		if errVal, ok := elem.(*values.Error); ok {
+			_ = w.Close()
+			return errVal, nil
+		}
+		record, _ := elem.(*values.Map)
+		value, _ := record.Get("value")
+		line, _ := value.(string)
+		if _, writeErr := w.Write([]byte(line + "\n")); writeErr != nil {
+			_ = w.Close()
+			return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, writeErr.Error())), nil
+		}
+	}
+	if err := w.Close(); err != nil {
+		return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
+	}
+	return nil, nil
+}
+
+func (e *streamIOExterns) fileWriteBlocksFromStream(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	path, _ := args[0].(string)
+	byteStream, _ := args[1].(*values.Stream)
+	option, _ := args[2].(string)
+
+	w, err := e.rt.Platform().FS.OpenWritable(path, option == "APPEND")
+	if err != nil {
+		return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
+	}
+	for {
+		elem := byteStream.Next()
+		if elem == nil {
+			break
+		}
+		if errVal, ok := elem.(*values.Error); ok {
+			_ = w.Close()
+			return errVal, nil
+		}
+		record, _ := elem.(*values.Map)
+		value, _ := record.Get("value")
+		block, _ := value.(*values.List)
+		if _, writeErr := w.Write(block.ToByteSlice()); writeErr != nil {
+			_ = w.Close()
+			return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, writeErr.Error())), nil
+		}
+	}
+	if err := w.Close(); err != nil {
+		return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
+	}
+	return nil, nil
+}
+
 func registerStreamIOExterns(rt *runtime.Runtime, types fileIOTypes) {
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileReadLinesAsStream",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			path, _ := args[0].(string)
-			file, err := rt.Platform().FS.OpenReadable(path)
-			if err != nil {
-				return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, err.Error())), nil
-			}
-			handle := &closableHandle{handle: file}
-			reader := bufio.NewReader(file)
-			next := func() values.BalValue {
-				line, ok, readErr := readLineCRLF(reader)
-				if readErr != nil {
-					_ = handle.closeOnce()
-					return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, readErr.Error()))
-				}
-				if !ok {
-					if closeErr := handle.closeOnce(); closeErr != nil {
-						return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, closeErr.Error()))
-					}
-					return nil
-				}
-				return values.NewMap(types.lineRecordTy, types.lineRecordAtom, false,
-					[]values.MapEntry{{Key: "value", Value: line}})
-			}
-			closeFn := func() values.BalValue {
-				if err := handle.closeOnce(); err != nil {
-					return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, err.Error()))
-				}
-				return nil
-			}
-			return values.NewStream(types.lineStreamTy, next, closeFn), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileReadBlocksAsStream",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			path, _ := args[0].(string)
-			blockSize64, _ := args[1].(int64)
-			blockSize := int(blockSize64)
-			if blockSize <= 0 {
-				return fileIOError(fmt.Sprintf("invalid block size: %d", blockSize)), nil
-			}
-			file, err := rt.Platform().FS.OpenReadable(path)
-			if err != nil {
-				return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, err.Error())), nil
-			}
-			handle := &closableHandle{handle: file}
-			next := func() values.BalValue {
-				buf := make([]byte, blockSize)
-				n, readErr := io.ReadFull(file, buf)
-				if n > 0 && (readErr == nil || readErr == io.ErrUnexpectedEOF) {
-					block := bytesToBlockList(types.roByteArrTy, types.roByteArrAtom, buf[:n])
-					return values.NewMap(types.blockRecordTy, types.blockRecordAtom, false,
-						[]values.MapEntry{{Key: "value", Value: block}})
-				}
-				if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
-					if closeErr := handle.closeOnce(); closeErr != nil {
-						return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, closeErr.Error()))
-					}
-					return nil
-				}
-				_ = handle.closeOnce()
-				return fileIOError(fmt.Sprintf("error while reading file '%s': %s", path, readErr.Error()))
-			}
-			closeFn := func() values.BalValue {
-				if err := handle.closeOnce(); err != nil {
-					return fileIOError(fmt.Sprintf("error while closing file '%s': %s", path, err.Error()))
-				}
-				return nil
-			}
-			return values.NewStream(types.blockStreamTy, next, closeFn), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileWriteLinesFromStream",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			path, _ := args[0].(string)
-			lineStream, _ := args[1].(*values.Stream)
-			option, _ := args[2].(string)
-
-			w, err := rt.Platform().FS.OpenWritable(path, option == "APPEND")
-			if err != nil {
-				return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
-			}
-			for {
-				elem := lineStream.Next()
-				if elem == nil {
-					break
-				}
-				if errVal, ok := elem.(*values.Error); ok {
-					_ = w.Close()
-					return errVal, nil
-				}
-				record, _ := elem.(*values.Map)
-				value, _ := record.Get("value")
-				line, _ := value.(string)
-				if _, writeErr := w.Write([]byte(line + "\n")); writeErr != nil {
-					_ = w.Close()
-					return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, writeErr.Error())), nil
-				}
-			}
-			if err := w.Close(); err != nil {
-				return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
-			}
-			return nil, nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileWriteBlocksFromStream",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			path, _ := args[0].(string)
-			byteStream, _ := args[1].(*values.Stream)
-			option, _ := args[2].(string)
-
-			w, err := rt.Platform().FS.OpenWritable(path, option == "APPEND")
-			if err != nil {
-				return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
-			}
-			for {
-				elem := byteStream.Next()
-				if elem == nil {
-					break
-				}
-				if errVal, ok := elem.(*values.Error); ok {
-					_ = w.Close()
-					return errVal, nil
-				}
-				record, _ := elem.(*values.Map)
-				value, _ := record.Get("value")
-				block, _ := value.(*values.List)
-				if _, writeErr := w.Write(block.ToByteSlice()); writeErr != nil {
-					_ = w.Close()
-					return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, writeErr.Error())), nil
-				}
-			}
-			if err := w.Close(); err != nil {
-				return fileIOError(fmt.Sprintf("error while writing to file '%s': %s", path, err.Error())), nil
-			}
-			return nil, nil
-		})
+	e := &streamIOExterns{rt: rt, types: types}
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileReadLinesAsStream", e.fileReadLinesAsStream)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileReadBlocksAsStream", e.fileReadBlocksAsStream)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileWriteLinesFromStream", e.fileWriteLinesFromStream)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "externFileWriteBlocksFromStream", e.fileWriteBlocksFromStream)
 }

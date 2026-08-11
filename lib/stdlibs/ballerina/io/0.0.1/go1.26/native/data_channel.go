@@ -139,278 +139,296 @@ func encodeVarInt(value int64, littleEndian bool) []byte {
 	return groups
 }
 
+// writeDataBytes writes data to self's wrapped writable byte channel.
+func writeDataBytes(self *values.Object, data []byte) values.BalValue {
+	byteCh, _ := byteChannelOf(self)
+	writer, ok := writerOf(byteCh)
+	if !ok {
+		return fileIOError("Byte channel is not initialized")
+	}
+	if _, err := writer.Write(data); err != nil {
+		return fileIOError("error occurred while writing to the channel. " + err.Error())
+	}
+	return nil
+}
+
+func dataChannelInitChannel(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	byteCh, _ := args[1].(*values.Object)
+	order, _ := args[2].(string)
+	self.Put("$byteChannel", byteCh)
+	self.Put("$order", order)
+	return nil, nil
+}
+
+func dataChannelClose(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	markClosed(self)
+	if err := closeUnderlyingByteChannel(self); err != nil {
+		return fileIOError("error occurred while closing the channel. " + err.Error()), nil
+	}
+	return nil, nil
+}
+
+// readFixedInt reads a width-byte signed integer, shared by
+// readableDataChannelReadInt16/32/64.
+func readFixedInt(args []values.BalValue, width int) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	data, err := readDataBytes(self, width)
+	if err != nil {
+		return nil, err
+	}
+	return decodeDataInt(width, data), nil
+}
+
+func readableDataChannelReadInt16(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return readFixedInt(args, 2)
+}
+
+func readableDataChannelReadInt32(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return readFixedInt(args, 4)
+}
+
+func readableDataChannelReadInt64(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return readFixedInt(args, 8)
+}
+
+func readableDataChannelReadFloat32(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	data, err := readDataBytes(self, 4)
+	if err != nil {
+		return nil, err
+	}
+	return float64(math.Float32frombits(uint32(decodeDataInt(4, data)))), nil
+}
+
+func readableDataChannelReadFloat64(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	data, err := readDataBytes(self, 8)
+	if err != nil {
+		return nil, err
+	}
+	return math.Float64frombits(uint64(decodeDataInt(8, data))), nil
+}
+
+func readableDataChannelReadBool(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	data, err := readDataBytes(self, 1)
+	if err != nil {
+		return nil, err
+	}
+	return data[0] == 1, nil
+}
+
+func readableDataChannelReadString(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	nBytes, _ := args[1].(int64)
+	charset, _ := args[2].(string)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	if eofReached(self) {
+		return byteChannelEofError(), nil
+	}
+	if nBytes < 0 {
+		return fileIOError(fmt.Sprintf("invalid number of bytes: %d", nBytes)), nil
+	}
+	enc, err := lookupCharset(charset)
+	if err != nil {
+		return fileIOError("Error occurred while reading string: " + err.Error()), nil
+	}
+	byteCh, _ := byteChannelOf(self)
+	reader, ok := readerOf(byteCh)
+	if !ok {
+		return nil, fmt.Errorf("byte channel is not initialized")
+	}
+	result := make([]byte, 0, min(int(nBytes), channelBufferSize))
+	remaining := int(nBytes)
+	for remaining > 0 {
+		chunk := make([]byte, min(remaining, channelBufferSize))
+		n, readErr := io.ReadFull(reader, chunk)
+		result = append(result, chunk[:n]...)
+		remaining -= n
+		if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+			self.Put("$eof", true)
+			break
+		}
+		if readErr != nil {
+			return fileIOError("Error occurred while reading string: " + readErr.Error()), nil
+		}
+	}
+	decoded, decErr := enc.NewDecoder().Bytes(result)
+	if decErr != nil {
+		return fileIOError("Error occurred while reading string: " + decErr.Error()), nil
+	}
+	return string(decoded), nil
+}
+
+func readableDataChannelReadVarInt(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	byteCh, _ := byteChannelOf(self)
+	reader, ok := readerOf(byteCh)
+	if !ok {
+		return nil, fmt.Errorf("byte channel is not initialized")
+	}
+	var groups []byte
+	one := make([]byte, 1)
+	for {
+		if len(groups) == 10 {
+			return nil, fmt.Errorf("variable-length integer is longer than 10 bytes")
+		}
+		if _, err := io.ReadFull(reader, one); err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				self.Put("$eof", true)
+				return nil, fmt.Errorf("no bytes available to read from the channel")
+			}
+			return nil, fmt.Errorf("error occurred while reading from the channel: %s", err.Error())
+		}
+		groups = append(groups, one[0]&0x7F)
+		if one[0]&0x80 == 0 {
+			break
+		}
+	}
+	if littleEndianOf(self) {
+		for i, j := 0, len(groups)-1; i < j; i, j = i+1, j-1 {
+			groups[i], groups[j] = groups[j], groups[i]
+		}
+	}
+	var value int64
+	for _, g := range groups {
+		value = value<<7 | int64(g)
+	}
+	signBit := uint(7*len(groups)) - 1
+	if signBit < 63 && value>>signBit&1 == 1 {
+		value |= int64(-1) << signBit
+	}
+	return value, nil
+}
+
+// writeFixedInt writes value as a width-byte signed integer, shared by
+// writableDataChannelWriteInt16/32/64.
+func writeFixedInt(args []values.BalValue, width int) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	value, _ := args[1].(int64)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	return writeDataBytes(self, encodeDataInt(value, width, littleEndianOf(self))), nil
+}
+
+func writableDataChannelWriteInt16(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return writeFixedInt(args, 2)
+}
+
+func writableDataChannelWriteInt32(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return writeFixedInt(args, 4)
+}
+
+func writableDataChannelWriteInt64(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return writeFixedInt(args, 8)
+}
+
+func writableDataChannelWriteFloat32(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	value, _ := args[1].(float64)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	bits := int64(math.Float32bits(float32(value)))
+	return writeDataBytes(self, encodeDataInt(bits, 4, littleEndianOf(self))), nil
+}
+
+func writableDataChannelWriteFloat64(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	value, _ := args[1].(float64)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	bits := int64(math.Float64bits(value))
+	return writeDataBytes(self, encodeDataInt(bits, 8, littleEndianOf(self))), nil
+}
+
+func writableDataChannelWriteBool(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	value, _ := args[1].(bool)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	b := byte(0)
+	if value {
+		b = 1
+	}
+	return writeDataBytes(self, []byte{b}), nil
+}
+
+func writableDataChannelWriteString(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	value, _ := args[1].(string)
+	charset, _ := args[2].(string)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	enc, err := lookupCharset(charset)
+	if err != nil {
+		// A Go error return panics in the interpreter, matching
+		// jBallerina, where the unchecked charset exception escapes.
+		return nil, err
+	}
+	data, encErr := enc.NewEncoder().Bytes([]byte(value))
+	if encErr != nil {
+		return fileIOError("error occurred while writing to the channel. " + encErr.Error()), nil
+	}
+	return writeDataBytes(self, data), nil
+}
+
+func writableDataChannelWriteVarInt(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	value, _ := args[1].(int64)
+	if isClosed(self) {
+		return dataChannelClosedError(), nil
+	}
+	return writeDataBytes(self, encodeVarInt(value, littleEndianOf(self))), nil
+}
+
 func initDataChannelModule(rt *runtime.Runtime) {
-	registerDataChannelInit := func(name string) {
-		runtime.RegisterExternFunction(rt, orgName, moduleName, name,
-			func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-				self, _ := args[0].(*values.Object)
-				byteCh, _ := args[1].(*values.Object)
-				order, _ := args[2].(string)
-				self.Put("$byteChannel", byteCh)
-				self.Put("$order", order)
-				return nil, nil
-			})
-	}
-	registerDataChannelInit("ReadableDataChannel.initChannel")
-	registerDataChannelInit("WritableDataChannel.initChannel")
-
-	registerFixedIntRead := func(name string, width int) {
-		runtime.RegisterExternFunction(rt, orgName, moduleName, name,
-			func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-				self, _ := args[0].(*values.Object)
-				if isClosed(self) {
-					return dataChannelClosedError(), nil
-				}
-				data, err := readDataBytes(self, width)
-				if err != nil {
-					return nil, err
-				}
-				return decodeDataInt(width, data), nil
-			})
-	}
-	registerFixedIntRead("ReadableDataChannel.readInt16", 2)
-	registerFixedIntRead("ReadableDataChannel.readInt32", 4)
-	registerFixedIntRead("ReadableDataChannel.readInt64", 8)
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readFloat32",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			data, err := readDataBytes(self, 4)
-			if err != nil {
-				return nil, err
-			}
-			return float64(math.Float32frombits(uint32(decodeDataInt(4, data)))), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readFloat64",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			data, err := readDataBytes(self, 8)
-			if err != nil {
-				return nil, err
-			}
-			return math.Float64frombits(uint64(decodeDataInt(8, data))), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readBool",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			data, err := readDataBytes(self, 1)
-			if err != nil {
-				return nil, err
-			}
-			return data[0] == 1, nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readString",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			nBytes, _ := args[1].(int64)
-			charset, _ := args[2].(string)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			if eofReached(self) {
-				return byteChannelEofError(), nil
-			}
-			if nBytes < 0 {
-				return fileIOError(fmt.Sprintf("invalid number of bytes: %d", nBytes)), nil
-			}
-			enc, err := lookupCharset(charset)
-			if err != nil {
-				return fileIOError("Error occurred while reading string: " + err.Error()), nil
-			}
-			byteCh, _ := byteChannelOf(self)
-			reader, ok := readerOf(byteCh)
-			if !ok {
-				return nil, fmt.Errorf("byte channel is not initialized")
-			}
-			result := make([]byte, 0, min(int(nBytes), channelBufferSize))
-			remaining := int(nBytes)
-			for remaining > 0 {
-				chunk := make([]byte, min(remaining, channelBufferSize))
-				n, readErr := io.ReadFull(reader, chunk)
-				result = append(result, chunk[:n]...)
-				remaining -= n
-				if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
-					self.Put("$eof", true)
-					break
-				}
-				if readErr != nil {
-					return fileIOError("Error occurred while reading string: " + readErr.Error()), nil
-				}
-			}
-			decoded, decErr := enc.NewDecoder().Bytes(result)
-			if decErr != nil {
-				return fileIOError("Error occurred while reading string: " + decErr.Error()), nil
-			}
-			return string(decoded), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readVarInt",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			byteCh, _ := byteChannelOf(self)
-			reader, ok := readerOf(byteCh)
-			if !ok {
-				return nil, fmt.Errorf("byte channel is not initialized")
-			}
-			var groups []byte
-			one := make([]byte, 1)
-			for {
-				if len(groups) == 10 {
-					return nil, fmt.Errorf("variable-length integer is longer than 10 bytes")
-				}
-				if _, err := io.ReadFull(reader, one); err != nil {
-					if err == io.EOF || err == io.ErrUnexpectedEOF {
-						self.Put("$eof", true)
-						return nil, fmt.Errorf("no bytes available to read from the channel")
-					}
-					return nil, fmt.Errorf("error occurred while reading from the channel: %s", err.Error())
-				}
-				groups = append(groups, one[0]&0x7F)
-				if one[0]&0x80 == 0 {
-					break
-				}
-			}
-			if littleEndianOf(self) {
-				for i, j := 0, len(groups)-1; i < j; i, j = i+1, j-1 {
-					groups[i], groups[j] = groups[j], groups[i]
-				}
-			}
-			var value int64
-			for _, g := range groups {
-				value = value<<7 | int64(g)
-			}
-			signBit := uint(7*len(groups)) - 1
-			if signBit < 63 && value>>signBit&1 == 1 {
-				value |= int64(-1) << signBit
-			}
-			return value, nil
-		})
-
-	registerDataChannelClose := func(name string) {
-		runtime.RegisterExternFunction(rt, orgName, moduleName, name,
-			func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-				self, _ := args[0].(*values.Object)
-				if isClosed(self) {
-					return dataChannelClosedError(), nil
-				}
-				markClosed(self)
-				if err := closeUnderlyingByteChannel(self); err != nil {
-					return fileIOError("error occurred while closing the channel. " + err.Error()), nil
-				}
-				return nil, nil
-			})
-	}
-	registerDataChannelClose("ReadableDataChannel.close")
-	registerDataChannelClose("WritableDataChannel.close")
-
-	writeDataBytes := func(self *values.Object, data []byte) values.BalValue {
-		byteCh, _ := byteChannelOf(self)
-		writer, ok := writerOf(byteCh)
-		if !ok {
-			return fileIOError("Byte channel is not initialized")
-		}
-		if _, err := writer.Write(data); err != nil {
-			return fileIOError("error occurred while writing to the channel. " + err.Error())
-		}
-		return nil
-	}
-
-	registerFixedIntWrite := func(name string, width int) {
-		runtime.RegisterExternFunction(rt, orgName, moduleName, name,
-			func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-				self, _ := args[0].(*values.Object)
-				value, _ := args[1].(int64)
-				if isClosed(self) {
-					return dataChannelClosedError(), nil
-				}
-				return writeDataBytes(self, encodeDataInt(value, width, littleEndianOf(self))), nil
-			})
-	}
-	registerFixedIntWrite("WritableDataChannel.writeInt16", 2)
-	registerFixedIntWrite("WritableDataChannel.writeInt32", 4)
-	registerFixedIntWrite("WritableDataChannel.writeInt64", 8)
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeFloat32",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			value, _ := args[1].(float64)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			bits := int64(math.Float32bits(float32(value)))
-			return writeDataBytes(self, encodeDataInt(bits, 4, littleEndianOf(self))), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeFloat64",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			value, _ := args[1].(float64)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			bits := int64(math.Float64bits(value))
-			return writeDataBytes(self, encodeDataInt(bits, 8, littleEndianOf(self))), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeBool",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			value, _ := args[1].(bool)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			b := byte(0)
-			if value {
-				b = 1
-			}
-			return writeDataBytes(self, []byte{b}), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeString",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			value, _ := args[1].(string)
-			charset, _ := args[2].(string)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			enc, err := lookupCharset(charset)
-			if err != nil {
-				// A Go error return panics in the interpreter, matching
-				// jBallerina, where the unchecked charset exception escapes.
-				return nil, err
-			}
-			data, encErr := enc.NewEncoder().Bytes([]byte(value))
-			if encErr != nil {
-				return fileIOError("error occurred while writing to the channel. " + encErr.Error()), nil
-			}
-			return writeDataBytes(self, data), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeVarInt",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			value, _ := args[1].(int64)
-			if isClosed(self) {
-				return dataChannelClosedError(), nil
-			}
-			return writeDataBytes(self, encodeVarInt(value, littleEndianOf(self))), nil
-		})
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.initChannel", dataChannelInitChannel)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.initChannel", dataChannelInitChannel)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readInt16", readableDataChannelReadInt16)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readInt32", readableDataChannelReadInt32)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readInt64", readableDataChannelReadInt64)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readFloat32", readableDataChannelReadFloat32)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readFloat64", readableDataChannelReadFloat64)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readBool", readableDataChannelReadBool)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readString", readableDataChannelReadString)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.readVarInt", readableDataChannelReadVarInt)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableDataChannel.close", dataChannelClose)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeInt16", writableDataChannelWriteInt16)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeInt32", writableDataChannelWriteInt32)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeInt64", writableDataChannelWriteInt64)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeFloat32", writableDataChannelWriteFloat32)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeFloat64", writableDataChannelWriteFloat64)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeBool", writableDataChannelWriteBool)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeString", writableDataChannelWriteString)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.writeVarInt", writableDataChannelWriteVarInt)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableDataChannel.close", dataChannelClose)
 }
 
 func init() {

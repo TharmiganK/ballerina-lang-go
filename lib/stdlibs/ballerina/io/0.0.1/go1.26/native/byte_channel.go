@@ -92,6 +92,275 @@ type byteChannelTypes struct {
 	blockRecordAtm *semtypes.MappingAtomicType
 }
 
+// byteChannelExterns implements the extern functions of both
+// ReadableByteChannel and WritableByteChannel; each is registered as a
+// named method rather than an inline closure, so the registration list
+// below stays a plain map from Ballerina method name to Go implementation.
+type byteChannelExterns struct {
+	rt    *runtime.Runtime
+	types byteChannelTypes
+}
+
+func (e *byteChannelExterns) readableAttachFile(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	path, _ := args[1].(string)
+	f, err := e.rt.Platform().FS.OpenReadable(path)
+	if err != nil {
+		return fileIOError("error while opening file '" + path + "': " + err.Error()), nil
+	}
+	self.Put("$reader", f)
+	self.Put("$closer", &closableHandle{handle: f})
+	return nil, nil
+}
+
+func (e *byteChannelExterns) readableAttachBytes(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	list, _ := args[1].(*values.List)
+	self.Put("$reader", bytes.NewReader(list.ToByteSlice()))
+	return nil, nil
+}
+
+func (e *byteChannelExterns) readableRead(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	nBytes, _ := args[1].(int64)
+
+	if isClosed(self) {
+		return byteChannelClosedError(), nil
+	}
+	// jBallerina's read() returns an empty byte[] the first time the
+	// channel is exhausted, and only errors on a subsequent call.
+	if eofReached(self) {
+		return byteChannelEofError(), nil
+	}
+	reader, ok := readerOf(self)
+	if !ok {
+		return fileIOError("Byte channel is not initialized"), nil
+	}
+
+	size := int(nBytes)
+	if size <= 0 {
+		size = channelBufferSize
+	}
+	result := make([]byte, 0, min(size, channelBufferSize))
+	var readErr error
+	for len(result) < size {
+		chunk := make([]byte, min(size-len(result), channelBufferSize))
+		n, err := reader.Read(chunk)
+		if n > 0 {
+			result = append(result, chunk[:n]...)
+		}
+		if err != nil {
+			readErr = err
+			break
+		}
+		if n == 0 {
+			break
+		}
+	}
+	if len(result) == 0 {
+		if readErr != nil && readErr != io.EOF {
+			return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error()), nil
+		}
+		self.Put("$eof", true)
+	}
+	return values.NewList(e.types.byteArrTy, e.types.byteArrAtom, false, nil, 0, bytesToItems(result)), nil
+}
+
+func (e *byteChannelExterns) readableReadAll(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+
+	if isClosed(self) {
+		return byteChannelClosedError(), nil
+	}
+	reader, ok := readerOf(self)
+	if !ok {
+		return fileIOError("Byte channel is not initialized"), nil
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fileIOError("error occurred while reading bytes from the channel. " + err.Error()), nil
+	}
+	return values.NewList(e.types.roByteArrTy, e.types.roByteArrAtom, true, nil, 0, bytesToItems(data)), nil
+}
+
+func (e *byteChannelExterns) readableBlockStream(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	blockSize, _ := args[1].(int64)
+
+	if isClosed(self) {
+		return byteChannelClosedError(), nil
+	}
+	reader, ok := readerOf(self)
+	if !ok {
+		return fileIOError("Byte channel is not initialized"), nil
+	}
+	if blockSize <= 0 {
+		return fileIOError("invalid block size"), nil
+	}
+	size := int(blockSize)
+	// Reaching the end of the stream (or closing it explicitly) only
+	// releases the underlying OS handle; it must not mark the parent
+	// ReadableByteChannel itself closed, since jBallerina still allows
+	// a later channel.close() to succeed after the stream is done.
+	closeUnderlyingHandle := func() error {
+		if closer, ok := closerOf(self); ok {
+			return closer.closeOnce()
+		}
+		return nil
+	}
+	buf := make([]byte, min(size, channelBufferSize))
+	next := func() values.BalValue {
+		result := make([]byte, 0, len(buf))
+		var readErr error
+		for len(result) < size {
+			chunk := buf
+			if remaining := size - len(result); remaining < len(chunk) {
+				chunk = buf[:remaining]
+			}
+			n, err := reader.Read(chunk)
+			if n > 0 {
+				result = append(result, chunk[:n]...)
+			}
+			if err != nil {
+				readErr = err
+				break
+			}
+			if n == 0 {
+				break
+			}
+		}
+		if readErr != nil && readErr != io.EOF {
+			_ = closeUnderlyingHandle()
+			return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error())
+		}
+		if len(result) == 0 {
+			if closeErr := closeUnderlyingHandle(); closeErr != nil {
+				return fileIOError("error occurred while closing the channel. " + closeErr.Error())
+			}
+			return nil
+		}
+		block := values.NewList(e.types.roByteArrTy, e.types.roByteArrAtom, true, nil, 0, bytesToItems(result))
+		return values.NewMap(e.types.blockRecordTy, e.types.blockRecordAtm, false,
+			[]values.MapEntry{{Key: "value", Value: block}})
+	}
+	closeFn := func() values.BalValue {
+		if err := closeUnderlyingHandle(); err != nil {
+			return fileIOError("error occurred while closing the channel. " + err.Error())
+		}
+		return nil
+	}
+	return values.NewStream(e.types.blockStreamTy, next, closeFn), nil
+}
+
+// base64Transform reads the whole channel, applies transform, and wraps the
+// result as a byte[]; base64EncodeBytes/base64DecodeBytes supply transform.
+func (e *byteChannelExterns) base64Transform(args []values.BalValue, transform func(data []byte) ([]byte, error)) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return fileIOError("Channel is already closed."), nil
+	}
+	reader, ok := readerOf(self)
+	if !ok {
+		return fileIOError("Byte channel is not initialized"), nil
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fileIOError(err.Error()), nil
+	}
+	out, err := transform(data)
+	if err != nil {
+		// A Go error return panics in the interpreter, matching
+		// jBallerina, where the Base64 IllegalArgumentException
+		// escapes uncaught.
+		return nil, err
+	}
+	return values.NewList(e.types.byteArrTy, e.types.byteArrAtom, false, nil, 0, bytesToItems(out)), nil
+}
+
+func (e *byteChannelExterns) base64EncodeBytes(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return e.base64Transform(args, func(data []byte) ([]byte, error) {
+		return base64.StdEncoding.AppendEncode(nil, data), nil
+	})
+}
+
+func (e *byteChannelExterns) base64DecodeBytes(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return e.base64Transform(args, func(data []byte) ([]byte, error) {
+		// jBallerina's decoder treats the final padding as optional.
+		enc := base64.StdEncoding
+		if len(data)%4 != 0 {
+			enc = base64.RawStdEncoding
+		}
+		decoded, err := enc.AppendDecode(nil, data)
+		if err != nil {
+			return nil, fmt.Errorf("illegal Base64 input: %s", err.Error())
+		}
+		return decoded, nil
+	})
+}
+
+func (e *byteChannelExterns) readableClose(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return byteChannelClosedError(), nil
+	}
+	markClosed(self)
+	if closer, ok := closerOf(self); ok {
+		if err := closer.closeOnce(); err != nil {
+			return fileIOError("error occurred while closing the channel. " + err.Error()), nil
+		}
+	}
+	return nil, nil
+}
+
+func (e *byteChannelExterns) writableAttachFile(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	path, _ := args[1].(string)
+	option, _ := args[2].(string)
+	w, err := e.rt.Platform().FS.OpenWritable(path, option == "APPEND")
+	if err != nil {
+		return fileIOError("error while opening file '" + path + "': " + err.Error()), nil
+	}
+	self.Put("$writer", w)
+	return nil, nil
+}
+
+func (e *byteChannelExterns) writableWrite(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	list, _ := args[1].(*values.List)
+	offset, _ := args[2].(int64)
+
+	if isClosed(self) {
+		return byteChannelClosedError(), nil
+	}
+	writer, ok := writerOf(self)
+	if !ok {
+		return fileIOError("Byte channel is not initialized"), nil
+	}
+	content := list.ToByteSlice()
+	if offset < 0 || int(offset) > len(content) {
+		return fileIOError("invalid offset for the given content"), nil
+	}
+	n, err := writer.Write(content[offset:])
+	if err != nil {
+		return fileIOError("error occurred while writing bytes to the channel. " + err.Error()), nil
+	}
+	return int64(n), nil
+}
+
+func (e *byteChannelExterns) writableClose(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	self, _ := args[0].(*values.Object)
+	if isClosed(self) {
+		return byteChannelClosedError(), nil
+	}
+	markClosed(self)
+	if writer, ok := writerOf(self); ok {
+		if err := writer.Close(); err != nil {
+			return fileIOError("error occurred while closing the channel. " + err.Error()), nil
+		}
+	}
+	return nil, nil
+}
+
 func initByteChannelModule(rt *runtime.Runtime) {
 	env := rt.GetTypeEnv()
 	typCtx := semtypes.ContextFrom(env)
@@ -113,273 +382,18 @@ func initByteChannelModule(rt *runtime.Runtime) {
 	types.blockRecordAtm = semtypes.ToMappingAtomicType(typCtx, types.blockRecordTy)
 	types.blockStreamTy = bsd.Define(env, types.roByteArrTy, streamCompletionTy)
 
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.attachFile",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			path, _ := args[1].(string)
-			f, err := rt.Platform().FS.OpenReadable(path)
-			if err != nil {
-				return fileIOError("error while opening file '" + path + "': " + err.Error()), nil
-			}
-			self.Put("$reader", f)
-			self.Put("$closer", &closableHandle{handle: f})
-			return nil, nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.attachBytes",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			list, _ := args[1].(*values.List)
-			self.Put("$reader", bytes.NewReader(list.ToByteSlice()))
-			return nil, nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.read",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			nBytes, _ := args[1].(int64)
-
-			if isClosed(self) {
-				return byteChannelClosedError(), nil
-			}
-			// jBallerina's read() returns an empty byte[] the first time the
-			// channel is exhausted, and only errors on a subsequent call.
-			if eofReached(self) {
-				return byteChannelEofError(), nil
-			}
-			reader, ok := readerOf(self)
-			if !ok {
-				return fileIOError("Byte channel is not initialized"), nil
-			}
-
-			size := int(nBytes)
-			if size <= 0 {
-				size = channelBufferSize
-			}
-			result := make([]byte, 0, min(size, channelBufferSize))
-			var readErr error
-			for len(result) < size {
-				chunk := make([]byte, min(size-len(result), channelBufferSize))
-				n, err := reader.Read(chunk)
-				if n > 0 {
-					result = append(result, chunk[:n]...)
-				}
-				if err != nil {
-					readErr = err
-					break
-				}
-				if n == 0 {
-					break
-				}
-			}
-			if len(result) == 0 {
-				if readErr != nil && readErr != io.EOF {
-					return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error()), nil
-				}
-				self.Put("$eof", true)
-			}
-			return values.NewList(types.byteArrTy, types.byteArrAtom, false, nil, 0, bytesToItems(result)), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.readAll",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-
-			if isClosed(self) {
-				return byteChannelClosedError(), nil
-			}
-			reader, ok := readerOf(self)
-			if !ok {
-				return fileIOError("Byte channel is not initialized"), nil
-			}
-			data, err := io.ReadAll(reader)
-			if err != nil {
-				return fileIOError("error occurred while reading bytes from the channel. " + err.Error()), nil
-			}
-			return values.NewList(types.roByteArrTy, types.roByteArrAtom, true, nil, 0, bytesToItems(data)), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.blockStream",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			blockSize, _ := args[1].(int64)
-
-			if isClosed(self) {
-				return byteChannelClosedError(), nil
-			}
-			reader, ok := readerOf(self)
-			if !ok {
-				return fileIOError("Byte channel is not initialized"), nil
-			}
-			if blockSize <= 0 {
-				return fileIOError("invalid block size"), nil
-			}
-			size := int(blockSize)
-			// Reaching the end of the stream (or closing it explicitly) only
-			// releases the underlying OS handle; it must not mark the parent
-			// ReadableByteChannel itself closed, since jBallerina still allows
-			// a later channel.close() to succeed after the stream is done.
-			closeUnderlyingHandle := func() error {
-				if closer, ok := closerOf(self); ok {
-					return closer.closeOnce()
-				}
-				return nil
-			}
-			buf := make([]byte, min(size, channelBufferSize))
-			next := func() values.BalValue {
-				result := make([]byte, 0, len(buf))
-				var readErr error
-				for len(result) < size {
-					chunk := buf
-					if remaining := size - len(result); remaining < len(chunk) {
-						chunk = buf[:remaining]
-					}
-					n, err := reader.Read(chunk)
-					if n > 0 {
-						result = append(result, chunk[:n]...)
-					}
-					if err != nil {
-						readErr = err
-						break
-					}
-					if n == 0 {
-						break
-					}
-				}
-				if readErr != nil && readErr != io.EOF {
-					_ = closeUnderlyingHandle()
-					return fileIOError("error occurred while reading bytes from the channel. " + readErr.Error())
-				}
-				if len(result) == 0 {
-					if closeErr := closeUnderlyingHandle(); closeErr != nil {
-						return fileIOError("error occurred while closing the channel. " + closeErr.Error())
-					}
-					return nil
-				}
-				block := values.NewList(types.roByteArrTy, types.roByteArrAtom, true, nil, 0, bytesToItems(result))
-				return values.NewMap(types.blockRecordTy, types.blockRecordAtm, false,
-					[]values.MapEntry{{Key: "value", Value: block}})
-			}
-			closeFn := func() values.BalValue {
-				if err := closeUnderlyingHandle(); err != nil {
-					return fileIOError("error occurred while closing the channel. " + err.Error())
-				}
-				return nil
-			}
-			return values.NewStream(types.blockStreamTy, next, closeFn), nil
-		})
-
-	registerBase64Transform := func(name string, transform func(data []byte) ([]byte, error)) {
-		runtime.RegisterExternFunction(rt, orgName, moduleName, name,
-			func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-				self, _ := args[0].(*values.Object)
-				if isClosed(self) {
-					return fileIOError("Channel is already closed."), nil
-				}
-				reader, ok := readerOf(self)
-				if !ok {
-					return fileIOError("Byte channel is not initialized"), nil
-				}
-				data, err := io.ReadAll(reader)
-				if err != nil {
-					return fileIOError(err.Error()), nil
-				}
-				out, err := transform(data)
-				if err != nil {
-					// A Go error return panics in the interpreter, matching
-					// jBallerina, where the Base64 IllegalArgumentException
-					// escapes uncaught.
-					return nil, err
-				}
-				return values.NewList(types.byteArrTy, types.byteArrAtom, false, nil, 0, bytesToItems(out)), nil
-			})
-	}
-
-	registerBase64Transform("ReadableByteChannel.base64EncodeBytes",
-		func(data []byte) ([]byte, error) {
-			return base64.StdEncoding.AppendEncode(nil, data), nil
-		})
-
-	registerBase64Transform("ReadableByteChannel.base64DecodeBytes",
-		func(data []byte) ([]byte, error) {
-			// jBallerina's decoder treats the final padding as optional.
-			enc := base64.StdEncoding
-			if len(data)%4 != 0 {
-				enc = base64.RawStdEncoding
-			}
-			decoded, err := enc.AppendDecode(nil, data)
-			if err != nil {
-				return nil, fmt.Errorf("illegal Base64 input: %s", err.Error())
-			}
-			return decoded, nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.close",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			if isClosed(self) {
-				return byteChannelClosedError(), nil
-			}
-			markClosed(self)
-			if closer, ok := closerOf(self); ok {
-				if err := closer.closeOnce(); err != nil {
-					return fileIOError("error occurred while closing the channel. " + err.Error()), nil
-				}
-			}
-			return nil, nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableByteChannel.attachFile",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			path, _ := args[1].(string)
-			option, _ := args[2].(string)
-			w, err := rt.Platform().FS.OpenWritable(path, option == "APPEND")
-			if err != nil {
-				return fileIOError("error while opening file '" + path + "': " + err.Error()), nil
-			}
-			self.Put("$writer", w)
-			return nil, nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableByteChannel.write",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			list, _ := args[1].(*values.List)
-			offset, _ := args[2].(int64)
-
-			if isClosed(self) {
-				return byteChannelClosedError(), nil
-			}
-			writer, ok := writerOf(self)
-			if !ok {
-				return fileIOError("Byte channel is not initialized"), nil
-			}
-			content := list.ToByteSlice()
-			if offset < 0 || int(offset) > len(content) {
-				return fileIOError("invalid offset for the given content"), nil
-			}
-			n, err := writer.Write(content[offset:])
-			if err != nil {
-				return fileIOError("error occurred while writing bytes to the channel. " + err.Error()), nil
-			}
-			return int64(n), nil
-		})
-
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableByteChannel.close",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self, _ := args[0].(*values.Object)
-			if isClosed(self) {
-				return byteChannelClosedError(), nil
-			}
-			markClosed(self)
-			if writer, ok := writerOf(self); ok {
-				if err := writer.Close(); err != nil {
-					return fileIOError("error occurred while closing the channel. " + err.Error()), nil
-				}
-			}
-			return nil, nil
-		})
+	e := &byteChannelExterns{rt: rt, types: types}
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.attachFile", e.readableAttachFile)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.attachBytes", e.readableAttachBytes)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.read", e.readableRead)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.readAll", e.readableReadAll)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.blockStream", e.readableBlockStream)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.base64EncodeBytes", e.base64EncodeBytes)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.base64DecodeBytes", e.base64DecodeBytes)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "ReadableByteChannel.close", e.readableClose)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableByteChannel.attachFile", e.writableAttachFile)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableByteChannel.write", e.writableWrite)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "WritableByteChannel.close", e.writableClose)
 }
 
 func bytesToItems(data []byte) []values.BalValue {

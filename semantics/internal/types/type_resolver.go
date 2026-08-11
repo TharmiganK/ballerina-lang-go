@@ -6460,7 +6460,8 @@ func lowerInvocationArgs(t typeResolver, args []ast.BLangExpression, fnRef model
 		if !ok {
 			return args, true
 		}
-		sig = model.NewUntypedFunctionSignature(opaqueFunctionParams(opaque.Name(), model.TypedFunctionSignature{}), opaque.Name() == "push")
+		params := opaqueInvocationParams(opaque, args)
+		sig = model.NewUntypedFunctionSignature(params, hasRestParam(params))
 	}
 	return lowerInvocationArgsInner(t, args, sig, fnRef, expectedType, pos)
 }
@@ -7792,7 +7793,8 @@ func storeMonomorphizedOpaqueFn(t typeResolver, sym *model.OpaqueFunctionSymbol,
 	idx := space.AppendSymbol(mono)
 	mono.name = fmt.Sprintf("%s$mono$%d", sym.Name(), idx)
 	ref := space.RefAt(idx)
-	handle := t.allocateFunctionSignature(opaqueFunctionParams(sym.Name(), sig), sym.Name() == "push")
+	params := opaqueFunctionParams(sym, sig)
+	handle := t.allocateFunctionSignature(params, hasRestParam(params))
 	if !t.associateFunctionSignature(ref, handle) {
 		t.internalError("function signature already set", loc)
 		return model.SymbolRef{}, false
@@ -7803,17 +7805,56 @@ func storeMonomorphizedOpaqueFn(t typeResolver, sym *model.OpaqueFunctionSymbol,
 	return ref, true
 }
 
-func opaqueFunctionParams(name string, sig model.TypedFunctionSignature) []model.Param {
-	switch name {
-	case "push":
-		return []model.Param{{Name: "arr"}, {Name: "vals", Flag: model.ParamFlagRestParam}}
-	case "map":
-		return []model.Param{{Name: "arr"}, {Name: "func"}}
-	case "remove":
-		return []model.Param{{Name: "m"}, {Name: "k"}}
-	default:
+// opaqueFunctionParams returns the declared parameters of an opaque function,
+// so that named arguments resolve as they do in jBallerina. The names live on
+// the symbol because they are package-scoped: array:remove takes (arr, index)
+// while map:remove takes (m, k).
+//
+// A monomorphized signature can be shorter than the declaration when a
+// defaultable parameter was omitted at the call site (indexOf resolves to 2 or
+// 3 params), so the names are truncated to the signature's arity.
+func opaqueFunctionParams(sym *model.OpaqueFunctionSymbol, sig model.TypedFunctionSignature) []model.Param {
+	params := sym.Params
+	if len(params) == 0 {
 		return make([]model.Param, len(sig.ParamTypes))
 	}
+	// A zero-value signature means the caller wants the declaration itself, not
+	// a monomorphized instance of it, so every declared parameter is kept.
+	if len(sig.ParamTypes) > 0 && len(params) > len(sig.ParamTypes) {
+		return params[:len(sig.ParamTypes)]
+	}
+	return params
+}
+
+func hasRestParam(params []model.Param) bool {
+	return len(params) > 0 && params[len(params)-1].Flag == model.ParamFlagRestParam
+}
+
+// opaqueInvocationParams returns the declared parameters an opaque function
+// call actually binds, dropping trailing defaultable ones the call site neither
+// fills positionally nor names. Opaque functions carry no default expression to
+// desugar — the extern applies the default itself, and the monomorphizer picks
+// an arity to match — so a parameter the caller omits must not appear in the
+// signature at all, or lowering would report it as missing.
+func opaqueInvocationParams(sym *model.OpaqueFunctionSymbol, args []ast.BLangExpression) []model.Param {
+	params := sym.Params
+	positional := 0
+	named := make(map[string]bool, len(args))
+	for _, arg := range args {
+		if a, ok := arg.(*ast.BLangNamedArgsExpression); ok {
+			named[a.Name.GetValue()] = true
+			continue
+		}
+		positional++
+	}
+	for len(params) > positional {
+		last := params[len(params)-1]
+		if last.Flag&model.ParamFlagDefaultable == 0 || named[last.Name] {
+			break
+		}
+		params = params[:len(params)-1]
+	}
+	return params
 }
 
 func monomorphizeArrayPush(t typeResolver, sym *model.OpaqueFunctionSymbol, polymorphicRef model.SymbolRef, chain *binding, args []ast.BLangExpression, _ semtypes.SemType, pos diagnostics.Location) (model.SymbolRef, *binding, bool) {

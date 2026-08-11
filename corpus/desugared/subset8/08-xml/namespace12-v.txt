@@ -1,5 +1,7 @@
 (package
   (import-package ballerina io (as io))
+  (xmlns
+    (simple-var-ref URI) as bar)
   (const URI (
     (value-type string)) (
     (literal https:foo/bar)))

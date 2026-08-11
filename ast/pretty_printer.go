@@ -372,6 +372,9 @@ func (p *PrettyPrinter) printPackage(node *BLangPackage) {
 	for i := range sortedImports {
 		p.PrintInner(sortedImports[i])
 	}
+	for i := range node.XmlnsList {
+		p.PrintInner(node.XmlnsList[i])
+	}
 	for i := range node.Constants {
 		p.PrintInner(node.Constants[i])
 	}

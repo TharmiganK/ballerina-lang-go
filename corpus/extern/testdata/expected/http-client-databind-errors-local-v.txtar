@@ -25,6 +25,9 @@ true
 false
 true
 true
+incompatible 'int' found for 'text/plain' mime type
+true
+true
 failed to parse JSON payload: EOF
 true
 Payload binding failed: '""' value cannot be converted to '"green"|"red"'

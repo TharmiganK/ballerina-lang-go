@@ -174,6 +174,20 @@ public function main() returns error? {
     map<string>? blankForm = check c->get("/blank-form");
     io:println(blankForm is ()); // @output false
 
+    // The absent-payload rule is decided before the Content-Type picks a builder, so it holds
+    // for a nilable target the selected builder would otherwise reject outright.
+    int? emptyInt = check c->get("/empty");
+    io:println(emptyInt is ()); // @output true
+
+    map<json>? emptyJsonMap = check c->get("/empty");
+    io:println(emptyJsonMap is ()); // @output true
+
+    // A non-nilable target the builder rejects is still an incompatible-target error.
+    int|error nonNilInt = c->get("/empty");
+    if nonNilInt is error {
+        io:println(nonNilInt.message()); // @output incompatible 'int' found for 'text/plain' mime type
+    }
+
     // With no Content-Type, an empty body still binds to () for nilable targets.
     string? untypedEmpty = check c->get("/no-type-empty");
     io:println(untypedEmpty is ()); // @output true

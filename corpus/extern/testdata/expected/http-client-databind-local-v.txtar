@@ -17,20 +17,15 @@ true
 a=1&b=two
 a=1&b=two
 opaque payload
-untyped body
-12
 1 two
 true
 red true
 2 true
 red true
-red true
 true
 1 true
 true
 true
-true
-red true
 true
 Alice
 200

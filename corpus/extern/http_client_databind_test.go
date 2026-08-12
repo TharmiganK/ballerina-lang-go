@@ -23,88 +23,54 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/ballerina-nutcracker/ballerina/platform/palnative"
 )
 
-// databindServer serves one canned response per path, each with a Content-Type that selects
-// a particular payload builder.
-func databindServer() *httptest.Server {
-	type canned struct {
-		status      int
-		contentType string
-		body        string
-	}
-	routes := map[string]canned{
-		"/person":        {200, "application/json", `{"name": "Alice", "age": 30}`},
-		"/person-hal":    {200, "application/hal+json", `{"name": "Alice", "age": 30}`},
-		"/employee":      {200, "application/json", `{"name": "Alice", "address": {"city": "Colombo", "zip": 100}}`},
-		"/people":        {200, "application/json", `[{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]`},
-		"/count":         {200, "application/json", `7`},
-		"/flag":          {200, "application/json", `true`},
-		"/broken-json":   {200, "application/json", `{"name": "Alice", "age": nope}`},
-		"/trailing-json": {200, "application/json", `{"name": "Alice", "age": 30}trailing`},
-		"/text":          {200, "text/plain; charset=utf-8", "plain text body"},
-		"/blob":          {200, "application/octet-stream", "\x01\x02\x03"},
-		"/form":          {200, "application/x-www-form-urlencoded", "a=1&b=two"},
-		"/unknown":       {200, "application/vnd.custom", "opaque payload"},
-		"/xml":           {200, "application/xml", "<a>1</a>"},
-		"/empty":         {200, "text/plain", ""},
-		"/empty-json":    {200, "application/json", ""},
-		"/empty-blob":    {200, "application/octet-stream", ""},
-		"/empty-form":    {200, "application/x-www-form-urlencoded", ""},
-		// Non-empty on the wire but decodes to an empty map: must not be treated as absent.
-		"/blank-form": {200, "application/x-www-form-urlencoded", "&"},
-		"/bad-form":   {200, "application/x-www-form-urlencoded", "a=%zz"},
-		"/moved":      {302, "text/plain", "moved body"},
-		"/missing":    {404, "application/json", `{"error": "gone"}`},
-		"/gone-blob":  {410, "application/octet-stream", "\x09"},
-		"/boom":       {500, "text/plain", "kaboom"},
-		// A status error whose declared JSON body does not parse.
-		"/missing-broken-json": {404, "application/json", `{"error": nope}`},
-		// A valid enum member, for a target that is a proper subtype of string.
-		"/colour": {200, "text/plain", "red"},
-		// The same, with no Content-Type, so the builder comes from the target type.
-		"/no-type-colour": {200, "", "red"},
-		// Two bytes, the length a [byte, byte] tuple target accepts.
-		"/blob2": {200, "application/octet-stream", "\x01\x02"},
-		// 499 is nginx's client-closed-request code and has no registered reason phrase.
-		"/nginx-499": {499, "text/plain", "closed"},
-		// A status error carrying a JSON content type but no body at all.
-		"/empty-json-401": {401, "application/json", ""},
-		// An absent Content-Type sends the target type to builderFromType.
-		"/no-type":       {200, "", "untyped body"},
-		"/no-type-empty": {200, "", ""},
-	}
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		route, ok := routes[r.URL.Path]
-		if !ok {
-			w.WriteHeader(404)
-			return
-		}
-		if route.contentType == "" {
-			// Suppress Go's content sniffing so the response really has no Content-Type.
-			w.Header()["Content-Type"] = nil
-		} else {
-			w.Header().Set("Content-Type", route.contentType)
-		}
-		w.WriteHeader(route.status)
-		_, _ = fmt.Fprint(w, route.body)
-	}))
-}
-
 // TestHttpClientDataBindLocal covers each payload builder and the unknown-media-type
-// fallback, including targets narrower than the type their builder produces.
+// fallback, including targets narrower than the type their builder produces. The responses
+// are served by a Ballerina service in the fixture itself, so no Go server is needed.
 func TestHttpClientDataBindLocal(t *testing.T) {
-	server := databindServer()
-	defer server.Close()
-	runExtern(t, fileCase("http-client-databind-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
+	skipIfNoLoopback(t)
+	t.Parallel()
+	runExtern(t, fileCase("http-client-databind-local-v"), newHTTPPal(palnative.NewHTTPClient), nil)
 }
 
 // TestHttpClientDataBindErrorsLocal covers the failure paths: status mapping, binding
 // mismatches, incompatible media types, and the empty-body rules.
 func TestHttpClientDataBindErrorsLocal(t *testing.T) {
-	server := databindServer()
+	skipIfNoLoopback(t)
+	t.Parallel()
+	runExtern(t, fileCase("http-client-databind-errors-local-v"), newHTTPPal(palnative.NewHTTPClient), nil)
+}
+
+// TestHttpClientDataBindNoContentTypeLocal covers the target-type fallback for a response
+// carrying no Content-Type at all. A Ballerina service cannot produce one — the server always
+// emits a Content-Type, and removeHeader on it does not take — so this case keeps a Go server.
+func TestHttpClientDataBindNoContentTypeLocal(t *testing.T) {
+	server := noContentTypeServer()
 	defer server.Close()
-	runExtern(t, fileCase("http-client-databind-errors-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
+	runExtern(t, fileCase("http-client-databind-no-content-type-local-v"), newHTTPPal(rewriteClient(server.URL)), nil)
+}
+
+// noContentTypeServer suppresses Go's content sniffing so the responses really carry no
+// Content-Type header.
+func noContentTypeServer() *httptest.Server {
+	bodies := map[string]string{
+		"/no-type":        "untyped body",
+		"/no-type-colour": "red",
+		"/no-type-empty":  "",
+	}
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, ok := bodies[r.URL.Path]
+		if !ok {
+			w.WriteHeader(404)
+			return
+		}
+		w.Header()["Content-Type"] = nil
+		w.WriteHeader(200)
+		_, _ = fmt.Fprint(w, body)
+	}))
 }
 
 // truncatingServer declares a Content-Length it does not deliver, so the transport closes the

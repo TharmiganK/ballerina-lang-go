@@ -80,6 +80,13 @@ public function main() returns error? {
         io:println(trailing.message()); // @output failed to parse JSON payload: invalid character 'a' in literal true (expecting 'u')
     }
 
+    // getJsonPayload shares the same decoder, so it rejects trailing data too.
+    http:Response trailingResp = check c->get("/trailing-json");
+    json|error trailingJson = trailingResp.getJsonPayload();
+    if trailingJson is error {
+        io:println(trailingJson.message()); // @output failed to parse JSON payload: invalid character 'a' in literal true (expecting 'u')
+    }
+
     // A text/plain response cannot bind to a record.
     Person|error wrongMime = c->get("/text");
     if wrongMime is error {

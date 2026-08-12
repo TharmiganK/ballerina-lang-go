@@ -1128,13 +1128,13 @@ func initHttpModule(rt *runtime.Runtime) {
 			} else if s, ok := bodyVal.(string); ok {
 				body = []byte(s)
 			}
-			dec := json.NewDecoder(bytes.NewReader(body))
-			dec.UseNumber()
-			var v interface{}
-			if err := dec.Decode(&v); err != nil {
-				return values.NewErrorWithMessage("failed to parse JSON payload: " + err.Error()), nil
+			// Shared with client data binding, so the same body decodes to the same value and
+			// trailing data after a well-formed JSON value is rejected here too.
+			payload, jsonErr := decodeJSONBody(ctx, &types, body)
+			if jsonErr != nil {
+				return jsonErr, nil
 			}
-			return values.GoToBalValue(ctx.TypeCtx(), v, types.jsonListTy, types.jsonMapTy), nil
+			return payload, nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getBinaryPayload",

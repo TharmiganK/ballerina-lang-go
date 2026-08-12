@@ -90,10 +90,11 @@ func init() {
 // httpTypes holds the semtypes used by the http runtime. They are built once
 // in initHttpModule (single-threaded) and captured by the handler closures.
 type httpTypes struct {
-	byteArrTy  semtypes.SemType
-	strArrTy   semtypes.SemType
-	jsonListTy semtypes.SemType
-	jsonMapTy  semtypes.SemType
+	byteArrTy   semtypes.SemType
+	strArrTy    semtypes.SemType
+	jsonListTy  semtypes.SemType
+	jsonMapTy   semtypes.SemType
+	mapStringTy semtypes.SemType
 }
 
 // 8 KB matches Netty's HttpObjectDecoder.maxChunkSize used by jBallerina's transport.
@@ -367,11 +368,13 @@ func initHttpModule(rt *runtime.Runtime) {
 	strArrLd := semtypes.NewListDefinition()
 	jsonMapMd := semtypes.NewMappingDefinition()
 	jsonListLd := semtypes.NewListDefinition()
+	strMapMd := semtypes.NewMappingDefinition()
 	types := httpTypes{
-		byteArrTy:  byteArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE),
-		strArrTy:   strArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING),
-		jsonMapTy:  jsonMapMd.DefineMappingTypeWrapped(env, nil, jsonTy),
-		jsonListTy: jsonListLd.DefineListTypeWrappedWithEnvSemType(env, jsonTy),
+		byteArrTy:   byteArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE),
+		strArrTy:    strArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING),
+		jsonMapTy:   jsonMapMd.DefineMappingTypeWrapped(env, nil, jsonTy),
+		jsonListTy:  jsonListLd.DefineListTypeWrappedWithEnvSemType(env, jsonTy),
+		mapStringTy: strMapMd.DefineMappingTypeWrapped(env, nil, semtypes.STRING),
 	}
 
 	// msgToBody converts a Ballerina RequestMessage value to (io.Reader, contentLength, contentType).
@@ -414,6 +417,8 @@ func initHttpModule(rt *runtime.Runtime) {
 		}
 	}
 
+	// execBody serves post, put, patch and delete, whose parameter lists are identical:
+	// [self, path, message, headers, mediaType, targetType].
 	execBody := func(ctx *extern.Context, verb string, args []values.BalValue) (values.BalValue, error) {
 		self := args[0].(*values.Object)
 		path := args[1].(string)
@@ -451,7 +456,8 @@ func initHttpModule(rt *runtime.Runtime) {
 		if err != nil {
 			return values.NewErrorWithMessage(err.Error()), nil
 		}
-		return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
+		resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
+		return bindResponse(ctx, &types, resp, args[5]), nil
 	}
 
 	// Client class def.
@@ -768,7 +774,8 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
+			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
+			return bindResponse(ctx, &types, resp, args[3]), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$post",
@@ -811,7 +818,8 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
+			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
+			return bindResponse(ctx, &types, resp, args[3]), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$put",
@@ -829,7 +837,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			return execBody(ctx, "DELETE", args)
 		})
 
-	// execute: args = [self, httpVerb, path, message, headers?, mediaType?]
+	// execute: args = [self, httpVerb, path, message, headers, mediaType, targetType]
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$execute",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
@@ -870,10 +878,11 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
+			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
+			return bindResponse(ctx, &types, resp, args[6]), nil
 		})
 
-	// forward: args = [self, path, request]
+	// forward: args = [self, path, request, targetType]
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Client.$remote$forward",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
@@ -926,7 +935,8 @@ func initHttpModule(rt *runtime.Runtime) {
 			if err != nil {
 				return values.NewErrorWithMessage(err.Error()), nil
 			}
-			return buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream), nil
+			resp := buildResponse(ctx.TypeCtx(), statusCode, respHeaders, respBodyStream)
+			return bindResponse(ctx, &types, resp, args[3]), nil
 		})
 
 	// Default lambdas for Response header position params (return "LEADING").
@@ -1082,19 +1092,7 @@ func initHttpModule(rt *runtime.Runtime) {
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getContentType",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self := args[0].(*values.Object)
-			v, ok := responseHeaders(self).Get("content-type")
-			if !ok {
-				return "", nil
-			}
-			list := v.(*values.List)
-			if list.Len() == 0 {
-				return "", nil
-			}
-			if s, ok := list.Get(0).(string); ok {
-				return s, nil
-			}
-			return "", nil
+			return responseContentType(args[0].(*values.Object)), nil
 		})
 
 	// Response read methods.
@@ -1130,13 +1128,13 @@ func initHttpModule(rt *runtime.Runtime) {
 			} else if s, ok := bodyVal.(string); ok {
 				body = []byte(s)
 			}
-			dec := json.NewDecoder(bytes.NewReader(body))
-			dec.UseNumber()
-			var v interface{}
-			if err := dec.Decode(&v); err != nil {
-				return values.NewErrorWithMessage("failed to parse JSON payload: " + err.Error()), nil
+			// Shared with client data binding, so the same body decodes to the same value and
+			// trailing data after a well-formed JSON value is rejected here too.
+			payload, jsonErr := decodeJSONBody(ctx, &types, body)
+			if jsonErr != nil {
+				return jsonErr, nil
 			}
-			return values.GoToBalValue(ctx.TypeCtx(), v, types.jsonListTy, types.jsonMapTy), nil
+			return payload, nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getBinaryPayload",

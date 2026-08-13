@@ -65,7 +65,7 @@ func analyzeExplicitReturn(ctx *context.CompilerContext, pkg *ast.BLangPackage, 
 		wg.Go(func() { analyzeInvokableExplicitReturn(ctx, n, cfg) })
 	}
 	for i := range pkg.Functions {
-		spawn(&pkg.Functions[i])
+		spawn(pkg.Functions[i])
 	}
 	spawnObjectMembers := func(methods map[string]*ast.BLangFunction, resourceMethods []*ast.BLangResourceMethod) {
 		for _, method := range methods {
@@ -76,11 +76,11 @@ func analyzeExplicitReturn(ctx *context.CompilerContext, pkg *ast.BLangPackage, 
 		}
 	}
 	for i := range pkg.ClassDefinitions {
-		c := &pkg.ClassDefinitions[i]
+		c := pkg.ClassDefinitions[i]
 		spawnObjectMembers(c.Methods, c.ResourceMethods)
 	}
 	for i := range pkg.Services {
-		s := &pkg.Services[i]
+		s := pkg.Services[i]
 		spawnObjectMembers(s.Methods, s.ResourceMethods)
 	}
 	wg.Wait()

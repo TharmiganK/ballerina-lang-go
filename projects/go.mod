@@ -12,6 +12,7 @@ require (
 	github.com/ballerina-nutcracker/ballerina/desugar v0.7.0
 	github.com/ballerina-nutcracker/ballerina/lib v0.7.0
 	github.com/ballerina-nutcracker/ballerina/model v0.7.0
+	github.com/ballerina-nutcracker/ballerina/nodebuilder v0.7.0
 	github.com/ballerina-nutcracker/ballerina/parser v0.7.0
 	github.com/ballerina-nutcracker/ballerina/semantics v0.7.0
 	github.com/ballerina-nutcracker/ballerina/semtypes v0.7.0

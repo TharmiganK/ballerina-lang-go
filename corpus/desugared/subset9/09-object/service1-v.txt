@@ -179,7 +179,8 @@
           (simple-var-ref l) (
           (literal foo))))))
   (function $default$0 (
-    (variable svc)) ()
+    (variable svc (type
+      (value-type )))) ()
     (block-function-body
       (return
         (literal <nil>))))

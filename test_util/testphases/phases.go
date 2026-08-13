@@ -29,6 +29,7 @@ import (
 	"github.com/ballerina-nutcracker/ballerina/desugar"
 	"github.com/ballerina-nutcracker/ballerina/lib/stdlibs"
 	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/nodebuilder"
 	"github.com/ballerina-nutcracker/ballerina/parser"
 	"github.com/ballerina-nutcracker/ballerina/semantics"
 	"github.com/ballerina-nutcracker/ballerina/test_util/langlib"
@@ -117,7 +118,7 @@ func loadBuiltinPublicSymbols(env *context.CompilerEnvironment) map[semantics.Pa
 			continue
 		}
 
-		cu := ast.GetCompilationUnit(cx, st)
+		cu := nodebuilder.GetCompilationUnit(cx, st)
 		if cu == nil || cx.HasDiagnostics() {
 			continue
 		}
@@ -136,12 +137,12 @@ func loadBuiltinPublicSymbols(env *context.CompilerEnvironment) map[semantics.Pa
 		if cx.HasErrors() {
 			continue
 		}
-		pkg := ast.ToPackageFromCompilationUnits(compilationUnits)
+		pkg := nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
 		pkg.PackageID = pkgID
 		pkg.Scope = pkgScope
 		pkg.Imports = nil
 
-		semantics.ResolveTopLevelNodes(cx, pkg, importedByCU[0].Imports)
+		semantics.ResolvePublicNodeTypes(cx, pkg, importedByCU[0].Imports)
 		if cx.HasErrors() {
 			continue
 		}
@@ -189,12 +190,12 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 	}
 
 	// Phase 2: AST
-	result.CompilationUnit = ast.GetCompilationUnit(cx, syntaxTree)
+	result.CompilationUnit = nodebuilder.GetCompilationUnit(cx, syntaxTree)
 	if result.CompilationUnit == nil || cx.HasDiagnostics() {
 		return nil, fmt.Errorf("AST generation failed: compilation unit is nil")
 	}
 	if phase == PhaseAST {
-		result.Package = ast.ToPackageFromCompilationUnits([]*ast.BLangCompilationUnit{result.CompilationUnit})
+		result.Package = nodebuilder.ToPackageFromCompilationUnits([]*ast.BLangCompilationUnit{result.CompilationUnit})
 		return result, nil
 	}
 
@@ -211,7 +212,7 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 	compilationUnits := []*ast.BLangCompilationUnit{result.CompilationUnit}
 	importedByCU := semantics.ResolveCompilationUnitImports(cx, compilationUnits, langlibs.ImplicitImports, langlibs.PublicSymbols, "")
 	pkgScope, _ := semantics.ResolveSymbols(cx, *pkgID, importedByCU)
-	result.Package = ast.ToPackageFromCompilationUnits(compilationUnits)
+	result.Package = nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
 	result.Package.PackageID = pkgID
 	result.Package.Scope = pkgScope
 	importedSymbols := importedByCU[0].Imports
@@ -220,20 +221,19 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 	}
 
 	// Phase 4: Type Resolution (top level nodes)
-	semantics.ResolveTopLevelNodes(cx, result.Package, importedSymbols)
+	semantics.ResolvePublicNodeTypes(cx, result.Package, importedSymbols)
 	if phase == PhaseTypeResolution || cx.HasDiagnostics() {
 		return result, nil
 	}
 
 	// Phase 5: Type Resolution (inner nodes)
-	semantics.ResolveLocalNodes(cx, result.Package, importedSymbols)
+	semantics.ResolvePrivateNodesTypes(cx, result.Package, importedSymbols)
 	if phase == PhaseTypeNarrowing || cx.HasDiagnostics() {
 		return result, nil
 	}
 
 	// Phase 6: Semantic Analysis
-	semanticAnalyzer := semantics.NewSemanticAnalyzer(cx)
-	semanticAnalyzer.Analyze(result.Package, importedSymbols)
+	semantics.AnalyzeSemantics(cx, result.Package, importedSymbols)
 	if phase == PhaseSemanticAnalysis || cx.HasDiagnostics() {
 		return result, nil
 	}

@@ -183,7 +183,8 @@
           (invocation get expr:
             (simple-var-ref l) ()))))))
   (function $default$0 (
-    (variable svc)) ()
+    (variable svc (type
+      (value-type )))) ()
     (block-function-body
       (return
         (literal <nil>))))

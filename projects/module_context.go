@@ -30,6 +30,7 @@ import (
 	"github.com/ballerina-nutcracker/ballerina/context"
 	"github.com/ballerina-nutcracker/ballerina/desugar"
 	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/nodebuilder"
 	"github.com/ballerina-nutcracker/ballerina/semantics"
 	"github.com/ballerina-nutcracker/ballerina/st"
 	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
@@ -276,7 +277,7 @@ func resolveTypesAndSymbols(moduleCtx *moduleContext) {
 
 	compilerCtx.StartStage(context.StageSymbolResolution)
 	pkgScope, exported := semantics.ResolveSymbols(compilerCtx, *pkgID, importedSymbolsByCU)
-	pkgNode := ast.ToPackageFromCompilationUnits(compilationUnits)
+	pkgNode := nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
 	pkgNode.Imports = nil
 	pkgNode.PackageID = pkgID
 	pkgNode.Scope = pkgScope
@@ -296,7 +297,7 @@ func resolveTypesAndSymbols(moduleCtx *moduleContext) {
 
 	// Add type resolution step (this only resolve types of top level nodes)
 	compilerCtx.StartStage(context.StageTopLevelTypeResolution)
-	semantics.ResolveTopLevelNodes(compilerCtx, pkgNode, moduleCtx.importedSymbols)
+	semantics.ResolvePublicNodeTypes(compilerCtx, pkgNode, moduleCtx.importedSymbols)
 	compilerCtx.EndStage()
 }
 
@@ -317,15 +318,14 @@ func analyzeAndDesugar(moduleCtx *moduleContext) {
 
 	// Resolve types of function bodies and inner nodes
 	compilerCtx.StartStage(context.StageLocalNodeResolution)
-	semantics.ResolveLocalNodes(compilerCtx, pkgNode, moduleCtx.importedSymbols)
+	semantics.ResolvePrivateNodesTypes(compilerCtx, pkgNode, moduleCtx.importedSymbols)
 	compilerCtx.EndStage()
 	if compilerCtx.HasDiagnostics() {
 		return
 	}
 
 	compilerCtx.StartStage(context.StageSemanticAnalysis)
-	semanticAnalyzer := semantics.NewSemanticAnalyzer(moduleCtx.compilerCtx)
-	semanticAnalyzer.Analyze(pkgNode, moduleCtx.importedSymbols)
+	semantics.AnalyzeSemantics(moduleCtx.compilerCtx, pkgNode, moduleCtx.importedSymbols)
 	compilerCtx.EndStage()
 	if compilerCtx.HasDiagnostics() {
 		return
@@ -344,11 +344,9 @@ func analyzeAndDesugar(moduleCtx *moduleContext) {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "==================BEGIN CFG==================")
 		if compilationOptions.DumpCFGFormat() == CFGFormatDot {
-			dotExporter := semantics.NewCFGDotExporter(compilerCtx)
-			fmt.Fprintln(os.Stderr, strings.TrimSpace(dotExporter.Export(cfg)))
+			fmt.Fprintln(os.Stderr, strings.TrimSpace(semantics.PrintCFGDot(compilerCtx, cfg)))
 		} else {
-			prettyPrinter := semantics.NewCFGPrettyPrinter(compilerCtx)
-			fmt.Fprintln(os.Stderr, strings.TrimSpace(prettyPrinter.Print(cfg)))
+			fmt.Fprintln(os.Stderr, strings.TrimSpace(semantics.PrettyPrintCFG(compilerCtx, cfg)))
 		}
 		fmt.Fprintln(os.Stderr, "===================END CFG===================")
 	}
@@ -440,9 +438,9 @@ func buildCompilationUnits(cx *context.CompilerContext, syntaxTrees []*st.Syntax
 	for _, st := range syntaxTrees {
 		var cu *ast.BLangCompilationUnit
 		if dumpRecoveredAST {
-			cu = ast.GetRecoveredCompilationUnit(cx, st)
+			cu = nodebuilder.GetRecoveredCompilationUnit(cx, st)
 		} else {
-			cu = ast.GetCompilationUnit(cx, st)
+			cu = nodebuilder.GetCompilationUnit(cx, st)
 		}
 		if dumpAST {
 			fmt.Fprintln(os.Stderr, prettyPrinter.Print(cu))

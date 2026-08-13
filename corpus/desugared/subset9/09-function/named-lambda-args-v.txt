@@ -51,7 +51,8 @@
         (variable $desugar$2 (expr
           (lambda
             (function $default$3 (
-              (variable first)) ()
+              (variable first (type
+                (value-type )))) ()
               (block-function-body
                 (return
                   (binary-expr +

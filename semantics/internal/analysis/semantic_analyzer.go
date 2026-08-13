@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package semantics
+package analysis
 
 import (
 	"fmt"
@@ -23,6 +23,7 @@ import (
 	"github.com/ballerina-nutcracker/ballerina/ast"
 	"github.com/ballerina-nutcracker/ballerina/context"
 	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/semantics/internal/common"
 	"github.com/ballerina-nutcracker/ballerina/semtypes"
 	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
 )
@@ -47,7 +48,7 @@ type (
 	analyzerBase struct {
 		parent analyzer
 	}
-	SemanticAnalyzer struct {
+	semanticAnalyzer struct {
 		analyzerBase
 		compilerCtx *context.CompilerContext
 		typeCtx     semtypes.Context
@@ -91,7 +92,7 @@ type (
 
 var (
 	_ analyzer = &constantAnalyzer{}
-	_ analyzer = &SemanticAnalyzer{}
+	_ analyzer = &semanticAnalyzer{}
 	_ analyzer = &functionAnalyzer{}
 	_ analyzer = &loopAnalyzer{}
 	_ analyzer = &lockAnalyzer{}
@@ -175,7 +176,7 @@ func (ab *analyzerBase) moduleVarMetadata(ref model.SymbolRef) (varDeclMetadata,
 	return ab.parentAnalyzer().moduleVarMetadata(ref)
 }
 
-func (sa *SemanticAnalyzer) VisitTypeData(typeData *ast.TypeData) ast.Visitor {
+func (sa *semanticAnalyzer) VisitTypeData(typeData *ast.TypeData) ast.Visitor {
 	return nil
 }
 
@@ -232,7 +233,7 @@ func (la *loopAnalyzer) loc() diagnostics.Location {
 	return la.loop.GetPosition()
 }
 
-func (sa *SemanticAnalyzer) loc() diagnostics.Location {
+func (sa *semanticAnalyzer) loc() diagnostics.Location {
 	return sa.pkg.GetPosition()
 }
 
@@ -244,15 +245,15 @@ func (ca *constantAnalyzer) VisitTypeData(typeData *ast.TypeData) ast.Visitor {
 	return ca
 }
 
-func (sa *SemanticAnalyzer) ctx() *context.CompilerContext {
+func (sa *semanticAnalyzer) ctx() *context.CompilerContext {
 	return sa.compilerCtx
 }
 
-func (sa *SemanticAnalyzer) tyCtx() semtypes.Context {
+func (sa *semanticAnalyzer) tyCtx() semtypes.Context {
 	return sa.typeCtx
 }
 
-func (sa *SemanticAnalyzer) importedPackage(alias string) *ast.BLangImportPackage {
+func (sa *semanticAnalyzer) importedPackage(alias string) *ast.BLangImportPackage {
 	return sa.importedPkgs[alias]
 }
 
@@ -264,23 +265,23 @@ func (la *loopAnalyzer) tyCtx() semtypes.Context {
 	return la.parent.tyCtx()
 }
 
-func (sa *SemanticAnalyzer) unimplementedErr(message string, loc diagnostics.Location) {
+func (sa *semanticAnalyzer) unimplementedErr(message string, loc diagnostics.Location) {
 	sa.compilerCtx.Unimplemented(message, loc)
 }
 
-func (sa *SemanticAnalyzer) semanticErr(message string, loc diagnostics.Location) {
+func (sa *semanticAnalyzer) semanticErr(message string, loc diagnostics.Location) {
 	sa.compilerCtx.SemanticError(message, loc)
 }
 
-func (sa *SemanticAnalyzer) syntaxErr(message string, loc diagnostics.Location) {
+func (sa *semanticAnalyzer) syntaxErr(message string, loc diagnostics.Location) {
 	sa.compilerCtx.SyntaxError(message, loc)
 }
 
-func (sa *SemanticAnalyzer) internalErr(message string, loc diagnostics.Location) {
+func (sa *semanticAnalyzer) internalErr(message string, loc diagnostics.Location) {
 	sa.compilerCtx.InternalError(message, loc)
 }
 
-func (sa *SemanticAnalyzer) internalError(message string, loc diagnostics.Location) {
+func (sa *semanticAnalyzer) internalError(message string, loc diagnostics.Location) {
 	sa.compilerCtx.InternalError(message, loc)
 }
 
@@ -332,18 +333,23 @@ func (la *loopAnalyzer) internalErr(message string, loc diagnostics.Location) {
 	la.parent.ctx().InternalError(message, loc)
 }
 
-func NewSemanticAnalyzer(ctx *context.CompilerContext) *SemanticAnalyzer {
-	return &SemanticAnalyzer{
-		compilerCtx:     ctx,
-		typeCtx:         semtypes.ContextFrom(ctx.GetTypeEnv()),
-		importedPkgs:    make(map[string]*ast.BLangImportPackage),
-		importedSymbols: make(map[string]model.ExportedSymbolSpace),
+func newSemanticAnalyzer(ctx *context.CompilerContext) *semanticAnalyzer {
+	return &semanticAnalyzer{
+		compilerCtx:      ctx,
+		typeCtx:          semtypes.ContextFrom(ctx.GetTypeEnv()),
+		importedPkgs:     make(map[string]*ast.BLangImportPackage),
+		importedSymbols:  make(map[string]model.ExportedSymbolSpace),
+		moduleVarMetaMap: make(map[model.SymbolRef]varDeclMetadata),
 	}
 }
 
-func (sa *SemanticAnalyzer) Analyze(pkg *ast.BLangPackage, importedSymbols map[string]model.ExportedSymbolSpace) {
+func Analyze(ctx *context.CompilerContext, pkg *ast.BLangPackage, importedSymbols map[string]model.ExportedSymbolSpace) {
+	analyzer := newSemanticAnalyzer(ctx)
+	analyzer.analyze(pkg, importedSymbols)
+}
+
+func (sa *semanticAnalyzer) analyze(pkg *ast.BLangPackage, importedSymbols map[string]model.ExportedSymbolSpace) {
 	sa.pkg = pkg
-	sa.importedPkgs = make(map[string]*ast.BLangImportPackage)
 	if importedSymbols == nil {
 		importedSymbols = make(map[string]model.ExportedSymbolSpace)
 	}
@@ -351,13 +357,9 @@ func (sa *SemanticAnalyzer) Analyze(pkg *ast.BLangPackage, importedSymbols map[s
 	sa.moduleVarMetaMap = sa.buildModuleVarMetadata()
 	sa.validateModuleLevelIsolatedDecls(pkg)
 	ast.Walk(sa, pkg)
-	sa.pkg = nil
-	sa.importedPkgs = nil
-	sa.importedSymbols = nil
-	sa.moduleVarMetaMap = nil
 }
 
-func (sa *SemanticAnalyzer) moduleVarMetadata(ref model.SymbolRef) (varDeclMetadata, bool) {
+func (sa *semanticAnalyzer) moduleVarMetadata(ref model.SymbolRef) (varDeclMetadata, bool) {
 	md, ok := sa.moduleVarMetaMap[ref]
 	return md, ok
 }
@@ -367,7 +369,7 @@ func createConstantAnalyzer(parent analyzer, constant *ast.BLangVariable) *const
 	return &constantAnalyzer{analyzerBase: analyzerBase{parent: parent}, constant: constant, expectedType: expectedType}
 }
 
-func (sa *SemanticAnalyzer) Visit(node ast.BLangNode) ast.Visitor {
+func (sa *semanticAnalyzer) Visit(node ast.BLangNode) ast.Visitor {
 	if node == nil {
 		// Done
 		return nil
@@ -401,7 +403,7 @@ func (sa *SemanticAnalyzer) Visit(node ast.BLangNode) ast.Visitor {
 	}
 }
 
-func (sa *SemanticAnalyzer) processImport(importNode *ast.BLangImportPackage) {
+func (sa *semanticAnalyzer) processImport(importNode *ast.BLangImportPackage) {
 	alias := importNode.Alias.GetValue()
 
 	// Check for duplicate imports
@@ -461,7 +463,7 @@ func initializeFunctionAnalyzer(parent analyzer, function *ast.BLangFunction) *f
 	}
 	if function.Name.GetValue() == "init" {
 		// this is to seperate class init from module init
-		if _, isTopLevel := parent.(*SemanticAnalyzer); isTopLevel {
+		if _, isTopLevel := parent.(*semanticAnalyzer); isTopLevel {
 			fnSymbol := parent.ctx().GetSymbol(function.Symbol()).(model.FunctionSymbol)
 			validateInitFunction(parent, function, fnSymbol, function.GetPosition())
 		}
@@ -899,21 +901,17 @@ func validateResolvedType[A analyzer](a A, expr ast.BLangActionOrExpression, exp
 
 	ctx := a.tyCtx()
 	if !semtypes.IsSubtype(ctx, resolvedTy, expectedType) {
-		a.semanticErr(formatIncompatibleTypeMessage(ctx, expectedType, resolvedTy), expr.GetPosition())
+		a.semanticErr(common.FormatIncompatibleTypeMessage(ctx, expectedType, resolvedTy), expr.GetPosition())
 		return false
 	}
 	if semtypes.IsNever(resolvedTy) {
 		if !semtypes.IsNever(expectedType) {
-			a.semanticErr(formatIncompatibleTypeMessage(ctx, expectedType, resolvedTy), expr.GetPosition())
+			a.semanticErr(common.FormatIncompatibleTypeMessage(ctx, expectedType, resolvedTy), expr.GetPosition())
 			return false
 		}
 	}
 
 	return true
-}
-
-func formatIncompatibleTypeMessage(ctx semtypes.Context, expectedType semtypes.SemType, actualType semtypes.SemType) string {
-	return fmt.Sprintf("incompatible type: expected %s, got %s", semtypes.ToString(ctx, expectedType), semtypes.ToString(ctx, actualType))
 }
 
 func analyzeActionOrExpression[A analyzer](a A, expr ast.BLangActionOrExpression, expectedType semtypes.SemType) bool {
@@ -1038,11 +1036,9 @@ func analyzeCheckedExpr[A analyzer](a A, expr *ast.BLangCheckedExpr, expectedTyp
 	return validateResolvedType(a, expr, expectedType)
 }
 
-var templateInsertionAllowedTypes = semtypes.Diff(semtypes.SIMPLE_OR_STRING, semtypes.NIL)
-
 func analyzeTemplateExpr[A analyzer](a A, expr *ast.BLangTemplateExpr, expectedType semtypes.SemType) bool {
 	for _, ins := range expr.Insertions {
-		if !analyzeActionOrExpression(a, ins, templateInsertionAllowedTypes) {
+		if !analyzeActionOrExpression(a, ins, common.TemplateInsertionAllowedTypes) {
 			return false
 		}
 	}
@@ -1055,19 +1051,12 @@ func analyzeXMLTemplateExpr[A analyzer](a A, expr *ast.BLangXMLTemplateExpr, exp
 		return false
 	}
 	for i, ins := range expr.Insertions {
-		allowed := xmlTemplateInsertionAllowedTypes(expr.InsertionKinds[i])
+		allowed := common.XMLTemplateInsertionAllowedTypes(expr.InsertionKinds[i])
 		if !analyzeActionOrExpression(a, ins, allowed) {
 			return false
 		}
 	}
 	return validateResolvedType(a, expr, expectedType)
-}
-
-func xmlTemplateInsertionAllowedTypes(kind ast.XMLTemplateInsertionKind) semtypes.SemType {
-	if kind == ast.XMLTemplateInsertionKindContent {
-		return semtypes.Union(templateInsertionAllowedTypes, semtypes.XML)
-	}
-	return templateInsertionAllowedTypes
 }
 
 func analyzeTrapExpr[A analyzer](a A, expr *ast.BLangTrapExpr, expectedType semtypes.SemType) bool {
@@ -1220,14 +1209,14 @@ func analyzeQueryExpr[A analyzer](a A, queryExpr *ast.BLangQueryExpr, expectedTy
 	}
 
 	if clauses.selectClause != nil {
-		selectExpectedTy := querySelectExpectedType(
+		selectExpectedTy := common.QuerySelectExpectedType(
 			a.tyCtx(),
 			a.tyCtx().Env(),
 			queryExpr.QueryConstructType,
 			expectedType,
 		)
 		if semtypes.IsZero(selectExpectedTy) && queryExpr.QueryConstructType == ast.TypeKindMap {
-			selectExpectedTy = mapQuerySelectExpectedType(a.tyCtx().Env())
+			selectExpectedTy = common.MapQuerySelectExpectedType(a.tyCtx().Env())
 		}
 		if !analyzeActionOrExpression(a, clauses.selectClause.Expression, selectExpectedTy) {
 			return false
@@ -1350,7 +1339,7 @@ func validateTypeConversionExpr[A analyzer](a A, expr *ast.BLangTypeConversionEx
 		return false
 	}
 	if !semtypes.IsZero(expectedType) && !semtypes.IsSubtype(a.tyCtx(), targetType, expectedType) {
-		a.semanticErr(formatIncompatibleTypeMessage(a.tyCtx(), expectedType, targetType), expr.GetPosition())
+		a.semanticErr(common.FormatIncompatibleTypeMessage(a.tyCtx(), expectedType, targetType), expr.GetPosition())
 		return false
 	}
 	return validateResolvedType(a, expr, expectedType)
@@ -1459,7 +1448,7 @@ func analyzeMappingConstructorExpr[A analyzer](a A, expr *ast.BLangMappingConstr
 	}
 	for _, f := range expr.Fields {
 		kv := f.(*ast.BLangMappingKeyValueField)
-		keyName := recordKeyName(kv.Key)
+		keyName := common.MappingKeyName(kv.Key)
 		if seen[keyName] {
 			a.semanticErr(fmt.Sprintf("duplicate key '%s' in mapping constructor", keyName), kv.Key.GetPosition())
 			return false
@@ -1561,7 +1550,7 @@ func analyzeUnaryExpr[A analyzer](a A, unaryExpr *ast.BLangUnaryExpr, expectedTy
 
 	switch unaryExpr.GetOperatorKind() {
 	case model.OperatorKind_ADD, model.OperatorKind_SUB, model.OperatorKind_BITWISE_COMPLEMENT:
-		if !isNumericType(a.tyCtx(), underlyingTy) {
+		if !common.IsNumericType(a.tyCtx(), underlyingTy) {
 			a.semanticErr(fmt.Sprintf("expect numeric type for %s", string(unaryExpr.GetOperatorKind())), unaryExpr.GetPosition())
 			return false
 		}
@@ -1593,7 +1582,7 @@ func analyzeBinaryExpr[A analyzer](a A, binaryExpr *ast.BLangBinaryExpr, expecte
 
 	ctx := a.tyCtx()
 	// Perform semantic validation based on operator type
-	if isEqualityExpr(binaryExpr) {
+	if common.IsEqualityExpr(binaryExpr) {
 		// For equality operators, ensure types have non-empty intersection
 		intersection := semtypes.Intersect(lhsTy, rhsTy)
 		if semtypes.IsEmpty(ctx, intersection) {
@@ -1608,20 +1597,20 @@ func analyzeBinaryExpr[A analyzer](a A, binaryExpr *ast.BLangBinaryExpr, expecte
 				return false
 			}
 		}
-	} else if isBitWiseExpr(binaryExpr) {
+	} else if common.IsBitWiseExpr(binaryExpr) {
 		if !analyzeBitWiseExpr(a, binaryExpr, lhsTy, rhsTy) {
 			return false
 		}
-	} else if isRangeExpr(binaryExpr) {
+	} else if common.IsRangeExpr(binaryExpr) {
 		if !semtypes.IsSubtype(a.tyCtx(), lhsTy, semtypes.INT) || !semtypes.IsSubtype(a.tyCtx(), rhsTy, semtypes.INT) {
 			a.semanticErr(fmt.Sprintf("expect int types for %s", string(binaryExpr.GetOperatorKind())), binaryExpr.GetPosition())
 			return false
 		}
-	} else if isShiftExpr(binaryExpr) {
+	} else if common.IsShiftExpr(binaryExpr) {
 		if !analyzeShiftExpr(a, lhsTy, rhsTy) {
 			return false
 		}
-	} else if isLogicalExpression(binaryExpr) {
+	} else if common.IsLogicalExpression(binaryExpr) {
 		if !semtypes.IsSubtype(a.tyCtx(), lhsTy, semtypes.BOOLEAN) || !semtypes.IsSubtype(a.tyCtx(), rhsTy, semtypes.BOOLEAN) {
 			a.semanticErr(fmt.Sprintf("expect boolean types for %s", string(binaryExpr.GetOperatorKind())), binaryExpr.GetPosition())
 			return false
@@ -1896,14 +1885,14 @@ func validateServiceListenerTypes[A analyzer](a A, svc *ast.BLangService) {
 		a.internalErr("service types not resolved", svc.GetPosition())
 		return
 	}
-	attachPointBound := listenerAttachPointBound(a.tyCtx())
+	attachPointBound := common.ListenerAttachPointBound(a.tyCtx())
 	for _, expr := range svc.AttachedExprs {
 		listenerTy := semtypes.Diff(expr.GetDeterminedType(), semtypes.ERROR)
 		if semtypes.IsNever(listenerTy) {
 			a.semanticErr("expression in 'on' clause is not a listener", expr.GetPosition())
 			continue
 		}
-		listenerServiceTy, listenerAttachPointTy, ok := listenerTypes(a.tyCtx(), listenerTy, attachPointBound)
+		listenerServiceTy, listenerAttachPointTy, ok := common.ListenerTypes(a.tyCtx(), listenerTy, attachPointBound)
 		if !ok {
 			a.semanticErr("listener expression type not resolved", expr.GetPosition())
 			continue
@@ -1962,8 +1951,8 @@ func analyzeClassBodyMembers[A analyzer](a A, fields []*ast.BLangVariable, initF
 		fa := initializeMethodAnalyzer(a, initFn, enclosing)
 		walkMethodBody(fa, initFn)
 	}
-	for _, named := range methodsInResolutionOrder(methods) {
-		method := named.method
+	for _, named := range common.MethodsInResolutionOrder(methods) {
+		method := named.Method
 		fa := initializeMethodAnalyzer(a, method, enclosing)
 		walkMethodBody(fa, method)
 	}
@@ -2035,14 +2024,6 @@ func analyzeWhile[A analyzer](a A, whileStmt *ast.BLangWhile) bool {
 	return analyzeActionOrExpression(a, whileStmt.Expr, semtypes.BOOLEAN)
 }
 
-func getIterableType(cx *context.CompilerContext, symbolType func(model.SymbolRef) semtypes.SemType) (semtypes.SemType, bool) {
-	ref, ok := cx.LangLibDistinctTypeSymbol("lang.object", "Iterable")
-	if !ok {
-		return semtypes.SemType{}, false
-	}
-	return symbolType(ref), true
-}
-
 func validateForeach[A analyzer](a A, foreachStmt *ast.BLangForeach) bool {
 	collection := foreachStmt.Collection
 	if !analyzeActionOrExpression(a, collection, semtypes.SemType{}) {
@@ -2050,7 +2031,7 @@ func validateForeach[A analyzer](a A, foreachStmt *ast.BLangForeach) bool {
 	}
 	variable := foreachStmt.VariableDef.GetVariable()
 	variableType := a.ctx().SymbolType(variable.Symbol())
-	if binExpr, ok := collection.(*ast.BLangBinaryExpr); ok && isRangeExpr(binExpr) {
+	if binExpr, ok := collection.(*ast.BLangBinaryExpr); ok && common.IsRangeExpr(binExpr) {
 		if !semtypes.IsSubtype(a.tyCtx(), variableType, semtypes.INT) {
 			a.semanticErr("foreach variable must be a subtype of int for range expression", collection.GetPosition())
 			return false
@@ -2072,7 +2053,7 @@ func validateForeach[A analyzer](a A, foreachStmt *ast.BLangForeach) bool {
 			expectedValueType = semtypes.XMLItemType(collectionType)
 		default:
 			tyCtx := a.tyCtx()
-			iterableTy, ok := getIterableType(a.ctx(), a.ctx().SymbolType)
+			iterableTy, ok := common.IterableType(a.ctx(), a.ctx().SymbolType)
 			if !ok {
 				a.semanticErr("foreach collection must be subtype of object:Iterable", collection.GetPosition())
 				return false
@@ -2098,17 +2079,6 @@ func validateForeach[A analyzer](a A, foreachStmt *ast.BLangForeach) bool {
 		}
 	}
 	return true
-}
-
-func recordKeyName(key *ast.BLangMappingKey) string {
-	switch expr := key.Expr.(type) {
-	case *ast.BLangLiteral:
-		return expr.Value.(string)
-	case *ast.BLangVarRef:
-		return expr.VariableName.GetValue()
-	default:
-		panic(fmt.Sprintf("unexpected record key expression type: %T", key.Expr))
-	}
 }
 
 func setExpectedType[E ast.BLangNode](e E, expectedType semtypes.SemType) {

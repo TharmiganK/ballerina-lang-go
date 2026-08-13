@@ -28,24 +28,24 @@ import (
 	"strings"
 	"testing"
 
-	"ballerina/ast"
-	"ballerina/bir"
-	bircodec "ballerina/bir/codec"
-	"ballerina/context"
-	"ballerina/desugar"
-	"ballerina/model"
-	"ballerina/model/symbolpool"
-	"ballerina/parser"
-	"ballerina/projects"
-	"ballerina/runtime"
-	"ballerina/semantics"
-	"ballerina/semtypes"
-	"ballerina/test_util"
-	"ballerina/test_util/langlib"
-	"ballerina/test_util/testharness"
-	"ballerina/tools/text"
+	"github.com/ballerina-nutcracker/ballerina/ast"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	bircodec "github.com/ballerina-nutcracker/ballerina/bir/codec"
+	"github.com/ballerina-nutcracker/ballerina/context"
+	"github.com/ballerina-nutcracker/ballerina/desugar"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/model/symbolpool"
+	"github.com/ballerina-nutcracker/ballerina/parser"
+	"github.com/ballerina-nutcracker/ballerina/projects"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/semantics"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/test_util"
+	"github.com/ballerina-nutcracker/ballerina/test_util/langlib"
+	"github.com/ballerina-nutcracker/ballerina/test_util/testharness"
+	"github.com/ballerina-nutcracker/ballerina/tools/text"
 
-	_ "ballerina/lib/rt"
+	_ "github.com/ballerina-nutcracker/ballerina/lib/rt"
 )
 
 const (
@@ -80,7 +80,7 @@ var (
 		// once that's registered in DiagnosticEnv).
 		"project/missing-package-e",
 		"project/parse-error-e",
-		// Pre-existing -fp.bal test that does not currently surface a runtime
+		// Pre-existing future test that does not currently surface a runtime
 		// panic or a compile-time `fatal[...]` bailout, so it does not satisfy
 		// the future-test contract yet. Tracked separately.
 		"subset8/08-future/fieldlvalue1-fp.bal",

@@ -36,26 +36,31 @@
             (simple-var-ref $desugar$1))))))
       (var-def
         (variable $desugar$3 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$4 (expr
           (remote-method-call get expr:
             (simple-var-ref c1) (
             (simple-var-ref $desugar$1)
-            (simple-var-ref $desugar$2))))))
+            (simple-var-ref $desugar$2)
+            (simple-var-ref $desugar$3))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$3))
+          (simple-var-ref $desugar$4))
         (block-stmt
           (return
-            (simple-var-ref $desugar$3))) ())
+            (simple-var-ref $desugar$4))) ())
       (var-def
-        (variable r1 (expr
-          (simple-var-ref $desugar$3))))
+        (variable r1 (type
+          (user-defined-type http Response)) (expr
+          (simple-var-ref $desugar$4))))
       (expression-stmt
         (invocation io println (
           (index-based-access
             (simple-var-ref r1)
             (literal statusCode)))))
       (var-def
-        (variable $desugar$4 (expr
+        (variable $desugar$5 (expr
           (new (
             (literal https://example.com)
             (mapping-constructor-expr
@@ -83,43 +88,48 @@
                     (literal 10))))))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$4))
+          (simple-var-ref $desugar$5))
         (block-stmt
           (return
-            (simple-var-ref $desugar$4))) ())
+            (simple-var-ref $desugar$5))) ())
       (var-def
         (variable c2 (type
           (user-defined-type http Client)) (expr
-          (simple-var-ref $desugar$4))))
-      (var-def
-        (variable $desugar$5 (expr
-          (literal /path))))
+          (simple-var-ref $desugar$5))))
       (var-def
         (variable $desugar$6 (expr
-          (invocation $default$21 (
-            (simple-var-ref $desugar$5))))))
+          (literal /path))))
       (var-def
         (variable $desugar$7 (expr
+          (invocation $default$21 (
+            (simple-var-ref $desugar$6))))))
+      (var-def
+        (variable $desugar$8 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$9 (expr
           (remote-method-call get expr:
             (simple-var-ref c2) (
-            (simple-var-ref $desugar$5)
-            (simple-var-ref $desugar$6))))))
+            (simple-var-ref $desugar$6)
+            (simple-var-ref $desugar$7)
+            (simple-var-ref $desugar$8))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$7))
+          (simple-var-ref $desugar$9))
         (block-stmt
           (return
-            (simple-var-ref $desugar$7))) ())
+            (simple-var-ref $desugar$9))) ())
       (var-def
-        (variable r2 (expr
-          (simple-var-ref $desugar$7))))
+        (variable r2 (type
+          (user-defined-type http Response)) (expr
+          (simple-var-ref $desugar$9))))
       (expression-stmt
         (invocation io println (
           (index-based-access
             (simple-var-ref r2)
             (literal statusCode)))))
       (var-def
-        (variable $desugar$8 (expr
+        (variable $desugar$10 (expr
           (new (
             (literal https://example.com)
             (mapping-constructor-expr
@@ -142,36 +152,41 @@
                           (literal TLSv1.3)))))))))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$8))
+          (simple-var-ref $desugar$10))
         (block-stmt
           (return
-            (simple-var-ref $desugar$8))) ())
+            (simple-var-ref $desugar$10))) ())
       (var-def
         (variable c3 (type
           (user-defined-type http Client)) (expr
-          (simple-var-ref $desugar$8))))
-      (var-def
-        (variable $desugar$9 (expr
-          (literal /path))))
-      (var-def
-        (variable $desugar$10 (expr
-          (invocation $default$21 (
-            (simple-var-ref $desugar$9))))))
+          (simple-var-ref $desugar$10))))
       (var-def
         (variable $desugar$11 (expr
+          (literal /path))))
+      (var-def
+        (variable $desugar$12 (expr
+          (invocation $default$21 (
+            (simple-var-ref $desugar$11))))))
+      (var-def
+        (variable $desugar$13 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$14 (expr
           (remote-method-call get expr:
             (simple-var-ref c3) (
-            (simple-var-ref $desugar$9)
-            (simple-var-ref $desugar$10))))))
+            (simple-var-ref $desugar$11)
+            (simple-var-ref $desugar$12)
+            (simple-var-ref $desugar$13))))))
       (if
         (type-test-expr is
-          (simple-var-ref $desugar$11))
+          (simple-var-ref $desugar$14))
         (block-stmt
           (return
-            (simple-var-ref $desugar$11))) ())
+            (simple-var-ref $desugar$14))) ())
       (var-def
-        (variable r3 (expr
-          (simple-var-ref $desugar$11))))
+        (variable r3 (type
+          (user-defined-type http Response)) (expr
+          (simple-var-ref $desugar$14))))
       (expression-stmt
         (invocation io println (
           (index-based-access

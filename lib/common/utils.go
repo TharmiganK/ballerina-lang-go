@@ -17,11 +17,11 @@
 package common
 
 import (
-	"ballerina/model"
-	"ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
 )
 
-func FunctionSignatureToSemType(env semtypes.Env, fs *model.FunctionSignature) semtypes.SemType {
+func FunctionSignatureToSemType(env semtypes.Env, fs *model.TypedFunctionSignature) semtypes.SemType {
 	var restTy semtypes.SemType
 	if !semtypes.IsZero(fs.RestParamType) {
 		restTy = fs.RestParamType

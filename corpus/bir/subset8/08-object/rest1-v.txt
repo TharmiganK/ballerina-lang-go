@@ -10,7 +10,7 @@ class Adder {
     }
   }
 
-  sum(,[int...]...) -> int{
+  sum([int...]...) -> int{
     bb0 {
       %4 = ConstantLoad base
       %3 = self[%4];

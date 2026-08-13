@@ -16,7 +16,7 @@
 
 package semtypes
 
-import "ballerina/common"
+import "github.com/ballerina-nutcracker/ballerina/common"
 
 // Represent object type desc.
 type ObjectDefinition struct {
@@ -37,7 +37,7 @@ func ObjectDefinitionDistinct(distinctId int) SemType {
 	return getBasicSubtype(BTObject, bdd)
 }
 
-func stripObjectDistinctAtoms(ty SemType) SemType {
+func StripObjectDistinctAtoms(ty SemType) SemType {
 	return stripDistinctAtomsFromSemType(ty, BTObject, stripDistinctAtomsFromBdd)
 }
 

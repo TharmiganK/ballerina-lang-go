@@ -19,9 +19,9 @@ package semantics
 import (
 	"strings"
 
-	"ballerina/ast"
-	"ballerina/model"
-	"ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/ast"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
 )
 
 func extractXMLNSURI[T symbolResolver](resolver T, uriExpr ast.BLangExpression, pos diagnostics.Location) (string, bool) {
@@ -166,7 +166,7 @@ func lookupXMLNS(scope model.Scope, prefix string) (model.SymbolRef, model.Scope
 	return model.SymbolRef{}, nil, false
 }
 
-func processCompilationUnitXMLNS(resolver *moduleSymbolResolver, cu *ast.BLangCompilationUnit) {
+func processCompilationUnitXMLNS(resolver *compilationUnitSymbolResolver, cu *ast.BLangCompilationUnit) {
 	for _, node := range cu.TopLevelNodes {
 		decl, ok := node.(*ast.BLangXMLNS)
 		if !ok {

@@ -21,13 +21,13 @@ import (
 	"iter"
 	"strings"
 
-	"ballerina/common"
-	"ballerina/context"
-	"ballerina/model"
-	"ballerina/parser/tree"
-	"ballerina/semtypes"
-	"ballerina/tools/diagnostics"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/common"
+	"github.com/ballerina-nutcracker/ballerina/context"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/st"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 type BNodeWithSymbol interface {
@@ -153,10 +153,14 @@ type (
 
 	BLangService struct {
 		classDefnBase
-		AttachedExprs []BLangExpression
-		// attach point either AbsoluteResourcePath or AttachPointLiteral
+		AttachedExprs         []BLangExpression
+		AttachedExprsPosition diagnostics.Location
+		// A nil AbsoluteResourcePath means there is no attach point; an empty,
+		// non-nil path represents the root attach point `/`.
 		AbsoluteResourcePath []BLangIdentifier
 		AttachPointLiteral   *BLangLiteral
+		AttachPointType      semtypes.SemType
+		ObjectBodyType       semtypes.SemType
 	}
 
 	BLangCompilationUnit struct {
@@ -313,6 +317,25 @@ func (b *bLangInvokableNodeBase) FuncSymbolFlags() model.FuncSymbolFlags {
 	return model.FuncSymbolFlags(b.flags)
 }
 
+func (b *bLangInvokableNodeBase) Parameters() []Param {
+	params := make([]Param, len(b.RequiredParams))
+	for i := range b.RequiredParams {
+		params[i] = &b.RequiredParams[i]
+	}
+	return params
+}
+
+func (b *bLangInvokableNodeBase) RestParameter() Param {
+	if b.RestParam == nil {
+		return nil
+	}
+	return b.RestParam.(Param)
+}
+
+func (b *bLangInvokableNodeBase) ReturnType() TypeDescriptor {
+	return b.returnTypeDescriptor
+}
+
 // BLangVariableBase flag methods
 func (b *BLangVariableBase) IsPublic() bool           { return b.flags.Has(model.FlagPublic) }
 func (b *BLangVariableBase) IsFinal() bool            { return b.flags.Has(model.FlagFinal) }
@@ -420,6 +443,21 @@ func (n *BLangVariableBase) SetTypeNode(bt BType) {
 	n.typeNode = bt
 }
 
+func (n *BLangVariableBase) Type() BType {
+	return n.typeNode
+}
+
+func (n *BLangVariableBase) DefaultExpr() BLangExpression {
+	if n.Expr == nil {
+		return nil
+	}
+	return n.Expr.(BLangExpression)
+}
+
+func (n *BLangVariableBase) IsDefaultable() bool {
+	return n.IsDefaultableParam()
+}
+
 func (n *bLangInvokableNodeBase) Symbol() model.SymbolRef {
 	return n.symbol
 }
@@ -471,6 +509,9 @@ var (
 	_ MarkdownDocumentationReferenceAttributeNode = &BLangMarkdownReferenceDocumentation{}
 	_ ExprFunctionBodyNode                        = &BLangExprFunctionBody{}
 	_ FunctionNode                                = &BLangFunction{}
+	_ FunctionSignature                           = &BLangFunction{}
+	_ FunctionSignature                           = &BLangResourceMethod{}
+	_ Param                                       = &BLangSimpleVariable{}
 	_ FunctionBodyNode                            = &BLangExternFunctionBody{}
 )
 
@@ -854,6 +895,13 @@ func (b *BLangConstant) GetAssociatedType() semtypes.SemType {
 
 func (b *BLangSimpleVariable) GetName() IdentifierNode {
 	return b.Name
+}
+
+func (b *BLangSimpleVariable) ParamName() string {
+	if b.Name == nil {
+		return ""
+	}
+	return b.Name.GetValue()
 }
 
 func (b *BLangSimpleVariable) SetName(name IdentifierNode) {
@@ -1538,16 +1586,16 @@ func createConstantNode() *BLangConstant {
 	return c
 }
 
-func GetCompilationUnit(cx *context.CompilerContext, syntaxTree *tree.SyntaxTree) *BLangCompilationUnit {
+func GetCompilationUnit(cx *context.CompilerContext, syntaxTree *st.SyntaxTree) *BLangCompilationUnit {
 	nodeBuilder := NewNodeBuilder(cx)
-	compilationUnit := nodeBuilder.TransformModulePart(syntaxTree.RootNode.(*tree.ModulePart))
+	compilationUnit := nodeBuilder.TransformModulePart(syntaxTree.RootNode.(*st.ModulePart))
 	return compilationUnit.(*BLangCompilationUnit)
 }
 
 // GetRecoveredCompilationUnit builds an AST while preserving malformed syntax as bad nodes.
-func GetRecoveredCompilationUnit(cx *context.CompilerContext, syntaxTree *tree.SyntaxTree) *BLangCompilationUnit {
+func GetRecoveredCompilationUnit(cx *context.CompilerContext, syntaxTree *st.SyntaxTree) *BLangCompilationUnit {
 	nodeBuilder := NewRecoveringNodeBuilder(cx)
-	compilationUnit := nodeBuilder.TransformModulePart(syntaxTree.RootNode.(*tree.ModulePart))
+	compilationUnit := nodeBuilder.TransformModulePart(syntaxTree.RootNode.(*st.ModulePart))
 	return compilationUnit.(*BLangCompilationUnit)
 }
 

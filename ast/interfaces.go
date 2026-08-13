@@ -19,9 +19,9 @@ package ast
 import (
 	"iter"
 
-	"ballerina/model"
-	"ballerina/semtypes"
-	"ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
 )
 
 // Field represents an annotated type member with a name and type.
@@ -179,6 +179,25 @@ type FunctionNode interface {
 	InvokableNode
 	AnnotatableNode
 	TopLevelNode
+}
+
+type FunctionSignature interface {
+	BLangNode
+	Parameters() []Param
+	RestParameter() Param
+	ReturnType() TypeDescriptor
+	IsIsolated() bool
+	IsTransactional() bool
+}
+
+type Param interface {
+	BLangNode
+	ParamName() string
+	Type() BType
+	DefaultExpr() BLangExpression
+	Symbol() model.SymbolRef
+	IsDefaultable() bool
+	IsIncludedRecordParam() bool
 }
 
 // Class / service.

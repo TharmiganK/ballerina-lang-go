@@ -23,9 +23,9 @@ import (
 	"slices"
 	"strings"
 
-	"ballerina/model"
-	"ballerina/tools/diagnostics"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 // TODO: may be we should rewrite this on top of a visitor.
@@ -76,6 +76,8 @@ func (p *PrettyPrinter) PrintInner(node BLangNode) {
 		p.printReturnTypeDescriptor(t)
 	case *BLangBlockFunctionBody:
 		p.printBlockFunctionBody(t)
+	case *BLangExprFunctionBody:
+		p.printExprFunctionBody(t)
 	case *BLangSimpleVariable:
 		p.printSimpleVariable(t)
 	case *BLangIf:
@@ -102,6 +104,8 @@ func (p *PrettyPrinter) PrintInner(node BLangNode) {
 		p.printClientResourceAccessAction(t)
 	case *BLangNamedArgsExpression:
 		p.printNamedArgsExpression(t)
+	case *BLangDefaultArg:
+		p.PrintString("<default>")
 	case *BLangValueType:
 		p.printValueType(t)
 	case *BLangBuiltInRefTypeNode:
@@ -940,6 +944,17 @@ func (p *PrettyPrinter) printBlockFunctionBody(node *BLangBlockFunctionBody) {
 		p.PrintInner(stmt.(BLangNode))
 	}
 	p.indentLevel--
+	p.EndNode()
+}
+
+func (p *PrettyPrinter) printExprFunctionBody(node *BLangExprFunctionBody) {
+	p.StartNode()
+	p.PrintString("expr-function-body")
+	if node.Expr != nil {
+		p.indentLevel++
+		p.PrintInner(node.Expr.(BLangNode))
+		p.indentLevel--
+	}
 	p.EndNode()
 }
 
@@ -2125,12 +2140,16 @@ func (p *PrettyPrinter) printService(node *BLangService) {
 		p.indentLevel++
 		p.PrintInner(node.AttachPointLiteral)
 		p.indentLevel--
-	} else if len(node.AbsoluteResourcePath) > 0 {
+	} else if node.AbsoluteResourcePath != nil {
 		p.indentLevel++
 		p.StartNode()
 		p.PrintString("absolute-resource-path")
-		for i := range node.AbsoluteResourcePath {
-			p.PrintString(node.AbsoluteResourcePath[i].Value)
+		if len(node.AbsoluteResourcePath) == 0 {
+			p.PrintString("/")
+		} else {
+			for i := range node.AbsoluteResourcePath {
+				p.PrintString(node.AbsoluteResourcePath[i].Value)
+			}
 		}
 		p.EndNode()
 		p.indentLevel--

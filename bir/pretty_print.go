@@ -21,9 +21,9 @@ import (
 	"sort"
 	"strings"
 
-	"ballerina/model"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 type PrettyPrinter struct {
@@ -97,7 +97,7 @@ func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 	p.write(function.Name.Value())
 	p.write("(")
 	paramStart := 1
-	if len(function.LocalVars) > 1 && function.LocalVars[1].GetName() == "self" {
+	if function.Flags.Has(model.FlagAttached) {
 		paramStart = 2
 	}
 	for i, v := range function.LocalVars[paramStart:] {
@@ -112,7 +112,7 @@ func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 	}
 	if function.RestParams != nil {
 		variableIndex := paramStart + len(function.RequiredParams)
-		if variableIndex != 1 {
+		if variableIndex != paramStart {
 			p.write(",")
 		}
 		p.write(p.PrintSemType(function.LocalVars[variableIndex].Type))

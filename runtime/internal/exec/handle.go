@@ -19,10 +19,10 @@ package exec
 import (
 	"fmt"
 
-	"ballerina/bir"
-	"ballerina/runtime/extern"
-	"ballerina/runtime/internal/modules"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/runtime/internal/modules"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 // InvokableHandle is provides a unified representation that can be used to execute any function/method
@@ -54,6 +54,9 @@ func NewNativeHandle(fn extern.NativeFunc) *InvokableHandle {
 func NewFunctionValueHandle(env *extern.Env, fnValue *values.Function) (*InvokableHandle, error) {
 	reg := env.Registry.(*modules.Registry)
 	lookupKey := fnValue.LookupKey
+	if builtin := reg.GetRuntimeBuiltin(lookupKey); builtin != nil {
+		return NewNativeHandle(builtin), nil
+	}
 	if fn := reg.GetBIRFunction(lookupKey); fn != nil {
 		return newBIRHandle(fn, parentFrameFromFunctionValue(fnValue)), nil
 	}

@@ -16,7 +16,7 @@
 
 package extern
 
-import "ballerina/values"
+import "github.com/ballerina-nutcracker/ballerina/values"
 
 // MethodHandle is an opaque reference to a resolved method on a Ballerina
 // object. Obtain one from Context.LookupObjectMethod,
@@ -101,6 +101,11 @@ func (c *Context) LookupFunction(org, module, name string) (FunctionHandle, bool
 // InvokeFunction calls the function captured by h.
 func (c *Context) InvokeFunction(h FunctionHandle, args []values.BalValue) (values.BalValue, error) {
 	return c.Env.dispatch.Invoke(c, h.Fn, args)
+}
+
+// InvokeFunctionValue invokes a Ballerina function value on the current strand.
+func (c *Context) InvokeFunctionValue(fn *values.Function, args []values.BalValue) (values.BalValue, error) {
+	return c.Env.dispatch.Invoke(c, fn, args)
 }
 
 // StartMethod is the non-blocking counterpart to InvokeMethod. It spawns a

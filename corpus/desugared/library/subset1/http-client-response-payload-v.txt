@@ -38,24 +38,14 @@
             (simple-var-ref $desugar$3))))))
       (var-def
         (variable $desugar$5 (expr
+          (typedesc-expr))))
+      (var-def
+        (variable $desugar$6 (expr
           (remote-method-call get expr:
             (simple-var-ref c) (
             (simple-var-ref $desugar$3)
-            (simple-var-ref $desugar$4))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$5))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$5))) ())
-      (var-def
-        (variable r (type
-          (user-defined-type http Response)) (expr
-          (simple-var-ref $desugar$5))))
-      (var-def
-        (variable $desugar$6 (expr
-          (invocation getBinaryPayload expr:
-            (simple-var-ref r) ()))))
+            (simple-var-ref $desugar$4)
+            (simple-var-ref $desugar$5))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$6))
@@ -63,8 +53,22 @@
           (return
             (simple-var-ref $desugar$6))) ())
       (var-def
-        (variable b (expr
+        (variable r (type
+          (user-defined-type http Response)) (expr
           (simple-var-ref $desugar$6))))
+      (var-def
+        (variable $desugar$7 (expr
+          (invocation getBinaryPayload expr:
+            (simple-var-ref r) ()))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$7))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$7))) ())
+      (var-def
+        (variable b (expr
+          (simple-var-ref $desugar$7))))
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (

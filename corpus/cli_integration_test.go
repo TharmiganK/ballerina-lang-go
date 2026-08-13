@@ -35,7 +35,7 @@ import (
 	"sync"
 	"testing"
 
-    "github.com/ballerina-nutcracker/ballerina/projects"
+	"github.com/ballerina-nutcracker/ballerina/projects"
 	"github.com/ballerina-nutcracker/ballerina/test_util"
 )
 

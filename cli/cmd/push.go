@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"ballerina/common/tomlparser"
-	"ballerina/projects"
+	"github.com/ballerina-nutcracker/ballerina/common/tomlparser"
+	"github.com/ballerina-nutcracker/ballerina/projects"
 
 	"github.com/spf13/cobra"
 )

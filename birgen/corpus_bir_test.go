@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package bir_test
+package birgen_test
 
 import (
 	"flag"
@@ -141,11 +141,11 @@ func verifyFunctionPositions(t *testing.T, fn *bir.BIRFunction, inputPath string
 	for _, bb := range fn.BasicBlocks {
 		for _, inst := range bb.Instructions {
 			if bir.IsLocationEmpty(inst.GetPos()) {
-				t.Errorf("instruction %T in %s (BB: %s) has no position info for %s", inst, fn.Name, bb.Id, inputPath)
+				t.Errorf("instruction %T in %s (BB: %s) has no position info for %s", inst, fn.Name, bb.ID, inputPath)
 			}
 		}
 		if bb.Terminator != nil && bir.IsLocationEmpty(bb.Terminator.GetPos()) {
-			t.Errorf("terminator %T in %s (BB: %s) has no position info for %s", bb.Terminator, fn.Name, bb.Id, inputPath)
+			t.Errorf("terminator %T in %s (BB: %s) has no position info for %s", bb.Terminator, fn.Name, bb.ID, inputPath)
 		}
 	}
 }

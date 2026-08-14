@@ -470,7 +470,7 @@ func (ms *compilationUnitSymbolResolver) isTypeRefToTypedesc(ref *ast.BLangUserD
 			return false
 		}
 		ty := ms.moduleResolver.ctx.GetSymbol(symRef).Type()
-		return !semtypes.IsZero(ty) && semtypes.IsSubtype(ms.moduleResolver.tyCtx, ty, semtypes.TYPEDESC)
+		return !semtypes.IsZero(ty) && semtypes.IsSubtype(ms.moduleResolver.tyCtx, ty, semtypes.Typedesc)
 	}
 	symRef, _, ok := ms.GetSymbol(typeName)
 	if !ok {
@@ -1272,7 +1272,7 @@ func resolveFunctionTypeSymbols[T symbolResolver](resolver T, fnType *ast.BLangF
 			paramScope.AddSymbol(name, &symbol)
 			ref, _ := paramScope.GetSymbol(name)
 			param.SymbolRef = ref
-			param.Name.SetDeterminedType(semtypes.NEVER)
+			param.Name.SetDeterminedType(semtypes.Never)
 			associateFunctionSignatureFromTypeDescriptor(resolver, param.SymbolRef, param.TypeDesc, param.GetPosition())
 		}
 		if param.InitExpr != nil {
@@ -1290,7 +1290,7 @@ func resolveFunctionTypeSymbols[T symbolResolver](resolver T, fnType *ast.BLangF
 			paramScope.AddSymbol(name, &symbol)
 			ref, _ := paramScope.GetSymbol(name)
 			param.SymbolRef = ref
-			param.Name.SetDeterminedType(semtypes.NEVER)
+			param.Name.SetDeterminedType(semtypes.Never)
 			associateFunctionSignatureFromTypeDescriptor(resolver, param.SymbolRef, param.TypeDesc, param.GetPosition())
 		}
 	}
@@ -1723,7 +1723,7 @@ func resolveObjectInclusions[T symbolResolver](resolver T, unresolvedInclusions 
 				carrier = s
 			case *model.ObjectTypeSymbol:
 				incTy := ctx.SymbolType(symRef)
-				if semtypes.IsZero(incTy) || !semtypes.IsSubtype(resolver.TypeContext(), incTy, semtypes.OBJECT) {
+				if semtypes.IsZero(incTy) || !semtypes.IsSubtype(resolver.TypeContext(), incTy, semtypes.Object) {
 					ctx.SemanticError("type inclusion must be an object type or class", inc.GetPosition())
 					continue
 				}
@@ -1773,7 +1773,7 @@ func resolveRecordTypeInclusions[T symbolResolver](resolver T, typeInclusions []
 				continue
 			}
 			incTy := ctx.SymbolType(symRef)
-			if semtypes.IsZero(incTy) || !semtypes.IsSubtype(resolver.TypeContext(), incTy, semtypes.MAPPING) {
+			if semtypes.IsZero(incTy) || !semtypes.IsSubtype(resolver.TypeContext(), incTy, semtypes.Mapping) {
 				ctx.SemanticError("included type is not a record type", udt.GetPosition())
 				continue
 			}

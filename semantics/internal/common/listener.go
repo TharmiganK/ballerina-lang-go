@@ -46,6 +46,6 @@ func ListenerTypes(cx semtypes.Context, ty semtypes.SemType, attachPointBound se
 // ListenerAttachPointBound returns `string[] | string | ()`.
 func ListenerAttachPointBound(cx semtypes.Context) semtypes.SemType {
 	listDefn := semtypes.NewListDefinition()
-	stringArr := listDefn.DefineListTypeWrapped(cx.Env(), nil, 0, semtypes.STRING, semtypes.CellMutability_CELL_MUT_LIMITED)
-	return semtypes.Union(stringArr, semtypes.Union(semtypes.STRING, semtypes.NIL))
+	stringArr := listDefn.Define(cx.Env(), nil, semtypes.ListRest(semtypes.String))
+	return semtypes.Union(stringArr, semtypes.Union(semtypes.String, semtypes.Nil))
 }

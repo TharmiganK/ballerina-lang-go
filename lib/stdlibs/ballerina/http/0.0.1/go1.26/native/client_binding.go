@@ -69,7 +69,7 @@ func bindResponse(ctx *extern.Context, types *httpTypes, resp *values.Object, ta
 // Responses are stamped with the top object type, so any object member counts — matching
 // jBallerina's hasHttpResponseType, true for an OBJECT tag anywhere in the union.
 func admitsResponse(tc semtypes.Context, target semtypes.SemType) bool {
-	return !semtypes.IsEmpty(tc, semtypes.Intersect(target, semtypes.OBJECT))
+	return !semtypes.IsEmpty(tc, semtypes.Intersect(target, semtypes.Object))
 }
 
 func responseStatusCode(resp *values.Object) int {
@@ -83,7 +83,7 @@ func responseStatusCode(resp *values.Object) int {
 func statusCodeError(ctx *extern.Context, types *httpTypes, resp *values.Object, statusCode int) *values.Error {
 	body, extractErr := statusErrorPayload(ctx, types, resp)
 	if extractErr != nil {
-		return values.NewError(semtypes.ERROR, "http:ApplicationResponseError creation failed: "+
+		return values.NewError(semtypes.Error, "http:ApplicationResponseError creation failed: "+
 			strconv.Itoa(statusCode)+" response payload extraction failed", extractErr,
 			"PayloadBindingClientError", nil)
 	}
@@ -96,7 +96,7 @@ func statusCodeError(ctx *extern.Context, types *httpTypes, resp *values.Object,
 	if statusCode >= 500 {
 		typeName = "RemoteServerError"
 	}
-	return values.NewError(semtypes.ERROR, reasonPhrase(statusCode), nil, typeName, detail)
+	return values.NewError(semtypes.Error, reasonPhrase(statusCode), nil, typeName, detail)
 }
 
 // Extracts the error body the way jBallerina's getPayload does, except that an xml body is
@@ -154,7 +154,7 @@ func performDataBinding(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	}
 	// jBallerina hands back a non-empty body here even though () was asked for; returning ()
 	// keeps the value within the requested type.
-	if semtypes.IsSubtype(tc, target, semtypes.NIL) {
+	if semtypes.IsSubtype(tc, target, semtypes.Nil) {
 		return nil
 	}
 	// The spec's "absent payload binds to ()" rule, judged from the raw bytes and applied
@@ -162,7 +162,7 @@ func performDataBinding(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	// is what makes it hold for every nilable target, not only the ones whose builder the
 	// media type happens to select — `int?` against an empty text/plain body binds to ()
 	// instead of failing as an incompatible target.
-	if len(body) == 0 && admits(tc, target, semtypes.NIL) {
+	if len(body) == 0 && admits(tc, target, semtypes.Nil) {
 		return nil
 	}
 	contentType := baseContentType(resp)
@@ -188,9 +188,9 @@ func performDataBinding(ctx *extern.Context, types *httpTypes, resp *values.Obje
 func builderFromType(ctx *extern.Context, types *httpTypes, resp *values.Object, target semtypes.SemType) values.BalValue {
 	tc := ctx.TypeCtx()
 	switch {
-	case narrowsTo(tc, target, semtypes.STRING):
-		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
-	case semtypes.IsSubtype(tc, target, semtypes.Union(semtypes.XML, semtypes.NIL)):
+	case narrowsTo(tc, target, semtypes.String):
+		return bindAtTarget(tc, textValue(resp), semtypes.String, target)
+	case semtypes.IsSubtype(tc, target, semtypes.Union(semtypes.XML, semtypes.Nil)):
 		return unsupportedXMLTarget("")
 	case narrowsTo(tc, target, types.byteArrTy):
 		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
@@ -203,8 +203,8 @@ func textPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	target semtypes.SemType, contentType string) values.BalValue {
 	tc := ctx.TypeCtx()
 	switch {
-	case narrowsTo(tc, target, semtypes.STRING), admits(tc, target, semtypes.STRING):
-		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
+	case narrowsTo(tc, target, semtypes.String), admits(tc, target, semtypes.String):
+		return bindAtTarget(tc, textValue(resp), semtypes.String, target)
 	case narrowsTo(tc, target, types.byteArrTy), admits(tc, target, types.byteArrTy):
 		return bindAtTarget(tc, binaryValue(ctx, types, resp), types.byteArrTy, target)
 	default:
@@ -218,8 +218,8 @@ func formPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 	switch {
 	case narrowsTo(tc, target, types.mapStringTy), admits(tc, target, types.mapStringTy):
 		return bindAtTarget(tc, formDataValue(ctx, types, resp), types.mapStringTy, target)
-	case narrowsTo(tc, target, semtypes.STRING), admits(tc, target, semtypes.STRING):
-		return bindAtTarget(tc, textValue(resp), semtypes.STRING, target)
+	case narrowsTo(tc, target, semtypes.String), admits(tc, target, semtypes.String):
+		return bindAtTarget(tc, textValue(resp), semtypes.String, target)
 	default:
 		return incompatibleTargetError(tc, target, contentType)
 	}
@@ -239,7 +239,7 @@ func blobPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 // Reports whether target fits the type a builder produces, ignoring a nil member so that
 // `Colour?` reaches the same builder as `Colour`. A bare `()` is handled before any builder.
 func narrowsTo(tc semtypes.Context, target, builderTy semtypes.SemType) bool {
-	bare := semtypes.Diff(target, semtypes.NIL)
+	bare := semtypes.Diff(target, semtypes.Nil)
 	return !semtypes.IsEmpty(tc, bare) && semtypes.IsSubtype(tc, bare, builderTy)
 }
 
@@ -284,7 +284,7 @@ func jsonPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Obje
 // The prefix and type name match jBallerina's PayloadBindingClientError, though the distinct
 // type itself is not declared here.
 func payloadBindingError(message string, cause *values.Error) *values.Error {
-	return values.NewError(semtypes.ERROR, "Payload binding failed: "+message, cause,
+	return values.NewError(semtypes.Error, "Payload binding failed: "+message, cause,
 		"PayloadBindingClientError", nil)
 }
 
@@ -301,7 +301,7 @@ func unsupportedXMLTarget(contentType string) *values.Error {
 // media type is always known.
 func incompatibleTargetError(tc semtypes.Context, target semtypes.SemType, contentType string) *values.Error {
 	message := "incompatible '" + semtypes.ToString(tc, target) + "' found for '" + contentType + "' mime type"
-	return values.NewError(semtypes.ERROR, message, nil, "PayloadBindingClientError", nil)
+	return values.NewError(semtypes.Error, message, nil, "PayloadBindingClientError", nil)
 }
 
 // The check jBallerina spells as matchingType.

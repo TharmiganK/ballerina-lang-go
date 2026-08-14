@@ -24,7 +24,7 @@ Every mapping the module specification defines is supported in both directions.
 |---|---|---|
 | `null` | `()` | Encodes to zero bytes |
 | `boolean` | `boolean` | |
-| `int`, `long` | `int` | An `int` schema wraps to 32 bits, matching jBallerina; a `float` is rejected rather than truncated |
+| `int`, `long` | `int` | Writing to an `int` schema narrows the Ballerina `int` value to 32 bits with wrapping, matching jBallerina; a `float` is rejected rather than truncated |
 | `float`, `double` | `float` | Both also accept an `int`; `double` also accepts a `decimal` |
 | `bytes`, `fixed` | `byte[]` | A `fixed` value must carry exactly the declared size |
 | `string` | `string` | A value of any other type is stringified, matching jBallerina |

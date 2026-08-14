@@ -887,6 +887,9 @@ func analyzeActionOrExpression[A analyzer](a A, expr ast.BLangActionOrExpression
 	case *ast.BLangBinaryExpr:
 		return analyzeBinaryExpr(a, expr, expectedType)
 
+	case *ast.BLangTernaryExpr:
+		return analyzeTernaryExpr(a, expr, expectedType)
+
 	case *ast.BLangUnaryExpr:
 		return analyzeUnaryExpr(a, expr, expectedType)
 
@@ -973,6 +976,22 @@ func analyzeActionOrExpression[A analyzer](a A, expr ast.BLangActionOrExpression
 		a.internalErr("unexpected expression type: "+reflect.TypeOf(expr).String(), expr.GetPosition())
 		return false
 	}
+}
+
+func analyzeTernaryExpr[A analyzer](a A, expr *ast.BLangTernaryExpr, expectedType semtypes.SemType) bool {
+	if !analyzeActionOrExpression(a, expr.Condition, semtypes.Boolean) {
+		return false
+	}
+	if !analyzeActionOrExpression(a, expr.ThenExpr, semtypes.SemType{}) {
+		return false
+	}
+	if !analyzeActionOrExpression(a, expr.ElseExpr, semtypes.SemType{}) {
+		return false
+	}
+	if !validateResolvedType(a, expr, expectedType) {
+		return false
+	}
+	return true
 }
 
 func analyzeCheckedExpr[A analyzer](a A, expr *ast.BLangCheckedExpr, expectedType semtypes.SemType) bool {

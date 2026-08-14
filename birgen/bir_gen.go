@@ -999,6 +999,8 @@ func handleActionOrExpression(ctx context, curBB *bir.BIRBasicBlock, expr ast.BL
 		return literal(ctx, curBB, &expr.BLangLiteral)
 	case *ast.BLangBinaryExpr:
 		return binaryExpression(ctx, curBB, expr)
+	case *ast.BLangTernaryExpr:
+		return ternaryExpression(ctx, curBB, expr)
 	case *ast.BLangCheckedExpr:
 		return checkedExpression(ctx, curBB, expr.Expr, expr.GetDeterminedType(), false, expr.GetPosition())
 	case *ast.BLangCheckPanickedExpr:
@@ -1690,6 +1692,30 @@ func binaryExpression(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLangBina
 		return logicalOrExpression(ctx, curBB, expr)
 	default:
 		return binaryExpressionInner(ctx, curBB, expr.OpKind, expr.LhsExpr, expr.RhsExpr, expr.GetDeterminedType(), ctx.function().loc(expr.GetPosition()))
+	}
+}
+
+func ternaryExpression(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLangTernaryExpr) expressionEffect {
+	pos := ctx.function().loc(expr.GetPosition())
+	resultOperand := ctx.addTempVar(expr.GetDeterminedType())
+
+	conditionEffect := handleActionOrExpression(ctx, curBB, expr.Condition)
+	thenBB := ctx.function().addBB()
+	elseBB := ctx.function().addBB()
+	doneBB := ctx.function().addBB()
+	conditionEffect.block.Terminator = bir.NewBranch(conditionEffect.result, thenBB, elseBB, pos)
+
+	thenEffect := handleActionOrExpression(ctx, thenBB, expr.ThenExpr)
+	thenEffect.block.Instructions = append(thenEffect.block.Instructions, bir.NewMove(thenEffect.result, resultOperand, pos))
+	thenEffect.block.Terminator = bir.NewGoto(doneBB, pos)
+
+	elseEffect := handleActionOrExpression(ctx, elseBB, expr.ElseExpr)
+	elseEffect.block.Instructions = append(elseEffect.block.Instructions, bir.NewMove(elseEffect.result, resultOperand, pos))
+	elseEffect.block.Terminator = bir.NewGoto(doneBB, pos)
+
+	return expressionEffect{
+		result: resultOperand,
+		block:  doneBB,
 	}
 }
 

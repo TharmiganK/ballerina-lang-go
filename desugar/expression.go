@@ -42,6 +42,8 @@ func walkExpression(cx *functionContext, node ast.BLangActionOrExpression) desug
 	switch expr := node.(type) {
 	case *ast.BLangBinaryExpr:
 		return walkBinaryExpr(cx, expr)
+	case *ast.BLangTernaryExpr:
+		return walkTernaryExpr(cx, expr)
 	case *ast.BLangUnaryExpr:
 		return walkUnaryExpr(cx, expr)
 	case *ast.BLangElvisExpr:
@@ -144,6 +146,27 @@ func walkExpression(cx *functionContext, node ast.BLangActionOrExpression) desug
 		return walkXMLTemplateExpr(cx, expr)
 	default:
 		panic(fmt.Sprintf("unexpected expression type: %T", node))
+	}
+}
+
+func walkTernaryExpr(cx *functionContext, expr *ast.BLangTernaryExpr) desugaredNode[ast.BLangActionOrExpression] {
+	var initStmts []ast.StatementNode
+
+	condition := walkExpression(cx, expr.Condition)
+	initStmts = append(initStmts, condition.initStmts...)
+	expr.Condition = condition.replacementNode.(ast.BLangExpression)
+
+	thenExpr := walkExpression(cx, expr.ThenExpr)
+	initStmts = append(initStmts, thenExpr.initStmts...)
+	expr.ThenExpr = thenExpr.replacementNode.(ast.BLangExpression)
+
+	elseExpr := walkExpression(cx, expr.ElseExpr)
+	initStmts = append(initStmts, elseExpr.initStmts...)
+	expr.ElseExpr = elseExpr.replacementNode.(ast.BLangExpression)
+
+	return desugaredNode[ast.BLangActionOrExpression]{
+		initStmts:       initStmts,
+		replacementNode: expr,
 	}
 }
 

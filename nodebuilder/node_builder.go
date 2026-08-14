@@ -4461,7 +4461,12 @@ func (n *nodeBuilder) transformOptionalFieldAccessExpression(optionalFieldAccess
 }
 
 func (n *nodeBuilder) transformConditionalExpression(conditionalBLangExpression *st.ConditionalExpressionNode) ast.BLangNode {
-	panic("transformConditionalExpression unimplemented")
+	return ast.NewBLangTernaryExpr(
+		n.getPosition(conditionalBLangExpression),
+		n.createExpression(conditionalBLangExpression.LhsExpression()),
+		n.createExpression(conditionalBLangExpression.MiddleExpression()),
+		n.createExpression(conditionalBLangExpression.EndExpression()),
+	)
 }
 
 func (n *nodeBuilder) transformEnumDeclaration(enumDeclarationNode *st.EnumDeclarationNode) ast.BLangNode {

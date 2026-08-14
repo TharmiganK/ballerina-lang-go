@@ -1,0 +1,243 @@
+module $anon.. v 0.0.0;
+acceptInt(int) -> string{
+  bb0 {
+    %2 = value;
+    %3 = ConstantLoad int
+    %0 = %3;
+    return;
+  }
+}
+acceptString(string) -> string{
+  bb0 {
+    %2 = value;
+    %3 = ConstantLoad string
+    %0 = %3;
+    return;
+  }
+}
+getValue(boolean) -> int|string{
+  bb0 {
+    useInt ? bb1 : bb2;
+  }
+  bb1 {
+    %3 = ConstantLoad 10
+    %2 = %3;
+    GOTO bb3;
+  }
+  bb2 {
+    %4 = ConstantLoad ten
+    %2 = %4;
+    GOTO bb3;
+  }
+  bb3 {
+    %0 = %2;
+    return;
+  }
+}
+classify(int|string) -> string{
+  bb0 {
+    %3 = value is int
+    %3 ? bb1 : bb2;
+  }
+  bb1 {
+    %4 = acceptInt(value) -> bb4;
+  }
+  bb2 {
+    %5 = acceptString(value) -> bb5;
+  }
+  bb3 {
+    %0 = %2;
+    return;
+  }
+  bb4 {
+    %2 = %4;
+    GOTO bb3;
+  }
+  bb5 {
+    %2 = %5;
+    GOTO bb3;
+  }
+}
+nested(boolean|int|string) -> string{
+  bb0 {
+    %3 = value is int
+    %3 ? bb1 : bb2;
+  }
+  bb1 {
+    %4 = acceptInt(value) -> bb4;
+  }
+  bb2 {
+    %6 = value is string
+    %6 ? bb5 : bb6;
+  }
+  bb3 {
+    %0 = %2;
+    return;
+  }
+  bb4 {
+    %2 = %4;
+    GOTO bb3;
+  }
+  bb5 {
+    %7 = acceptString(value) -> bb8;
+  }
+  bb6 {
+    %8 = ConstantLoad boolean
+    %5 = %8;
+    GOTO bb7;
+  }
+  bb7 {
+    %2 = %5;
+    GOTO bb3;
+  }
+  bb8 {
+    %5 = %7;
+    GOTO bb7;
+  }
+}
+main() -> nil{
+  bb0 {
+    %1 = ConstantLoad true
+    %2 = %1;
+    %3 = getValue(%2) -> bb1;
+  }
+  bb1 {
+    value = %3;
+    %6 = value is int
+    %6 ? bb2 : bb3;
+  }
+  bb2 {
+    %5 = value;
+    GOTO bb4;
+  }
+  bb3 {
+    %7 = ConstantLoad 0
+    %5 = %7;
+    GOTO bb4;
+  }
+  bb4 {
+    intValue = %5;
+    %10 = value is int
+    %10 ? bb5 : bb6;
+  }
+  bb5 {
+    %11 = ConstantLoad 
+    %9 = %11;
+    GOTO bb7;
+  }
+  bb6 {
+    %9 = value;
+    GOTO bb7;
+  }
+  bb7 {
+    stringValue = %9;
+    %14 = value is string
+    %15 = ! %14;
+    %15 ? bb8 : bb9;
+  }
+  bb8 {
+    %13 = value;
+    GOTO bb10;
+  }
+  bb9 {
+    %16 = ConstantLoad 0
+    %13 = %16;
+    GOTO bb10;
+  }
+  bb10 {
+    negated = %13;
+    %18 = intValue;
+    %19 = println(%18) -> bb11;
+  }
+  bb11 {
+    %20 = println(stringValue) -> bb12;
+  }
+  bb12 {
+    %21 = negated;
+    %22 = println(%21) -> bb13;
+  }
+  bb13 {
+    %23 = ConstantLoad 1
+    %24 = %23;
+    %25 = classify(%24) -> bb14;
+  }
+  bb14 {
+    %26 = println(%25) -> bb15;
+  }
+  bb15 {
+    %27 = ConstantLoad one
+    %28 = classify(%27) -> bb16;
+  }
+  bb16 {
+    %29 = println(%28) -> bb17;
+  }
+  bb17 {
+    %30 = ConstantLoad true
+    %31 = %30;
+    %32 = nested(%31) -> bb18;
+  }
+  bb18 {
+    %33 = println(%32) -> bb19;
+  }
+  bb19 {
+    %34 = ConstantLoad true
+    flag = %34;
+    flag ? bb20 : bb21;
+  }
+  bb20 {
+    %37 = value is int
+    %36 = %37;
+    GOTO bb22;
+  }
+  bb21 {
+    %38 = value is int
+    %36 = %38;
+    GOTO bb22;
+  }
+  bb22 {
+    %36 ? bb23 : bb25;
+  }
+  bb23 {
+    PushScopeFrame 2
+    %0 = ConstantLoad ternary condition
+    %1 = println(%0) -> bb24;
+  }
+  bb24 {
+    PopScopeFrame
+    GOTO bb25;
+  }
+  bb25 {
+    PushScopeFrame 1
+    %0 = (1, value) is int
+    %0 ? bb26 : bb31;
+  }
+  bb26 {
+    PushScopeFrame 6
+    %1 = ConstantLoad true
+    %1 ? bb27 : bb28;
+  }
+  bb27 {
+    %0 = (2, value);
+    GOTO bb29;
+  }
+  bb28 {
+    %2 = ConstantLoad 0
+    %0 = %2;
+    GOTO bb29;
+  }
+  bb29 {
+    singleton = %0;
+    %4 = singleton;
+    %5 = println(%4) -> bb30;
+  }
+  bb30 {
+    PopScopeFrame
+    GOTO bb31;
+  }
+  bb31 {
+    PushScopeFrame 0
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+}

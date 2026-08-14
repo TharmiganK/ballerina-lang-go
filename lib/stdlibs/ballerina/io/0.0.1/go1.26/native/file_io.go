@@ -51,7 +51,7 @@ type fileIOTypes struct {
 // per-element value yielded by a stream's `next()` method.
 func closedNextRecordType(env semtypes.Env, valueTy semtypes.SemType) semtypes.SemType {
 	md := semtypes.NewMappingDefinition()
-	return md.DefineMappingTypeWrapped(env, []semtypes.Field{semtypes.FieldFrom("value", valueTy, false, false)}, semtypes.NEVER)
+	return md.Define(env, []semtypes.Field{semtypes.FieldFrom("value", valueTy, false, false)}, semtypes.Never)
 }
 
 func fileIOError(msg string) values.BalValue {
@@ -241,25 +241,26 @@ func initFileIOModule(rt *runtime.Runtime) {
 	jmd := semtypes.NewMappingDefinition()
 	jld := semtypes.NewListDefinition()
 	types := fileIOTypes{
-		strArrTy:   sld.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING),
-		byteArrTy:  bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE),
-		jsonMapTy:  jmd.DefineMappingTypeWrapped(env, nil, jsonTy),
-		jsonListTy: jld.DefineListTypeWrappedWithEnvSemType(env, jsonTy),
+		strArrTy:   sld.Define(env, nil, semtypes.ListRest(semtypes.String)),
+		byteArrTy:  bld.Define(env, nil, semtypes.ListRest(semtypes.Byte)),
+		jsonMapTy:  jmd.Define(env, nil, jsonTy),
+		jsonListTy: jld.Define(env, nil, semtypes.ListRest(jsonTy)),
 	}
 
 	types.byteArrAtom = semtypes.ToListAtomicType(env, types.byteArrTy)
 	// io:Block is `readonly & byte[]`; a CELL_MUT_NONE list definition is the
 	// atom-backed equivalent of that intersection.
 	robld := semtypes.NewListDefinition()
-	types.roByteArrTy = robld.DefineListTypeWrappedWithEnvSemTypeCellMutability(env, semtypes.BYTE, semtypes.CellMutability_CELL_MUT_NONE)
+	types.roByteArrTy = robld.Define(env, nil, semtypes.ListRest(semtypes.Byte),
+		semtypes.ListMutability(semtypes.CellMutabilityNone))
 	types.roByteArrAtom = semtypes.ToListAtomicType(env, types.roByteArrTy)
 
-	streamCompletionTy := semtypes.Union(semtypes.ERROR, semtypes.NIL)
+	streamCompletionTy := semtypes.Union(semtypes.Error, semtypes.Nil)
 
 	lsd := semtypes.NewStreamDefinition()
-	types.lineRecordTy = closedNextRecordType(env, semtypes.STRING)
+	types.lineRecordTy = closedNextRecordType(env, semtypes.String)
 	types.lineRecordAtom = semtypes.ToMappingAtomicType(typCtx, types.lineRecordTy)
-	types.lineStreamTy = lsd.Define(env, semtypes.STRING, streamCompletionTy)
+	types.lineStreamTy = lsd.Define(env, semtypes.String, streamCompletionTy)
 
 	bsd := semtypes.NewStreamDefinition()
 	types.blockRecordTy = closedNextRecordType(env, types.roByteArrTy)

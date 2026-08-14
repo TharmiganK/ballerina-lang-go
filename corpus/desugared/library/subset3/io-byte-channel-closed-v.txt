@@ -24,46 +24,22 @@
           (invocation $default$4 (
             (simple-var-ref $desugar$0)
             (simple-var-ref $desugar$1))))))
-      (var-def
-        (variable $desugar$3 (expr
+      (expression-stmt
+        (checked-expr
           (invocation io fileWriteBytes (
             (simple-var-ref $desugar$0)
             (simple-var-ref $desugar$1)
-            (simple-var-ref $desugar$2))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$3))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$3))) ())
-      (expression-stmt
-        (simple-var-ref $desugar$3))
-      (var-def
-        (variable $desugar$4 (expr
-          (invocation io openReadableFile (
-            (simple-var-ref path))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$4))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$4))) ())
+            (simple-var-ref $desugar$2)))))
       (var-def
         (variable reader (type
           (user-defined-type io ReadableByteChannel)) (expr
-          (simple-var-ref $desugar$4))))
-      (var-def
-        (variable $desugar$5 (expr
-          (invocation close expr:
-            (simple-var-ref reader) ()))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$5))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$5))) ())
+          (checked-expr
+            (invocation io openReadableFile (
+              (simple-var-ref path)))))))
       (expression-stmt
-        (simple-var-ref $desugar$5))
+        (checked-expr
+          (invocation close expr:
+            (simple-var-ref reader) ())))
       (var-def
         (variable secondClose (type
           (union-type
@@ -101,39 +77,23 @@
               (simple-var-ref readAfterClose)
               (user-defined-type io Error)))))
         (var-def
-          (variable $desugar$6 (expr
+          (variable $desugar$3 (expr
             (simple-var-ref path))))
         (var-def
-          (variable $desugar$7 (expr
+          (variable $desugar$4 (expr
             (invocation $default$11 (
-              (simple-var-ref $desugar$6))))))
-        (var-def
-          (variable $desugar$8 (expr
-            (invocation io openWritableFile (
-              (simple-var-ref $desugar$6)
-              (simple-var-ref $desugar$7))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$8))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$8))) ())
+              (simple-var-ref $desugar$3))))))
         (var-def
           (variable writer (type
             (user-defined-type io WritableByteChannel)) (expr
-            (simple-var-ref $desugar$8))))
-        (var-def
-          (variable $desugar$9 (expr
-            (invocation close expr:
-              (simple-var-ref writer) ()))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$9))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$9))) ())
+            (checked-expr
+              (invocation io openWritableFile (
+                (simple-var-ref $desugar$3)
+                (simple-var-ref $desugar$4)))))))
         (expression-stmt
-          (simple-var-ref $desugar$9))
+          (checked-expr
+            (invocation close expr:
+              (simple-var-ref writer) ())))
         (var-def
           (variable writeAfterClose (type
             (union-type

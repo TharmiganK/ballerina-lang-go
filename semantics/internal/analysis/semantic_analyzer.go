@@ -890,6 +890,9 @@ func analyzeActionOrExpression[A analyzer](a A, expr ast.BLangActionOrExpression
 	case *ast.BLangTernaryExpr:
 		return analyzeTernaryExpr(a, expr, expectedType)
 
+	case *ast.BLangNilConditionalExpr:
+		return analyzeNilConditionalExpr(a, expr, expectedType)
+
 	case *ast.BLangUnaryExpr:
 		return analyzeUnaryExpr(a, expr, expectedType)
 
@@ -992,6 +995,16 @@ func analyzeTernaryExpr[A analyzer](a A, expr *ast.BLangTernaryExpr, expectedTyp
 		return false
 	}
 	return true
+}
+
+func analyzeNilConditionalExpr[A analyzer](a A, expr *ast.BLangNilConditionalExpr, expectedType semtypes.SemType) bool {
+	if !analyzeActionOrExpression(a, expr.LhsExpr, semtypes.SemType{}) {
+		return false
+	}
+	if !analyzeActionOrExpression(a, expr.RhsExpr, semtypes.SemType{}) {
+		return false
+	}
+	return validateResolvedType(a, expr, expectedType)
 }
 
 func analyzeCheckedExpr[A analyzer](a A, expr *ast.BLangCheckedExpr, expectedType semtypes.SemType) bool {

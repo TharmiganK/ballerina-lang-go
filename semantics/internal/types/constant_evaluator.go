@@ -62,6 +62,8 @@ func (e *constantExpressionEvaluator) evaluate(expr ast.BLangExpression) (values
 		return e.evaluateUnaryExpression(expr)
 	case *ast.BLangTernaryExpr:
 		return e.evaluateTernaryExpression(expr)
+	case *ast.BLangNilConditionalExpr:
+		return e.evaluateNilConditionalExpression(expr)
 	case *ast.BLangBinaryExpr:
 		ty := expr.GetDeterminedType()
 		if expr.OpKind == model.OperatorKind_ADD && !semtypes.IsZero(ty) && semtypes.IsSubtypeSimple(ty, semtypes.String) {
@@ -232,6 +234,17 @@ func (e *constantExpressionEvaluator) evaluateTernaryExpression(expr *ast.BLangT
 		return e.evaluate(expr.ThenExpr)
 	}
 	return e.evaluate(expr.ElseExpr)
+}
+
+func (e *constantExpressionEvaluator) evaluateNilConditionalExpression(expr *ast.BLangNilConditionalExpr) (values.BalValue, error) {
+	lhs, err := e.evaluate(expr.LhsExpr)
+	if err != nil {
+		return nil, err
+	}
+	if lhs != nil {
+		return lhs, nil
+	}
+	return e.evaluate(expr.RhsExpr)
 }
 
 func (e *constantExpressionEvaluator) evaluateBinaryExpression(expr *ast.BLangBinaryExpr) (values.BalValue, error) {

@@ -1,7 +1,6 @@
 -- stdout --
 10
-10
+20
 30
-value
-10
+0
 -- stderr --

@@ -347,7 +347,7 @@ type (
 	BLangNumericLiteral struct {
 		BLangLiteral
 	}
-	BLangElvisExpr struct {
+	BLangNilConditionalExpr struct {
 		bLangExpressionBase
 		LhsExpr BLangExpression
 		RhsExpr BLangExpression
@@ -565,7 +565,6 @@ var (
 	_ LiteralNode                 = &BLangConstRef{}
 	_ LiteralNode                 = &BLangLiteral{}
 	_ BLangExpression             = &BLangLiteral{}
-	_ ElvisExpressionNode         = &BLangElvisExpr{}
 	_ BLangExpression             = &BLangInvocation{}
 	_ BLangAction                 = &BLangRemoteMethodCallAction{}
 	_ BLangAction                 = &BLangClientResourceAccessAction{}
@@ -603,7 +602,8 @@ var (
 	_ BLangNode       = &BLangConstRef{}
 	_ BLangNode       = &BLangLiteral{}
 	_ BLangNode       = &BLangNumericLiteral{}
-	_ BLangNode       = &BLangElvisExpr{}
+	_ BLangNode       = &BLangNilConditionalExpr{}
+	_ BLangExpression = &BLangNilConditionalExpr{}
 	_ BLangNode       = &BLangWorkerReceive{}
 	_ BLangNode       = &BLangInvocation{}
 	_ BLangNode       = &BLangMarkdownDocumentationLine{}
@@ -863,12 +863,16 @@ func (b *BLangLiteral) SetOriginalValue(originalValue string) {
 	b.OriginalValue = originalValue
 }
 
-func (b *BLangElvisExpr) GetLeftExpression() BLangExpression {
-	return b.LhsExpr
-}
-
-func (b *BLangElvisExpr) GetRightExpression() BLangExpression {
-	return b.RhsExpr
+func NewBLangNilConditionalExpr(
+	pos diagnostics.Location,
+	lhsExpr BLangExpression,
+	rhsExpr BLangExpression,
+) *BLangNilConditionalExpr {
+	return &BLangNilConditionalExpr{
+		bLangExpressionBase: bLangExpressionBase{bLangNodeBase: bLangNodeBase{pos: pos}},
+		LhsExpr:             lhsExpr,
+		RhsExpr:             rhsExpr,
+	}
 }
 
 func (b *BLangMarkdownDocumentationLine) GetText() string {

@@ -2,8 +2,8 @@
 //
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
-// in compliance with the License.
-// You may obtain a copy of the License at
+// in compliance with the License. You may obtain a copy of the
+// License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -14,20 +14,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-boolean runtimeCondition = true;
-int runtimeValue = 10;
-const A = runtimeCondition ? 1 : 2; // @error
-const B = true ? runtimeValue : 2; // @error
-const C = true ? 1 : runtimeValue; // @error
-const D = runtimeValue ?: 1; // @error
-const E = () ?: runtimeValue; // @error
-const F = 1 ?: runtimeValue; // @error
+import ballerina/io;
+
+int calls = 0;
+
+function nullable() returns int? {
+    calls += 1;
+    return ();
+}
 
 public function main() {
-    _ = A;
-    _ = B;
-    _ = C;
-    _ = D;
-    _ = E;
-    _ = F;
+    int? absent = ();
+    int liftedLhs = (absent + 1) ?: 10;
+    int liftedRhs = () ?: ((absent + 1) ?: 20);
+    int? present = 30;
+    int lazyRhs = present ?: ((nullable() + 1) ?: 40);
+
+    io:println(liftedLhs); // @output 10
+    io:println(liftedRhs); // @output 20
+    io:println(lazyRhs); // @output 30
+    io:println(calls); // @output 0
 }

@@ -147,23 +147,75 @@
               (simple-var-ref value)
               (value-type int))))
         (block-stmt
+          (var-def
+            (variable narrowedByTernary (type
+              (value-type int)) (expr
+              (simple-var-ref value))))
           (expression-stmt
             (invocation io println (
-              (literal ternary condition))))) ())
+              (literal ternary condition))))
+          (assignment
+            (wildcard-binding-pattern)
+            (simple-var-ref narrowedByTernary))) ())
       (block-stmt
         (if
-          (type-test-expr is
-            (simple-var-ref value)
-            (value-type int))
+          (nil-conditional-expr
+            (group-expr
+              (type-test-expr is
+                (simple-var-ref value)
+                (value-type int)))
+            (literal false))
           (block-stmt
             (var-def
-              (variable singleton (type
+              (variable narrowedByNonNilLhs (type
                 (value-type int)) (expr
-                (ternary-expr
-                  (literal true)
+                (simple-var-ref value))))
+            (assignment
+              (wildcard-binding-pattern)
+              (simple-var-ref narrowedByNonNilLhs))) ())
+        (block-stmt
+          (if
+            (nil-conditional-expr
+              (literal <nil>)
+              (type-test-expr is
+                (simple-var-ref value)
+                (value-type int)))
+            (block-stmt
+              (var-def
+                (variable narrowedByRhs (type
+                  (value-type int)) (expr
+                  (simple-var-ref value))))
+              (assignment
+                (wildcard-binding-pattern)
+                (simple-var-ref narrowedByRhs))) ())
+          (block-stmt
+            (assignment
+              (wildcard-binding-pattern)
+              (nil-conditional-expr
+                (group-expr
+                  (ternary-expr
+                    (simple-var-ref flag)
+                    (group-expr
+                      (type-test-expr is
+                        (simple-var-ref value)
+                        (value-type int)))
+                    (literal <nil>)))
+                (type-test-expr is
                   (simple-var-ref value)
-                  (literal 0)))))
-            (expression-stmt
-              (invocation io println (
-                (simple-var-ref singleton))))) ())
-        (block-stmt)))))
+                  (value-type int))))
+            (if
+              (type-test-expr is
+                (simple-var-ref value)
+                (value-type int))
+              (block-stmt
+                (var-def
+                  (variable singleton (type
+                    (value-type int)) (expr
+                    (ternary-expr
+                      (literal true)
+                      (simple-var-ref value)
+                      (literal 0)))))
+                (expression-stmt
+                  (invocation io println (
+                    (simple-var-ref singleton))))) ())
+            (block-stmt)))))))

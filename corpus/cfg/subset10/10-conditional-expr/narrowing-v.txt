@@ -113,16 +113,70 @@
           (value-type int))))
   )
   (bb1 (bb0) (bb2)
+    (var-def
+      (variable narrowedByTernary (type
+        (value-type int)) (expr
+        (simple-var-ref value))))
     (expression-stmt
       (invocation io println (
         (literal ternary condition))))
+    (assignment
+      (wildcard-binding-pattern)
+      (simple-var-ref narrowedByTernary))
   )
   (bb2 (bb1 bb0) (bb3 bb4)
+    (nil-conditional-expr
+      (group-expr
+        (type-test-expr is
+          (simple-var-ref value)
+          (value-type int)))
+      (literal false))
+  )
+  (bb3 (bb2) (bb4)
+    (var-def
+      (variable narrowedByNonNilLhs (type
+        (value-type int)) (expr
+        (simple-var-ref value))))
+    (assignment
+      (wildcard-binding-pattern)
+      (simple-var-ref narrowedByNonNilLhs))
+  )
+  (bb4 (bb3 bb2) (bb5 bb6)
+    (nil-conditional-expr
+      (literal <nil>)
+      (type-test-expr is
+        (simple-var-ref value)
+        (value-type int)))
+  )
+  (bb5 (bb4) (bb6)
+    (var-def
+      (variable narrowedByRhs (type
+        (value-type int)) (expr
+        (simple-var-ref value))))
+    (assignment
+      (wildcard-binding-pattern)
+      (simple-var-ref narrowedByRhs))
+  )
+  (bb6 (bb5 bb4) (bb7 bb8)
+    (assignment
+      (wildcard-binding-pattern)
+      (nil-conditional-expr
+        (group-expr
+          (ternary-expr
+            (simple-var-ref flag)
+            (group-expr
+              (type-test-expr is
+                (simple-var-ref value)
+                (value-type int)))
+            (literal <nil>)))
+        (type-test-expr is
+          (simple-var-ref value)
+          (value-type int))))
     (type-test-expr is
       (simple-var-ref value)
       (value-type int))
   )
-  (bb3 (bb2) (bb4)
+  (bb7 (bb6) (bb8)
     (var-def
       (variable singleton (type
         (value-type int)) (expr
@@ -134,7 +188,7 @@
       (invocation io println (
         (simple-var-ref singleton))))
   )
-  (bb4 (bb3 bb2) ())
+  (bb8 (bb7 bb6) ())
 )
 (nested
   (bb0 () ()

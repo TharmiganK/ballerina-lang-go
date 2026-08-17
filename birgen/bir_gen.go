@@ -1001,6 +1001,8 @@ func handleActionOrExpression(ctx context, curBB *bir.BIRBasicBlock, expr ast.BL
 		return binaryExpression(ctx, curBB, expr)
 	case *ast.BLangTernaryExpr:
 		return ternaryExpression(ctx, curBB, expr)
+	case *ast.BLangNilConditionalExpr:
+		return nilConditionalExpression(ctx, curBB, expr)
 	case *ast.BLangCheckedExpr:
 		return checkedExpression(ctx, curBB, expr.Expr, expr.GetDeterminedType(), false, expr.GetPosition())
 	case *ast.BLangCheckPanickedExpr:
@@ -1712,6 +1714,32 @@ func ternaryExpression(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLangTer
 	elseEffect := handleActionOrExpression(ctx, elseBB, expr.ElseExpr)
 	elseEffect.block.Instructions = append(elseEffect.block.Instructions, bir.NewMove(elseEffect.result, resultOperand, pos))
 	elseEffect.block.Terminator = bir.NewGoto(doneBB, pos)
+
+	return expressionEffect{
+		result: resultOperand,
+		block:  doneBB,
+	}
+}
+
+func nilConditionalExpression(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLangNilConditionalExpr) expressionEffect {
+	pos := ctx.function().loc(expr.GetPosition())
+	resultOperand := ctx.addTempVar(expr.GetDeterminedType())
+
+	lhsEffect := handleActionOrExpression(ctx, curBB, expr.LhsExpr)
+	isNilOperand := ctx.addTempVar(semtypes.Boolean)
+	lhsEffect.block.Instructions = append(lhsEffect.block.Instructions, bir.NewTypeTest(semtypes.Nil, isNilOperand, lhsEffect.result, pos))
+
+	rhsBB := ctx.function().addBB()
+	lhsBB := ctx.function().addBB()
+	rhsEffect := handleActionOrExpression(ctx, rhsBB, expr.RhsExpr)
+	doneBB := ctx.function().addBB()
+	lhsEffect.block.Terminator = bir.NewBranch(isNilOperand, rhsBB, lhsBB, pos)
+
+	rhsEffect.block.Instructions = append(rhsEffect.block.Instructions, bir.NewMove(rhsEffect.result, resultOperand, pos))
+	rhsEffect.block.Terminator = bir.NewGoto(doneBB, pos)
+
+	lhsBB.Instructions = append(lhsBB.Instructions, bir.NewMove(lhsEffect.result, resultOperand, pos))
+	lhsBB.Terminator = bir.NewGoto(doneBB, pos)
 
 	return expressionEffect{
 		result: resultOperand,

@@ -3622,6 +3622,8 @@ func resolveExpressionInner(t typeResolver, chain *binding, expr ast.BLangAction
 		return resolveBinaryExpr(t, chain, e, expectedType)
 	case *ast.BLangTernaryExpr:
 		return resolveTernaryExpr(t, chain, e, expectedType)
+	case *ast.BLangNilConditionalExpr:
+		return resolveNilConditionalExpr(t, chain, e, expectedType)
 	case *ast.BLangUnaryExpr:
 		return resolveUnaryExpr(t, chain, e, expectedType)
 	case *ast.BLangInvocation:
@@ -5609,11 +5611,11 @@ func resolveTernaryExpr(t typeResolver, chain *binding, expr *ast.BLangTernaryEx
 		thenExpected = semtypes.SemType{}
 	}
 
-	thenTy, _, ok := resolveActionOrExpression(t, conditionEffect.ifTrue, expr.ThenExpr, thenExpected)
+	thenTy, thenEffect, ok := resolveActionOrExpression(t, conditionEffect.ifTrue, expr.ThenExpr, thenExpected)
 	if !ok {
 		return semtypes.SemType{}, expressionEffect{}, false
 	}
-	elseTy, _, ok := resolveActionOrExpression(t, conditionEffect.ifFalse, expr.ElseExpr, elseExpected)
+	elseTy, elseEffect, ok := resolveActionOrExpression(t, conditionEffect.ifFalse, expr.ElseExpr, elseExpected)
 	if !ok {
 		return semtypes.SemType{}, expressionEffect{}, false
 	}
@@ -5625,8 +5627,53 @@ func resolveTernaryExpr(t typeResolver, chain *binding, expr *ast.BLangTernaryEx
 		resultTy = elseTy
 	}
 
+	var effect expressionEffect
+	if isSingletonBool(conditionTy, true) {
+		effect = thenEffect
+	} else if isSingletonBool(conditionTy, false) {
+		effect = elseEffect
+	} else {
+		effect = expressionEffect{
+			ifTrue:  mergeChains(t, thenEffect.ifTrue, elseEffect.ifTrue, semtypes.Union),
+			ifFalse: mergeChains(t, thenEffect.ifFalse, elseEffect.ifFalse, semtypes.Union),
+		}
+	}
 	setExpectedType(expr, resultTy)
-	return resultTy, defaultExpressionEffect(chain), true
+	return resultTy, effect, true
+}
+
+func resolveNilConditionalExpr(t typeResolver, chain *binding, expr *ast.BLangNilConditionalExpr, expectedType semtypes.SemType) (semtypes.SemType, expressionEffect, bool) {
+	lhsTy, lhsEffect, ok := resolveActionOrExpression(t, chain, expr.LhsExpr, semtypes.SemType{})
+	if !ok {
+		return semtypes.SemType{}, expressionEffect{}, false
+	}
+	rhsTy, rhsEffect, ok := resolveActionOrExpression(t, chain, expr.RhsExpr, expectedType)
+	if !ok {
+		return semtypes.SemType{}, expressionEffect{}, false
+	}
+
+	ctx := t.typeContext()
+	var resultTy semtypes.SemType
+	var effect expressionEffect
+	switch {
+	case semtypes.IsSameType(ctx, lhsTy, semtypes.Nil):
+		resultTy = rhsTy
+		effect = rhsEffect
+	case semtypes.IsEmpty(ctx, semtypes.Intersect(lhsTy, semtypes.Nil)):
+		resultTy = lhsTy
+		effect = lhsEffect
+	default:
+		resultTy = semtypes.Union(semtypes.Diff(lhsTy, semtypes.Nil), rhsTy)
+		nilBranchEffect := rhsEffect
+		nonNilBranchEffect := lhsEffect
+		effect = expressionEffect{
+			ifTrue:  mergeChains(t, nilBranchEffect.ifTrue, nonNilBranchEffect.ifTrue, semtypes.Union),
+			ifFalse: mergeChains(t, nilBranchEffect.ifFalse, nonNilBranchEffect.ifFalse, semtypes.Union),
+		}
+	}
+
+	setExpectedType(expr, resultTy)
+	return resultTy, effect, true
 }
 
 func resolveBinaryExpr(t typeResolver, chain *binding, expr *ast.BLangBinaryExpr, expectedType semtypes.SemType) (semtypes.SemType, expressionEffect, bool) {

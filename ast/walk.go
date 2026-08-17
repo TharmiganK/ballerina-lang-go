@@ -356,7 +356,7 @@ func Walk(v Visitor, node BLangNode) {
 			Walk(v, node.Expr.(BLangNode))
 		}
 
-	case *BLangElvisExpr:
+	case *BLangNilConditionalExpr:
 		if node.LhsExpr != nil {
 			Walk(v, node.LhsExpr.(BLangNode))
 		}

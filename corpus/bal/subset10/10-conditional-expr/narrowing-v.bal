@@ -42,8 +42,19 @@ public function main() {
 
     boolean flag = true;
     if flag ? (value is int) : (value is int) {
+        int narrowedByTernary = value;
         io:println("ternary condition"); // @output ternary condition
+        _ = narrowedByTernary;
     }
+    if (value is int) ?: false {
+        int narrowedByNonNilLhs = value;
+        _ = narrowedByNonNilLhs;
+    }
+    if () ?: value is int {
+        int narrowedByRhs = value;
+        _ = narrowedByRhs;
+    }
+    _ = (flag ? (value is int) : ()) ?: value is int;
     if value is int {
         int singleton = true ? value : 0;
         io:println(singleton); // @output 10

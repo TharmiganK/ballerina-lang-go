@@ -102,6 +102,8 @@ func (p *PrettyPrinter) PrintInner(node BLangNode) {
 		p.printBinaryExpr(t)
 	case *BLangTernaryExpr:
 		p.printTernaryExpr(t)
+	case *BLangNilConditionalExpr:
+		p.printNilConditionalExpr(t)
 	case *BLangInvocation:
 		p.printInvocation(t)
 	case *BLangRemoteMethodCallAction:
@@ -712,6 +714,16 @@ func (p *PrettyPrinter) printTernaryExpr(node *BLangTernaryExpr) {
 	p.PrintInner(node.Condition.(BLangNode))
 	p.PrintInner(node.ThenExpr.(BLangNode))
 	p.PrintInner(node.ElseExpr.(BLangNode))
+	p.indentLevel--
+	p.EndNode()
+}
+
+func (p *PrettyPrinter) printNilConditionalExpr(node *BLangNilConditionalExpr) {
+	p.StartNode()
+	p.PrintString("nil-conditional-expr")
+	p.indentLevel++
+	p.PrintInner(node.LhsExpr.(BLangNode))
+	p.PrintInner(node.RhsExpr.(BLangNode))
 	p.indentLevel--
 	p.EndNode()
 }

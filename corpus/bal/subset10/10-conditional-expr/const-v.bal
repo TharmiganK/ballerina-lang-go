@@ -21,8 +21,15 @@ const THEN = 10;
 const ELSE = 20;
 const SELECTED = CONDITION ? THEN : ELSE;
 const FALSE_SELECTED = false ? "wrong" : THEN;
+const NIL = ();
+const NIL_SELECTED = NIL ?: 30;
+const NON_NIL_SELECTED = "value" ?: 40;
+const NESTED_NIL_SELECTED = (() ?: NIL) ?: THEN;
 
 public function main() {
     io:println(SELECTED); // @output 10
     io:println(FALSE_SELECTED); // @output 10
+    io:println(NIL_SELECTED); // @output 30
+    io:println(NON_NIL_SELECTED); // @output value
+    io:println(NESTED_NIL_SELECTED); // @output 10
 }

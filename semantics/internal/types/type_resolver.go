@@ -8405,9 +8405,9 @@ func monomorphizeArrayIndexOf(t typeResolver, sym *model.OpaqueFunctionSymbol, p
 	// key must include the arity marker too, since two call sites can share
 	// the same containerTy but resolve to different arities.
 	hasStartIndex := len(args) > 2
-	arityKey := semtypes.NIL
+	arityKey := semtypes.Nil
 	if hasStartIndex {
-		arityKey = semtypes.INT
+		arityKey = semtypes.Int
 	}
 	if sym.Lookup != nil {
 		if ref, ok := sym.Lookup(containerTy, arityKey); ok {
@@ -8415,18 +8415,18 @@ func monomorphizeArrayIndexOf(t typeResolver, sym *model.OpaqueFunctionSymbol, p
 		}
 	}
 	cx := t.typeContext()
-	if !semtypes.IsSubtype(cx, containerTy, semtypes.LIST) {
+	if !semtypes.IsSubtype(cx, containerTy, semtypes.List) {
 		t.semanticError("expect first argument to be a subtype of (any|error)[]", pos)
 		return model.SymbolRef{}, chain, false
 	}
-	valType := semtypes.ListProj(cx, containerTy, semtypes.INT)
+	valType := semtypes.ListProj(cx, containerTy, semtypes.Int)
 	paramTypes := []semtypes.SemType{containerTy, valType}
 	if hasStartIndex {
-		paramTypes = append(paramTypes, semtypes.INT)
+		paramTypes = append(paramTypes, semtypes.Int)
 	}
 	sig := model.TypedFunctionSignature{
 		ParamTypes: paramTypes,
-		ReturnType: semtypes.Union(semtypes.INT, semtypes.NIL),
+		ReturnType: semtypes.Union(semtypes.Int, semtypes.Nil),
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
 	ref, ok := storeMonomorphizedOpaqueFn(t, sym, polymorphicRef, sig, pos, containerTy, arityKey)
@@ -8450,13 +8450,13 @@ func monomorphizeArrayRemove(t typeResolver, sym *model.OpaqueFunctionSymbol, po
 		}
 	}
 	cx := t.typeContext()
-	if !semtypes.IsSubtype(cx, containerTy, semtypes.LIST) {
+	if !semtypes.IsSubtype(cx, containerTy, semtypes.List) {
 		t.semanticError("expect first argument to be a subtype of (any|error)[]", pos)
 		return model.SymbolRef{}, chain, false
 	}
-	elementType := semtypes.ListProj(cx, containerTy, semtypes.INT)
+	elementType := semtypes.ListProj(cx, containerTy, semtypes.Int)
 	sig := model.TypedFunctionSignature{
-		ParamTypes: []semtypes.SemType{containerTy, semtypes.INT},
+		ParamTypes: []semtypes.SemType{containerTy, semtypes.Int},
 		ReturnType: elementType,
 		Flags:      model.FuncSymbolFlagIsolated,
 	}

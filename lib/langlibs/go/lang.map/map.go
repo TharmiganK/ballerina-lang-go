@@ -17,10 +17,10 @@
 package maprt
 
 import (
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const (
@@ -35,7 +35,7 @@ func mapLength(_ *extern.Context, args []values.BalValue) (values.BalValue, erro
 
 func mapKeys(env semtypes.Env) extern.NativeFunc {
 	ld := semtypes.NewListDefinition()
-	stringArrayTy := ld.DefineListTypeWrappedWithEnvSemType(env, semtypes.STRING)
+	stringArrayTy := ld.Define(env, nil, semtypes.ListRest(semtypes.String))
 	return func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 		m := args[0].(*values.Map)
 		keys := m.Keys()

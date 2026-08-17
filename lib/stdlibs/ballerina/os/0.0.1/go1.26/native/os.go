@@ -17,13 +17,13 @@
 package native
 
 import (
-	"ballerina/bir"
-	"ballerina/model"
-	"ballerina/platform/pal"
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/platform/pal"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 
 func newProcessObject(handle pal.ProcessHandle) *values.Object {
 	return values.NewObject(
-		semtypes.OBJECT,
+		semtypes.Object,
 		map[string]values.BalValue{"$handle": handle},
 		map[string]string{
 			"waitForExit": "ballerina/os:Process.waitForExit",
@@ -67,9 +67,9 @@ func initOSModule(rt *runtime.Runtime) {
 
 	env := rt.GetTypeEnv()
 	bld := semtypes.NewListDefinition()
-	byteArrTy := bld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+	byteArrTy := bld.Define(env, nil, semtypes.ListRest(semtypes.Byte))
 	smd := semtypes.NewMappingDefinition()
-	strMapTy := smd.DefineMappingTypeWrapped(env, nil, semtypes.STRING)
+	strMapTy := smd.Define(env, nil, semtypes.String)
 
 	// Atomic types are a structural property of the (fixed) SemTypes above and
 	// do not vary per strand, so compute them once instead of on every call.

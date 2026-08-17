@@ -24,18 +24,17 @@ import (
 	goruntime "runtime"
 	"strings"
 
-	interpsrc "ballerina"
-	"ballerina/bir"
-	"ballerina/cli/internal/nativeexec"
-	"ballerina/cli/internal/nativerunner"
-	debugcommon "ballerina/common"
-	_ "ballerina/lib/rt"
-	"ballerina/lib/stdlibs"
-	"ballerina/platform/palnative"
-	"ballerina/projects"
-	"ballerina/runtime"
-	"ballerina/semtypes"
-	"ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	"github.com/ballerina-nutcracker/ballerina/cli/internal/nativeexec"
+	"github.com/ballerina-nutcracker/ballerina/cli/internal/nativerunner"
+	debugcommon "github.com/ballerina-nutcracker/ballerina/common"
+	_ "github.com/ballerina-nutcracker/ballerina/lib/rt"
+	"github.com/ballerina-nutcracker/ballerina/lib/stdlibs"
+	"github.com/ballerina-nutcracker/ballerina/platform/palnative"
+	"github.com/ballerina-nutcracker/ballerina/projects"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
 
 	"github.com/spf13/cobra"
 )
@@ -117,9 +116,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		Build()
 
 	if err := profiler.Start(); err != nil {
-		profErr := fmt.Errorf("failed to start profiler: %w", err)
-		printError(profErr, "", false)
-		return profErr
+		// Profiler setup, not a run-usage mistake, so no USAGE block.
+		return fmt.Errorf("failed to start profiler: %w", err)
 	}
 	defer func() { _ = profiler.Stop() }()
 
@@ -141,9 +139,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		if runOpts.logFile != "" {
 			logWriter, err = os.Create(runOpts.logFile)
 			if err != nil {
-				cmdErr := fmt.Errorf("error creating log file %s: %w", runOpts.logFile, err)
-				printError(cmdErr, "", false)
-				return cmdErr
+				// A bad --log-file path, not a run-usage mistake, so no USAGE block.
+				return fmt.Errorf("error creating log file %s: %w", runOpts.logFile, err)
 			}
 			defer func() { _ = logWriter.Close() }()
 			debugcommon.InitDebug(flags, logWriter)
@@ -160,8 +157,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 
 	info, err := os.Stat(path)
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 
 	baseDir := path
@@ -175,8 +171,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	// Detect if path is inside a workspace - if so, load the workspace instead
 	absBaseDir, err := filepath.Abs(baseDir)
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 	workspaceRoot := findWorkspaceRoot(absBaseDir)
 
@@ -190,8 +185,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 
 	ballerinaEnvPath, err := getBallerinaEnvPath()
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 	ballerinaEnvFs := os.DirFS(ballerinaEnvPath)
 
@@ -200,8 +194,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		BuildOptions:   &buildOpts,
 	})
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 
 	// Check for loading errors
@@ -209,6 +202,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	if diagResult.HasErrors() {
 		// Given we don't have sources at this point it is okay to pass an empty diagnostic env
 		printDiagnostics(fsys, os.Stderr, diagResult, !isTerminal(), diagnostics.NewDiagnosticEnv())
+		// Not a run-usage mistake, so no USAGE block, but cobra should still
+		// print "ballerina: project loading contains errors" as a summary.
 		return fmt.Errorf("project loading contains errors")
 	}
 
@@ -218,24 +213,18 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	if project.Kind() == projects.ProjectKindWorkspace {
 		workspace, ok := project.(*projects.WorkspaceProject)
 		if !ok {
-			err := fmt.Errorf("internal error: expected WorkspaceProject")
-			printRunError(err)
-			return err
+			return runError("internal error: expected WorkspaceProject")
 		}
 
 		// If user specified the workspace root itself, they can't run the workspace directly
 		if workspaceRoot == "" || absBaseDir == workspaceRoot {
-			err := fmt.Errorf("cannot run a workspace project directly. Use 'bal run <package-path>' to run a specific package within the workspace")
-			printRunError(err)
-			return err
+			return runError("cannot run a workspace project directly. Use 'bal run <package-path>' to run a specific package within the workspace")
 		}
 
 		// Find the BuildProject matching the user's path
 		buildProject := findBuildProjectByPath(workspace, workspaceRoot, absBaseDir)
 		if buildProject == nil {
-			err := fmt.Errorf("no package found at path %s within workspace %s", absBaseDir, workspaceRoot)
-			printRunError(err)
-			return err
+			return runError("no package found at path %s within workspace %s", absBaseDir, workspaceRoot)
 		}
 		project = buildProject
 	}
@@ -245,8 +234,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	// Skipped when already running as a native interpreter (BAL_NATIVE=1).
 	if !nativeexec.InNativeMode() {
 		if err := execWithNativeRunner(pkg, project, absBaseDir); err != nil {
-			printRunError(err)
-			return err
+			return runError("%w", err)
 		}
 	}
 
@@ -259,6 +247,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		printDiagnostics(fsys, os.Stderr, compilationDiags, !isTerminal(), compilation.DiagnosticEnv())
 	}
 	if compilationDiags.HasErrors() {
+		// Not a run-usage mistake, so no USAGE block, but cobra should still
+		// print "ballerina: compilation contains errors" as a summary.
 		return fmt.Errorf("compilation contains errors")
 	}
 
@@ -267,9 +257,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	birPkgs := backend.BIRPackages()
 
 	if len(birPkgs) == 0 {
-		err := fmt.Errorf("BIR generation failed: no BIR package produced")
-		printError(err, "", false)
-		return err
+		return fmt.Errorf("BIR generation failed: no BIR package produced")
 	}
 
 	if runOpts.statsOneline {
@@ -302,7 +290,12 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	var initErr error
 	for _, birPkg := range birPkgs {
 		if err := rt.Init(*birPkg); err != nil {
-			printRuntimeError(err)
+			// Runtime errors carry their own multi-line stack-trace-like
+			// format; cobra's "ballerina:" prefix and run's USAGE block
+			// would look out of place against the rest of the trace. Print
+			// verbatim and silence cobra's default error print.
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), err)
+			cmd.SilenceErrors = true
 			initErr = err
 			break
 		}
@@ -313,13 +306,15 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	}
 	exitCode := <-rt.ExitStatus
 	if exitCode != 0 {
+		// The executed program's own exit code, not a run-usage mistake, so
+		// this must stay a bare error — no USAGE block.
 		return fmt.Errorf("exit: %d", exitCode)
 	}
 	return nil
 }
 
-func printRunError(err error) {
-	printError(err, "run [<source-file.bal> | <package-dir> | .]", false)
+func runError(format string, args ...any) error {
+	return usageError("run [<source-file.bal> | <package-dir> | .]", format, args...)
 }
 
 func getBallerinaEnvPath() (string, error) {
@@ -426,11 +421,11 @@ func isEmbeddedPackage(bp *projects.BalaProject) bool {
 
 // chooseNativeExecutor returns a LocalExecutor targeting targetPackage
 // (e.g. "cli/cmd" for run's re-exec, "cli/internal/balrt" for build's slim stub),
-// erroring if Go isn't installed or the interpreter source can't be found.
+// erroring if Go isn't installed or the CLI driver source can't be found.
 func chooseNativeExecutor(outBin, targetPackage string) (nativeexec.NativeExecutor, error) {
 	root, err := findInterpreterRoot()
 	if err != nil {
-		return nil, fmt.Errorf("native Go packages require the interpreter source: %w", err)
+		return nil, fmt.Errorf("native Go packages require the CLI driver source: %w", err)
 	}
 	local := nativerunner.NewForTarget(root, outBin, targetPackage)
 	if !local.Available() {
@@ -439,9 +434,9 @@ func chooseNativeExecutor(outBin, targetPackage string) (nativeexec.NativeExecut
 	return local, nil
 }
 
-// findInterpreterRoot returns the absolute path to the ballerina source tree.
-// It checks BALLERINA_SRC first, then falls back to the source tree embedded
-// in the binary (extracted to a cache directory on first use).
+// findInterpreterRoot returns the absolute path to a native-build driver workspace.
+// It checks BALLERINA_SRC first, then falls back to the CLI source embedded in
+// the binary and extracted to a cache directory on first use.
 func findInterpreterRoot() (string, error) {
 	root, err := locateInterpreterRoot()
 	if err != nil {
@@ -465,7 +460,7 @@ func locateInterpreterRoot() (string, error) {
 
 	cacheRoot, err := getBallerinaEnvPath()
 	if err != nil {
-		return "", fmt.Errorf("interpreter source not found; set BALLERINA_SRC to the ballerina directory")
+		return "", fmt.Errorf("CLI driver source not found; set BALLERINA_SRC to the ballerina directory")
 	}
-	return interpsrc.ExtractTo(cacheRoot, Version)
+	return extractDriverSource(cacheRoot, Version)
 }

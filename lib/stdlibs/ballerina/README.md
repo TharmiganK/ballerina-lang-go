@@ -13,8 +13,8 @@ in each package's support table (Supported + Partially Supported + Not Yet Suppo
 | Package                                           | Supported | Partially Supported | Not Yet Supported | Support % |
 |---------------------------------------------------|---|---|---|---|
 | [crypto](crypto/0.0.1/go1.26/README.md)           | 26 | 1 | 5 | 81% |
-| [http](http/0.0.1/go1.26/README.md)               | 26 | 5 | 41 | 36% |
-| [io](io/0.0.1/go1.26/README.md)                   | 14 | 1 | 12 | 52% |
+| [http](http/0.0.1/go1.26/README.md)               | 26 | 7 | 40 | 36% |
+| [io](io/0.0.1/go1.26/README.md)                   | 21 | 2 | 4 | 78% |
 | [log](log/0.0.1/go1.26/README.md)                 | 7 | 2 | 15 | 29% |
 | [math.vector](math.vector/0.0.1/go1.26/README.md) | 5 | 0 | 0 | 100% |
 | [os](os/0.0.1/go1.26/README.md)                   | 11 | 1 | 0 | 92% |
@@ -22,7 +22,7 @@ in each package's support table (Supported + Partially Supported + Not Yet Suppo
 | [time](time/0.0.1/go1.26/README.md)               | 31 | 1 | 0 | 97% |
 | [url](url/0.0.1/go1.26/README.md)                 | 3 | 0 | 1 | 75% |
 | [uuid](uuid/0.0.1/go1.26/README.md)               | 19 | 1 | 0 | 95% |
-| **Total**                                         | **145** | **13** | **75** | **62%** |
+| **Total**                                         | **152** | **16** | **66** | **65%** |
 
 ## Notable Behavioural Changes
 
@@ -42,11 +42,17 @@ tables instead.
 - **`poolConfig.waitTime` maps to `ResponseHeaderTimeout`.** jBallerina's `waitTime` limits how long a request waits for a connection. In the Go runtime this is approximated by `ResponseHeaderTimeout` (maximum time to wait for the first response byte). True connection-wait limiting is not available in Go's `net/http` transport.
 - **`responseLimits.maxStatusLineLength` is not enforced.** The value is accepted and validated (must be ≥ 0) but has no runtime effect. Go's HTTP transport does not expose a configurable maximum status line length (unlike jBallerina's Netty `HttpClientCodec`).
 - **Proxy DNS resolution is lazy, not eager.** In jBallerina, `ProxyConfig.host` is DNS-resolved at client creation time, and an unknown hostname causes an `error` from `new http:Client(...)`. In the Go runtime, DNS resolution is deferred to the first request that uses the proxy. A bad proxy hostname does not fail at init time.
+- **A nil target type discards the payload.** jBallerina routes a `()` target through the string payload builder, so a non-empty body is handed back as a `string` even though `()` was requested. The Go-native version returns `()` and drops the body, keeping the bound value inside the requested type.
+- **Status-code error messages use the registered reason phrase.** jBallerina reports the reason phrase the server actually sent. The PAL transport contract surfaces only the status code, so the Go-native version derives the message from the status code's registered phrase (for example `Not Found` for 404). A code outside the IANA registry — 499, which nginx sends for a client-closed request, among others — has no registered phrase, and the message becomes `status code <code>` rather than being left empty.
+- **A status error with an absent body keeps its reason phrase.** jBallerina extracts the error response body with the builder its `Content-Type` selects, and an extraction failure replaces the reason phrase with `http:ApplicationResponseError creation failed: <code> response payload extraction failed`. A 4xx or 5xx sent with `Content-Type: application/json` and no body at all trips that path, because a JSON decoder rejects an empty document. The Go-native version treats an absent body as having no payload, so the message stays the reason phrase and the error detail's `body` is `()`.
 - **`gracefulStop` waits for in-flight requests to drain.** In jBallerina, `gracefulStop` effectively behaves like an immediate stop — it returns promptly without waiting for active requests, so calling it from within a resource on its own listener succeeds. The Go-native version implements the `http:Listener` contract literally and blocks until in-flight requests complete or the graceful-stop timeout (default 60s) elapses. A resource that calls `gracefulStop` on the listener serving it therefore self-deadlocks until the timeout elapses and then returns an error, rather than succeeding.
 
 ### io
 
 - **`fileWriteJson` key ordering.** jBallerina writes JSON object keys in insertion order; the Go-native version writes them in **alphabetical order** — Go's `encoding/json` sorts map keys.
+- **Streams are consumed via `next()`/`close()` only.** The returned streams are driven with explicit `.next()` and `.close()` calls. Iterating a stream with a `foreach` statement or a query (`from ... in`) expression is not yet supported at the language level, so those constructs cannot yet consume these streams.
+- **Write-from-stream accepts a generic `error?` completion.** jBallerina declares `fileWriteLinesFromStream`/`fileWriteBlocksFromStream` with a `stream<_, io:Error?>` parameter, which rejects a stream held as `stream<_, error?>` (e.g. `stream<byte[], error?> s = check io:fileReadBlocksAsStream(p); check io:fileWriteBlocksFromStream(out, s);` fails to compile in jBallerina). This port widens the parameter completion type to the generic `error?`, so both `io:Error?` and plain `error?` completion streams are accepted. This is a strict superset — every jBallerina-valid call still compiles — and the return type remains the specific `io:Error?`.
+- **`writeVarInt`/`readVarInt` round-trip the full `int` range.** jBallerina's variable-length integer implementation breaks for very large magnitudes (`readVarInt` panics on encodings longer than 8 bytes and `writeVarInt(int:MIN_VALUE)` writes `0x00`). This port encodes with the minimal correct width and reads up to 10 bytes, so every `int` round-trips; the wire format matches jBallerina for all values it handles correctly.
 
 ### log
 

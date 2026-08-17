@@ -16,7 +16,11 @@
 
 package values
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+)
 
 // TestListRemoveAtReleasesVacatedSlot checks that RemoveAt nils out the slot
 // it vacates instead of just shrinking the visible length, which would leave
@@ -27,7 +31,7 @@ func TestListRemoveAtReleasesVacatedSlot(t *testing.T) {
 	l := newList(int64(1), int64(2), removedVal)
 	full := l.elems[:cap(l.elems)]
 
-	got := l.RemoveAt(2)
+	got := l.RemoveAt(semtypes.ContextFrom(semtypes.CreateTypeEnv()), 2)
 	if got != BalValue(removedVal) {
 		t.Fatalf("RemoveAt returned %v, want %v", got, removedVal)
 	}

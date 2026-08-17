@@ -21,10 +21,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const (
@@ -63,13 +63,13 @@ func stringSubstring(_ *extern.Context, args []values.BalValue) (values.BalValue
 	return string(runes[startIndex:endIndex]), nil
 }
 
-func stringEqualsIgnoreCaseAscii(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+func stringEqualsIgnoreCaseASCII(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	s1 := args[0].(string)
 	s2 := args[1].(string)
 	return equalsIgnoreCaseASCII(s1, s2), nil
 }
 
-func stringToLowerAscii(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+func stringToLowerASCII(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	s := args[0].(string)
 	return mapASCII(s, func(r rune) rune {
 		if r >= 'A' && r <= 'Z' {
@@ -79,7 +79,7 @@ func stringToLowerAscii(_ *extern.Context, args []values.BalValue) (values.BalVa
 	}), nil
 }
 
-func stringToUpperAscii(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+func stringToUpperASCII(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	s := args[0].(string)
 	return mapASCII(s, func(r rune) rune {
 		if r >= 'a' && r <= 'z' {
@@ -99,36 +99,41 @@ func stringTrim(_ *extern.Context, args []values.BalValue) (values.BalValue, err
 func initStringModule(rt *runtime.Runtime) {
 	env := rt.GetTypeEnv()
 	ld := semtypes.NewListDefinition()
-	byteArrTy := ld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+	byteArrTy := ld.Define(env, nil, semtypes.ListRest(semtypes.Byte))
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "length", stringLength)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "toBytes", stringToBytes(byteArrTy))
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "fromBytes", stringFromBytes)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "substring", stringSubstring)
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "equalsIgnoreCaseAscii", stringEqualsIgnoreCaseAscii)
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "toLowerAscii", stringToLowerAscii)
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "toUpperAscii", stringToUpperAscii)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "equalsIgnoreCaseAscii", stringEqualsIgnoreCaseASCII)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "toLowerAscii", stringToLowerASCII)
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "toUpperAscii", stringToUpperASCII)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "trim", stringTrim)
 }
 
+// equalsIgnoreCaseASCII compares byte-for-byte rather than decoding runes:
+// non-ASCII bytes (>= 0x80 in UTF-8, whether lead or continuation) never fall
+// in the 'A'-'Z'/'a'-'z' ranges, so folding case per byte and requiring exact
+// equality otherwise is safe, and it's zero-allocation unlike a []rune-based
+// comparison.
 func equalsIgnoreCaseASCII(s1, s2 string) bool {
-	r1 := []rune(s1)
-	r2 := []rune(s2)
-	if len(r1) != len(r2) {
+	if len(s1) != len(s2) {
 		return false
 	}
-	for i, a := range r1 {
-		b := r2[i]
+	for i := 0; i < len(s1); i++ {
+		a, b := s1[i], s2[i]
 		if a == b {
 			continue
 		}
-		if a >= 'A' && a <= 'Z' && a+32 == b {
-			continue
+		if a >= 'A' && a <= 'Z' {
+			a += 'a' - 'A'
 		}
-		if a >= 'a' && a <= 'z' && a-32 == b {
-			continue
+		if b >= 'A' && b <= 'Z' {
+			b += 'a' - 'A'
 		}
-		return false
+		if a != b {
+			return false
+		}
 	}
 	return true
 }

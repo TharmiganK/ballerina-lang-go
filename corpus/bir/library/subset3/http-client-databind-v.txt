@@ -1,0 +1,296 @@
+module $anon.. v 0.0.0;
+main() -> nil|error{
+  bb0 {
+    %1 = ConstantLoad https://example.com
+    $desugar$0 = %1;
+    %3 = $default$15($desugar$0) -> bb1;
+  }
+  bb1 {
+    $desugar$1 = %3;
+    %5 = newObject ballerina/http:Client
+    %6 = init(%5,$desugar$0,$desugar$1) -> bb2;
+  }
+  bb2 {
+    %8 = %6 is nil
+    %8 ? bb3 : bb4;
+  }
+  bb3 {
+    %7 = %5;
+    GOTO bb5;
+  }
+  bb4 {
+    %7 = %6;
+    GOTO bb5;
+  }
+  bb5 {
+    $desugar$2 = %7;
+    %10 = $desugar$2 is error
+    %10 ? bb6 : bb7;
+  }
+  bb6 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$2);
+    PopScopeFrame
+    return;
+  }
+  bb7 {
+    c = $desugar$2;
+    %12 = ConstantLoad /path
+    $desugar$3 = %12;
+    %14 = $default$21($desugar$3) -> bb8;
+  }
+  bb8 {
+    $desugar$4 = %14;
+    %16 = ConstantLoad typedesc
+    $desugar$5 = %16;
+    %18 = $remote$get(c,$desugar$3,$desugar$4,$desugar$5) -> bb9;
+  }
+  bb9 {
+    $desugar$6 = %18;
+    %20 = $desugar$6 is error
+    %20 ? bb10 : bb11;
+  }
+  bb10 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$6);
+    PopScopeFrame
+    return;
+  }
+  bb11 {
+    r = $desugar$6;
+    %23 = ConstantLoad statusCode
+    %22 = r[%23];
+    %24 = %22;
+    %25 = println(%24) -> bb12;
+  }
+  bb12 {
+    %26 = ConstantLoad /path
+    $desugar$7 = %26;
+    %28 = $default$21($desugar$7) -> bb13;
+  }
+  bb13 {
+    $desugar$8 = %28;
+    %30 = ConstantLoad typedesc
+    $desugar$9 = %30;
+    %32 = $remote$get(c,$desugar$7,$desugar$8,$desugar$9) -> bb14;
+  }
+  bb14 {
+    $desugar$10 = %32;
+    %34 = $desugar$10 is error
+    %34 ? bb15 : bb16;
+  }
+  bb15 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$10);
+    PopScopeFrame
+    return;
+  }
+  bb16 {
+    ru = $desugar$10;
+    %36 = ru is string
+    %37 = %36;
+    %38 = println(%37) -> bb17;
+  }
+  bb17 {
+    %39 = ConstantLoad /path
+    $desugar$11 = %39;
+    %41 = $default$21($desugar$11) -> bb18;
+  }
+  bb18 {
+    $desugar$12 = %41;
+    %43 = ConstantLoad typedesc
+    $desugar$13 = %43;
+    %45 = $remote$get(c,$desugar$11,$desugar$12,$desugar$13) -> bb19;
+  }
+  bb19 {
+    $desugar$14 = %45;
+    %47 = $desugar$14 is error
+    %47 ? bb20 : bb21;
+  }
+  bb20 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$14);
+    PopScopeFrame
+    return;
+  }
+  bb21 {
+    text = $desugar$14;
+    %49 = println(text) -> bb22;
+  }
+  bb22 {
+    %50 = ConstantLoad /path
+    $desugar$15 = %50;
+    %52 = $default$21($desugar$15) -> bb23;
+  }
+  bb23 {
+    $desugar$16 = %52;
+    %54 = ConstantLoad typedesc
+    $desugar$17 = %54;
+    %56 = $remote$get(c,$desugar$15,$desugar$16,$desugar$17) -> bb24;
+  }
+  bb24 {
+    $desugar$18 = %56;
+    %58 = $desugar$18 is error
+    %58 ? bb25 : bb26;
+  }
+  bb25 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$18);
+    PopScopeFrame
+    return;
+  }
+  bb26 {
+    optText = $desugar$18;
+    %60 = println(optText) -> bb27;
+  }
+  bb27 {
+    %61 = ConstantLoad /path
+    $desugar$19 = %61;
+    %63 = $default$21($desugar$19) -> bb28;
+  }
+  bb28 {
+    $desugar$20 = %63;
+    %65 = ConstantLoad typedesc
+    $desugar$21 = %65;
+    %67 = $remote$get(c,$desugar$19,$desugar$20,$desugar$21) -> bb29;
+  }
+  bb29 {
+    $desugar$22 = %67;
+    %69 = $desugar$22 is error
+    %69 ? bb30 : bb31;
+  }
+  bb30 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$22);
+    PopScopeFrame
+    return;
+  }
+  bb31 {
+    bytes = $desugar$22;
+    %71 = length(bytes) -> bb32;
+  }
+  bb32 {
+    %72 = %71;
+    %73 = println(%72) -> bb33;
+  }
+  bb33 {
+    %74 = ConstantLoad /path
+    $desugar$23 = %74;
+    %76 = $default$21($desugar$23) -> bb34;
+  }
+  bb34 {
+    $desugar$24 = %76;
+    %78 = ConstantLoad typedesc
+    $desugar$25 = %78;
+    %80 = $remote$get(c,$desugar$23,$desugar$24,$desugar$25) -> bb35;
+  }
+  bb35 {
+    $desugar$26 = %80;
+    %82 = $desugar$26 is error
+    %82 ? bb36 : bb37;
+  }
+  bb36 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$26);
+    PopScopeFrame
+    return;
+  }
+  bb37 {
+    optBytes = $desugar$26;
+    %84 = optBytes is [int:Unsigned8...]
+    %85 = %84;
+    %86 = println(%85) -> bb38;
+  }
+  bb38 {
+    %87 = ConstantLoad /path
+    $desugar$27 = %87;
+    %89 = $default$21($desugar$27) -> bb39;
+  }
+  bb39 {
+    $desugar$28 = %89;
+    %91 = ConstantLoad typedesc
+    $desugar$29 = %91;
+    %93 = $remote$get(c,$desugar$27,$desugar$28,$desugar$29) -> bb40;
+  }
+  bb40 {
+    $desugar$30 = %93;
+    %95 = $desugar$30 is error
+    %95 ? bb41 : bb42;
+  }
+  bb41 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$30);
+    PopScopeFrame
+    return;
+  }
+  bb42 {
+    nothing = $desugar$30;
+    %97 = nothing;
+    %98 = println(%97) -> bb43;
+  }
+  bb43 {
+    %99 = ConstantLoad /path
+    $desugar$31 = %99;
+    %101 = $default$21($desugar$31) -> bb44;
+  }
+  bb44 {
+    $desugar$32 = %101;
+    %103 = ConstantLoad typedesc
+    $desugar$33 = %103;
+    %105 = $remote$get(c,$desugar$31,$desugar$32,$desugar$33) -> bb45;
+  }
+  bb45 {
+    $desugar$34 = %105;
+    %107 = $desugar$34 is error
+    %107 ? bb46 : bb47;
+  }
+  bb46 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$34);
+    PopScopeFrame
+    return;
+  }
+  bb47 {
+    explicitText = $desugar$34;
+    %109 = println(explicitText) -> bb48;
+  }
+  bb48 {
+    %110 = ConstantLoad /path
+    $desugar$35 = %110;
+    %112 = $default$21($desugar$35) -> bb49;
+  }
+  bb49 {
+    $desugar$36 = %112;
+    %114 = ConstantLoad typedesc
+    $desugar$37 = %114;
+    %116 = $remote$get(c,$desugar$35,$desugar$36,$desugar$37) -> bb50;
+  }
+  bb50 {
+    person = %116;
+    %118 = person is error
+    %119 = %118;
+    %120 = println(%119) -> bb51;
+  }
+  bb51 {
+    %121 = ConstantLoad /path
+    $desugar$38 = %121;
+    %123 = $default$21($desugar$38) -> bb52;
+  }
+  bb52 {
+    $desugar$39 = %123;
+    %125 = ConstantLoad typedesc
+    $desugar$40 = %125;
+    %127 = $remote$get(c,$desugar$38,$desugar$39,$desugar$40) -> bb53;
+  }
+  bb53 {
+    asXml = %127;
+    %129 = asXml is error
+    %130 = %129;
+    %131 = println(%130) -> bb54;
+  }
+  bb54 {
+    %132 = ConstantLoad <nil>
+    %0 = %132;
+    return;
+  }
+}

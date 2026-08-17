@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"ballerina/projects"
-	"ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/projects"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -54,27 +54,11 @@ func findWorkspaceRoot(startPath string) string {
 	}
 }
 
-// printError prints an error message in the standard Ballerina CLI format to stderr.
-func printError(err error, usage string, showHelp bool) {
-	printErrorTo(os.Stderr, err, usage, showHelp)
-}
-
-func printRuntimeError(err error) {
-	_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-}
-
-// printErrorTo prints an error message in the standard Ballerina CLI format to the given writer.
-func printErrorTo(w io.Writer, err error, usage string, showHelp bool) {
-	_, _ = fmt.Fprintf(w, "ballerina: %s\n", err.Error())
-	if usage != "" {
-		_, _ = fmt.Fprintln(w)
-		_, _ = fmt.Fprintln(w, "USAGE:")
-		_, _ = fmt.Fprintf(w, "    %s\n", usage)
-	}
-	if showHelp {
-		_, _ = fmt.Fprintln(w)
-		_, _ = fmt.Fprintln(w, "For more information try --help")
-	}
+// usageError wraps an error with a USAGE block; cobra prefixes the result
+// with "ballerina:" when printing.
+func usageError(usage, format string, args ...any) error {
+	inner := fmt.Errorf(format, args...)
+	return fmt.Errorf("%w\n\nUSAGE:\n    %s", inner, usage)
 }
 
 // validateSourceFile validates the source file argument for the 'run' command.

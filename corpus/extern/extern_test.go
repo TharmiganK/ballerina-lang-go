@@ -23,37 +23,43 @@ import (
 	"strings"
 	"testing"
 
-	"ballerina/ast"
-	"ballerina/bir"
-	bircodec "ballerina/bir/codec"
-	"ballerina/context"
-	"ballerina/desugar"
-	"ballerina/model"
-	"ballerina/model/symbolpool"
-	"ballerina/parser"
-	"ballerina/projects"
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/semantics"
-	"ballerina/semtypes"
-	"ballerina/test_util/langlib"
-	"ballerina/test_util/testharness"
-	"ballerina/tools/text"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/ast"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	bircodec "github.com/ballerina-nutcracker/ballerina/bir/codec"
+	"github.com/ballerina-nutcracker/ballerina/birgen"
+	"github.com/ballerina-nutcracker/ballerina/context"
+	"github.com/ballerina-nutcracker/ballerina/desugar"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/model/symbolpool"
+	"github.com/ballerina-nutcracker/ballerina/nodebuilder"
+	"github.com/ballerina-nutcracker/ballerina/parser"
+	"github.com/ballerina-nutcracker/ballerina/projects"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semantics"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/test_util/langlib"
+	"github.com/ballerina-nutcracker/ballerina/test_util/testharness"
+	"github.com/ballerina-nutcracker/ballerina/tools/text"
+	"github.com/ballerina-nutcracker/ballerina/values"
 
-	_ "ballerina/lib/rt"
+	_ "github.com/ballerina-nutcracker/ballerina/lib/rt"
 )
 
 func TestExternValid(t *testing.T) {
 	externs := []testharness.ExternRegistration{
-		{Org: "$anon", Module: "1-v", FuncName: "foo",
+		{
+			Org: "$anon", Module: "1-v", FuncName: "foo",
 			Impl: func(_ *extern.Context, _ []values.BalValue) (values.BalValue, error) {
 				return "$foo", nil
-			}},
-		{Org: "$anon", Module: "1-v", FuncName: "bar",
+			},
+		},
+		{
+			Org: "$anon", Module: "1-v", FuncName: "bar",
 			Impl: func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				return values.String(args[0], nil) + ", " + values.String(args[1], nil), nil
-			}},
+			},
+		},
 	}
 	runExtern(t, fileCase("1-v"), testharness.NewTestPal(), externs)
 }
@@ -88,13 +94,13 @@ func TestDependentlyTyped(t *testing.T) {
 			if got := values.String(td, nil); got != "typedesc" {
 				return nil, fmt.Errorf("expected typedesc string, got %q", got)
 			}
-			if !semtypes.IsSubtype(ctx.TypeCtx(), values.SemTypeForValue(td), semtypes.TYPEDESC) {
+			if !semtypes.IsSubtype(ctx.TypeCtx(), values.SemTypeForValue(td), semtypes.Typedesc) {
 				return nil, fmt.Errorf("expected typedesc semtype")
 			}
 			switch {
-			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.INT):
+			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.Int):
 				return int64(1), nil
-			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.STRING):
+			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.String):
 				return "foo", nil
 			}
 			panic(values.NewErrorWithMessage("unsupported inferred typedesc constraint"))
@@ -104,7 +110,7 @@ func TestDependentlyTyped(t *testing.T) {
 			if !ok {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[1])
 			}
-			if !semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.INT) {
+			if !semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.Int) {
 				panic(values.NewErrorWithMessage("inferredSubType requires typedesc<int>"))
 			}
 			return int64(1), nil
@@ -115,9 +121,9 @@ func TestDependentlyTyped(t *testing.T) {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[1])
 			}
 			switch {
-			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.INT, td.Type):
+			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.Int, td.Type):
 				return int64(0), nil
-			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.STRING, td.Type):
+			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.String, td.Type):
 				return "bar", nil
 			}
 			panic(values.NewErrorWithMessage("unsupported inferredPartially typedesc constraint"))
@@ -151,9 +157,9 @@ func TestDependentlyTyped(t *testing.T) {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[1])
 			}
 			switch {
-			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.INT):
+			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.Int):
 				return val, nil
-			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.STRING):
+			case semtypes.IsSubtype(ctx.TypeCtx(), td.Type, semtypes.String):
 				return fmt.Sprintf("%d", val), nil
 			}
 			panic(values.NewErrorWithMessage("unsupported inferredWithDefault typedesc constraint"))
@@ -164,7 +170,7 @@ func TestDependentlyTyped(t *testing.T) {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[0])
 			}
 			// return an error to verify the inferred typedesc was widened to include error
-			if semtypes.IsSubtype(ctx.TypeCtx(), semtypes.ERROR, td.Type) {
+			if semtypes.IsSubtype(ctx.TypeCtx(), semtypes.Error, td.Type) {
 				return values.NewErrorWithMessage("error"), nil
 			}
 			panic(values.NewErrorWithMessage("inferredMaybeError: expected error to be in typedesc"))
@@ -174,7 +180,7 @@ func TestDependentlyTyped(t *testing.T) {
 			if !ok {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[1])
 			}
-			if !semtypes.IsSubtype(ctx.TypeCtx(), semtypes.STRING, td.Type) {
+			if !semtypes.IsSubtype(ctx.TypeCtx(), semtypes.String, td.Type) {
 				panic(values.NewErrorWithMessage("Getter.get: expected string-compatible typedesc"))
 			}
 			return "immutable", nil
@@ -244,9 +250,9 @@ func TestDependentlyTypedMethod(t *testing.T) {
 				return nil, fmt.Errorf("expected typedesc argument, got %T", args[3])
 			}
 			switch {
-			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.STRING, td.Type):
+			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.String, td.Type):
 				return "string response", nil
-			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.INT, td.Type):
+			case semtypes.IsSubtype(ctx.TypeCtx(), semtypes.Int, td.Type):
 				return int64(2), nil
 			}
 			panic(values.NewErrorWithMessage("unsupported targetType"))
@@ -257,14 +263,18 @@ func TestDependentlyTypedMethod(t *testing.T) {
 
 func TestExternResourceMethod(t *testing.T) {
 	externs := []testharness.ExternRegistration{
-		{Org: "testorg", Module: "externresourcemethod.api", FuncName: "Client.$resource$get$0",
+		{
+			Org: "testorg", Module: "externresourcemethod.api", FuncName: "Client.$resource$get$0",
 			Impl: func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				return "items/" + values.String(args[1], nil), nil
-			}},
-		{Org: "testorg", Module: "externresourcemethod.api", FuncName: "Client.$resource$get$1",
+			},
+		},
+		{
+			Org: "testorg", Module: "externresourcemethod.api", FuncName: "Client.$resource$get$1",
 			Impl: func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				return args[2].(int64) * 2, nil
-			}},
+			},
+		},
 	}
 	runExtern(t, projectCase("resource-method-v"), testharness.NewTestPal(), externs)
 }
@@ -274,12 +284,15 @@ func TestListenerDispatch(t *testing.T) {
 	// io:println does at runtime, without requiring a closure over the
 	// *runtime.Runtime (which is built inside testharness.Run).
 	externs := []testharness.ExternRegistration{
-		{Org: "testorg", Module: "externlistener.lst", FuncName: "Listener.attach",
+		{
+			Org: "testorg", Module: "externlistener.lst", FuncName: "Listener.attach",
 			Impl: func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				args[0].(*values.Object).Put("svc", args[1].(*values.Object))
 				return nil, nil
-			}},
-		{Org: "testorg", Module: "externlistener.lst", FuncName: "Listener.trigger",
+			},
+		},
+		{
+			Org: "testorg", Module: "externlistener.lst", FuncName: "Listener.trigger",
 			Impl: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				receiver := args[0].(*values.Object)
 				svcVal, ok := receiver.Get("svc")
@@ -308,19 +321,23 @@ func TestListenerDispatch(t *testing.T) {
 				}
 				_, _ = ctx.Env.Platform.IO.Stdout([]byte(values.String(out, nil) + "\n"))
 				return nil, nil
-			}},
+			},
+		},
 	}
 	runExtern(t, projectCase("listener-dispatch-v"), testharness.NewTestPal(), externs)
 }
 
 func TestStartMethod(t *testing.T) {
 	externs := []testharness.ExternRegistration{
-		{Org: "testorg", Module: "startmethod.lst", FuncName: "Listener.attach",
+		{
+			Org: "testorg", Module: "startmethod.lst", FuncName: "Listener.attach",
 			Impl: func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				args[0].(*values.Object).Put("svc", args[1].(*values.Object))
 				return nil, nil
-			}},
-		{Org: "testorg", Module: "startmethod.lst", FuncName: "Listener.trigger",
+			},
+		},
+		{
+			Org: "testorg", Module: "startmethod.lst", FuncName: "Listener.trigger",
 			Impl: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				receiver := args[0].(*values.Object)
 				svcVal, ok := receiver.Get("svc")
@@ -350,23 +367,29 @@ func TestStartMethod(t *testing.T) {
 				_, _ = ctx.Env.Platform.IO.Stdout([]byte(values.String(<-resCh, nil) + "\n"))
 				_, _ = ctx.Env.Platform.IO.Stdout([]byte(values.String(<-remCh, nil) + "\n"))
 				return nil, nil
-			}},
+			},
+		},
 	}
 	runExtern(t, projectCase("start-method-v"), testharness.NewTestPal(), externs)
 }
 
 func TestStartMethodError(t *testing.T) {
 	externs := []testharness.ExternRegistration{
-		{Org: "testorg", Module: "startmethoderror.lst", FuncName: "Listener.attach",
+		{
+			Org: "testorg", Module: "startmethoderror.lst", FuncName: "Listener.attach",
 			Impl: func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				args[0].(*values.Object).Put("svc", args[1].(*values.Object))
 				return nil, nil
-			}},
-		{Org: "testorg", Module: "startmethoderror", FuncName: "$service$0." + model.RemoteMethodName("boom"),
+			},
+		},
+		{
+			Org: "testorg", Module: "startmethoderror", FuncName: "$service$0." + model.RemoteMethodName("boom"),
 			Impl: func(_ *extern.Context, _ []values.BalValue) (values.BalValue, error) {
 				return nil, fmt.Errorf("boom")
-			}},
-		{Org: "testorg", Module: "startmethoderror.lst", FuncName: "Listener.trigger",
+			},
+		},
+		{
+			Org: "testorg", Module: "startmethoderror.lst", FuncName: "Listener.trigger",
 			Impl: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				receiver := args[0].(*values.Object)
 				svcVal, ok := receiver.Get("svc")
@@ -404,7 +427,8 @@ func TestStartMethodError(t *testing.T) {
 				}
 				_, _ = ctx.Env.Platform.IO.Stdout([]byte(values.String(<-okCh, nil) + "\n"))
 				return nil, nil
-			}},
+			},
+		},
 	}
 	runExtern(t, projectCase("start-method-error-v"), testharness.NewTestPal(), externs)
 }
@@ -414,14 +438,18 @@ func TestExternHandle(t *testing.T) {
 		data string
 	}
 	externs := []testharness.ExternRegistration{
-		{Org: "$anon", Module: "4-v", FuncName: "createHandle",
+		{
+			Org: "$anon", Module: "4-v", FuncName: "createHandle",
 			Impl: func(_ *extern.Context, _ []values.BalValue) (values.BalValue, error) {
 				return &myHandle{data: "handle_value"}, nil
-			}},
-		{Org: "$anon", Module: "4-v", FuncName: "useHandle",
+			},
+		},
+		{
+			Org: "$anon", Module: "4-v", FuncName: "useHandle",
 			Impl: func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 				return args[0].(*myHandle).data, nil
-			}},
+			},
+		},
 	}
 	runExtern(t, fileCase("4-v"), testharness.NewTestPal(), externs)
 }
@@ -548,9 +576,9 @@ func TestDependentlyTypedCrossModuleRoundtrip(t *testing.T) {
 			return nil, fmt.Errorf("expected typedesc argument, got %T", args[1])
 		}
 		switch {
-		case semtypes.IsSubtype(tyCtx, td.Type, semtypes.INT):
+		case semtypes.IsSubtype(tyCtx, td.Type, semtypes.Int):
 			return int64(1), nil
-		case semtypes.IsSubtype(tyCtx, td.Type, semtypes.STRING):
+		case semtypes.IsSubtype(tyCtx, td.Type, semtypes.String):
 			return "foo", nil
 		}
 		panic(values.NewErrorWithMessage("unsupported inferred typedesc constraint"))
@@ -597,7 +625,7 @@ func compileSingleFileModule(
 	if err != nil {
 		t.Fatalf("parsing %s: %v", balPath, err)
 	}
-	cu := ast.GetCompilationUnit(cx, st)
+	cu := nodebuilder.GetCompilationUnit(cx, st)
 	pkgID := cx.NewPackageID(orgName, nameComps, model.DEFAULT_VERSION)
 	cu.SetPackageID(pkgID)
 	compilationUnits := []*ast.BLangCompilationUnit{cu}
@@ -609,24 +637,23 @@ func compileSingleFileModule(
 	importedByCU := semantics.ResolveCompilationUnitImports(cx, compilationUnits, langlibs.ImplicitImports, langlibs.PublicSymbols, defaultOrg)
 	pkgScope, exported := semantics.ResolveSymbols(cx, *pkgID, importedByCU)
 	assertNoDiagnostics(t, cx, "ResolveSymbols")
-	pkg := ast.ToPackageFromCompilationUnits(compilationUnits)
+	pkg := nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
 	pkg.PackageID = pkgID
 	pkg.Scope = pkgScope
 	pkg.Imports = nil
 	importedSymbols := importedByCU[0].Imports
-	semantics.ResolveTopLevelNodes(cx, pkg, importedSymbols)
-	assertNoDiagnostics(t, cx, "ResolveTopLevelNodes")
-	semantics.ResolveLocalNodes(cx, pkg, importedSymbols)
-	assertNoDiagnostics(t, cx, "ResolveLocalNodes")
-	analyzer := semantics.NewSemanticAnalyzer(cx)
-	analyzer.Analyze(pkg, importedSymbols)
-	assertNoDiagnostics(t, cx, "SemanticAnalyzer")
+	semantics.ResolvePublicNodeTypes(cx, pkg, importedSymbols)
+	assertNoDiagnostics(t, cx, "ResolvePublicNodeTypes")
+	semantics.ResolvePrivateNodesTypes(cx, pkg, importedSymbols)
+	assertNoDiagnostics(t, cx, "ResolvePrivateNodesTypes")
+	semantics.AnalyzeSemantics(cx, pkg, importedSymbols)
+	assertNoDiagnostics(t, cx, "AnalyzeSemantics")
 	cfg := semantics.CreateControlFlowGraph(cx, pkg)
 	assertNoDiagnostics(t, cx, "CreateControlFlowGraph")
 	semantics.AnalyzeCFG(cx, pkg, cfg)
 	assertNoDiagnostics(t, cx, "AnalyzeCFG")
 	pkg = desugar.DesugarPackage(cx, pkg, importedSymbols)
-	return exported, bir.GenBir(cx, pkg)
+	return exported, birgen.GenBir(cx, pkg)
 }
 
 func assertNoDiagnostics(t *testing.T, cx *context.CompilerContext, stage string) {

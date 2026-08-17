@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"unsafe"
 
-	"ballerina/bir"
-	"ballerina/runtime/extern"
-	"ballerina/runtime/internal/modules"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/runtime/internal/modules"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 func execConstantLoad(ctx *extern.Context, constantLoad *bir.ConstantLoad, frame *Frame) {
@@ -261,7 +261,7 @@ func execNewXMLElement(ctx *extern.Context, instr *bir.NewXMLElement, frame *Fra
 }
 
 func xmlResultReadonly(ctx *extern.Context, op *bir.BIROperand) bool {
-	return semtypes.IsSubtype(ctx.TypeCtx(), op.VariableDcl.GetType(), semtypes.VAL_READONLY)
+	return semtypes.IsSubtype(ctx.TypeCtx(), op.VariableDcl.GetType(), semtypes.ValReadonly)
 }
 
 func execEvalTemplateExpr(ctx *extern.Context, instr *bir.EvalTemplateExpr, frame *Frame) {

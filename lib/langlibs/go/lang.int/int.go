@@ -20,9 +20,9 @@ import (
 	"math"
 	"strconv"
 
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const (

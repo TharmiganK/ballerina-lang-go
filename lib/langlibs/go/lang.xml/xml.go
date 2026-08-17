@@ -17,10 +17,10 @@
 package xml
 
 import (
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const (
@@ -36,7 +36,7 @@ func initXMLModule(rt *runtime.Runtime) {
 
 func xmlIterator(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	x, _ := args[0].(values.XMLValue)
-	return values.NewObject(semtypes.OBJECT, map[string]values.BalValue{
+	return values.NewObject(semtypes.Object, map[string]values.BalValue{
 		"items": x.IterItems(),
 		"idx":   int64(0),
 	}, map[string]string{
@@ -63,9 +63,9 @@ func xmlIteratorNext(ctx *extern.Context, args []values.BalValue) (values.BalVal
 
 func xmlIteratorNextRecordType(env semtypes.Env) semtypes.SemType {
 	def := semtypes.NewMappingDefinition()
-	return def.DefineMappingTypeWrapped(env,
+	return def.Define(env,
 		[]semtypes.Field{semtypes.FieldFrom("value", semtypes.XML, false, false)},
-		semtypes.NEVER)
+		semtypes.Never)
 }
 
 func init() {

@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"sort"
 
-	"ballerina/context"
-	"ballerina/model"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/context"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const (
@@ -771,7 +771,7 @@ func (sw *symbolWriter) writeUntypedFunctionSignature(buf *bytes.Buffer, sig mod
 			if err := sw.writeStringCP(buf, name); err != nil {
 				return err
 			}
-			if err := sw.writeType(buf, semtypes.VAL); err != nil {
+			if err := sw.writeType(buf, semtypes.Val); err != nil {
 				return err
 			}
 		}
@@ -779,7 +779,7 @@ func (sw *symbolWriter) writeUntypedFunctionSignature(buf *bytes.Buffer, sig mod
 			if err := sw.writeStringCP(buf, name); err != nil {
 				return err
 			}
-			if err := sw.writeType(buf, semtypes.NEVER); err != nil {
+			if err := sw.writeType(buf, semtypes.Never); err != nil {
 				return err
 			}
 		}

@@ -28,24 +28,26 @@ import (
 	"strings"
 	"testing"
 
-	"ballerina/ast"
-	"ballerina/bir"
-	bircodec "ballerina/bir/codec"
-	"ballerina/context"
-	"ballerina/desugar"
-	"ballerina/model"
-	"ballerina/model/symbolpool"
-	"ballerina/parser"
-	"ballerina/projects"
-	"ballerina/runtime"
-	"ballerina/semantics"
-	"ballerina/semtypes"
-	"ballerina/test_util"
-	"ballerina/test_util/langlib"
-	"ballerina/test_util/testharness"
-	"ballerina/tools/text"
+	"github.com/ballerina-nutcracker/ballerina/ast"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	bircodec "github.com/ballerina-nutcracker/ballerina/bir/codec"
+	"github.com/ballerina-nutcracker/ballerina/birgen"
+	"github.com/ballerina-nutcracker/ballerina/context"
+	"github.com/ballerina-nutcracker/ballerina/desugar"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/model/symbolpool"
+	"github.com/ballerina-nutcracker/ballerina/nodebuilder"
+	"github.com/ballerina-nutcracker/ballerina/parser"
+	"github.com/ballerina-nutcracker/ballerina/projects"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/semantics"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/test_util"
+	"github.com/ballerina-nutcracker/ballerina/test_util/langlib"
+	"github.com/ballerina-nutcracker/ballerina/test_util/testharness"
+	"github.com/ballerina-nutcracker/ballerina/tools/text"
 
-	_ "ballerina/lib/rt"
+	_ "github.com/ballerina-nutcracker/ballerina/lib/rt"
 )
 
 const (
@@ -615,7 +617,7 @@ func compileModuleFromSource(env *context.CompilerEnvironment, project projects.
 		if err != nil {
 			return nil, fmt.Errorf("parsing %s: %v", relPath, err)
 		}
-		cu := ast.GetCompilationUnit(cx, st)
+		cu := nodebuilder.GetCompilationUnit(cx, st)
 		syntaxTrees = append(syntaxTrees, cu)
 	}
 
@@ -646,7 +648,7 @@ func compileModuleFromSource(env *context.CompilerEnvironment, project projects.
 	if cx.HasDiagnostics() {
 		return nil, fmt.Errorf("symbol resolution failed")
 	}
-	pkg := ast.ToPackageFromCompilationUnits(syntaxTrees)
+	pkg := nodebuilder.ToPackageFromCompilationUnits(syntaxTrees)
 	pkg.Imports = nil
 	pkg.PackageID = pkgID
 	pkg.Scope = pkgScope
@@ -655,18 +657,17 @@ func compileModuleFromSource(env *context.CompilerEnvironment, project projects.
 		maps.Copy(importedSymbols, cuImports.Imports)
 	}
 
-	semantics.ResolveTopLevelNodes(cx, pkg, importedSymbols)
+	semantics.ResolvePublicNodeTypes(cx, pkg, importedSymbols)
 	if cx.HasDiagnostics() {
 		return nil, fmt.Errorf("top-level type resolution failed")
 	}
 
-	semantics.ResolveLocalNodes(cx, pkg, importedSymbols)
+	semantics.ResolvePrivateNodesTypes(cx, pkg, importedSymbols)
 	if cx.HasDiagnostics() {
 		return nil, fmt.Errorf("local type resolution failed")
 	}
 
-	analyzer := semantics.NewSemanticAnalyzer(cx)
-	analyzer.Analyze(pkg, importedSymbols)
+	semantics.AnalyzeSemantics(cx, pkg, importedSymbols)
 	if cx.HasDiagnostics() {
 		return nil, fmt.Errorf("semantic analysis failed")
 	}
@@ -683,7 +684,7 @@ func compileModuleFromSource(env *context.CompilerEnvironment, project projects.
 
 	pkg = desugar.DesugarPackage(cx, pkg, importedSymbols)
 
-	return bir.GenBir(cx, pkg), nil
+	return birgen.GenBir(cx, pkg), nil
 }
 
 func BenchmarkIntegration(b *testing.B) {

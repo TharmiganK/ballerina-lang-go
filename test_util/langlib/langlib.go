@@ -25,14 +25,15 @@ import (
 	"io/fs"
 	"strings"
 
-	"ballerina/ast"
-	"ballerina/context"
-	"ballerina/lib/langlibs"
-	"ballerina/lib/stdlibs"
-	"ballerina/model"
-	"ballerina/parser"
-	"ballerina/semantics"
-	"ballerina/tools/text"
+	"github.com/ballerina-nutcracker/ballerina/ast"
+	"github.com/ballerina-nutcracker/ballerina/context"
+	"github.com/ballerina-nutcracker/ballerina/lib/langlibs"
+	"github.com/ballerina-nutcracker/ballerina/lib/stdlibs"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/nodebuilder"
+	"github.com/ballerina-nutcracker/ballerina/parser"
+	"github.com/ballerina-nutcracker/ballerina/semantics"
+	"github.com/ballerina-nutcracker/ballerina/tools/text"
 )
 
 type bundledLib struct {
@@ -163,11 +164,6 @@ var bundledStdlibs = []bundledLib{
 	},
 }
 
-// ImplicitImports returns the implicit-imports map for a hand-rolled compile
-// driver: the still-intrinsic langlibs from semantics.GetImplicitImports plus
-// the migrated lang libraries compiled into cx. Compilation happens in cx's
-// env so the returned symbol spaces resolve when the driver compiles user code
-// in the same context.
 type Symbols struct {
 	ImplicitImports map[string]model.ExportedSymbolSpace
 	PublicSymbols   map[semantics.PackageIdentifier]model.ExportedSymbolSpace
@@ -249,7 +245,7 @@ func compileBundledLib(cx *context.CompilerContext, cache map[string]model.Expor
 	if err != nil {
 		return model.ExportedSymbolSpace{}, fmt.Errorf("langlib: parse %s: %w", lib.implicitID, err)
 	}
-	cu := ast.GetCompilationUnit(cx, syntaxTree)
+	cu := nodebuilder.GetCompilationUnit(cx, syntaxTree)
 	if cu == nil {
 		return model.ExportedSymbolSpace{}, fmt.Errorf("langlib: AST generation failed for %s", lib.implicitID)
 	}
@@ -266,12 +262,12 @@ func compileBundledLib(cx *context.CompilerContext, cache map[string]model.Expor
 	importedByCU := semantics.ResolveCompilationUnitImports(cx, compilationUnits, semantics.GetImplicitImports(cx),
 		make(map[semantics.PackageIdentifier]model.ExportedSymbolSpace), lib.org)
 	pkgScope, exported := semantics.ResolveSymbols(cx, *pkgID, importedByCU)
-	pkg := ast.ToPackageFromCompilationUnits(compilationUnits)
+	pkg := nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
 	pkg.PackageID = pkgID
 	pkg.Scope = pkgScope
 	pkg.Imports = nil
 	imported := importedByCU[0].Imports
-	semantics.ResolveTopLevelNodes(cx, pkg, imported)
+	semantics.ResolvePublicNodeTypes(cx, pkg, imported)
 	cache[lib.balPath] = exported
 	return exported, nil
 }

@@ -64,6 +64,11 @@ type (
 		ReadFile   func(path string) ([]byte, error)
 		WriteFile  func(path string, data []byte) error
 		AppendFile func(path string, data []byte) error
+		// OpenReadable opens path for streaming reads. Close releases the handle.
+		OpenReadable func(path string) (io.ReadCloser, error)
+		// OpenWritable opens path for streaming writes, truncating unless appendMode
+		// is set. Close flushes and releases the handle.
+		OpenWritable func(path string, appendMode bool) (io.WriteCloser, error)
 	}
 	OS struct {
 		GetEnv      func(name string) string
@@ -77,7 +82,11 @@ type (
 	Time struct {
 		Now          func() time.Time
 		MonotonicNow func() time.Duration
-		Sleep        func(d time.Duration)
+		// After returns a channel that receives once d has elapsed. It is a raw
+		// platform timer primitive, not a blocking sleep: callers decide how to
+		// wait on it (e.g. combined with a strand yield point) to honor the
+		// language spec's guarantees for runtime:sleep.
+		After func(d time.Duration) <-chan time.Time
 	}
 	HTTP struct {
 		// NewClient builds an outbound HTTP client (native: net/http; WASM: fetch).

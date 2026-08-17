@@ -19,7 +19,7 @@ package values
 import (
 	"fmt"
 
-	"ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
 )
 
 const conversionErrorTypeName = "{ballerina/lang.value}ConversionError"
@@ -33,10 +33,10 @@ type conversionFailure struct {
 
 func wrapConversionError(err *conversionFailure) *Error {
 	message := err.Error()
-	detailMap := NewMap(semtypes.MAPPING, &semtypes.MAPPING_ATOMIC_INNER, true, []MapEntry{
+	detailMap := NewMap(semtypes.Mapping, &semtypes.MappingAtomicInner, true, []MapEntry{
 		{Key: "message", Value: message},
 	})
-	return NewError(semtypes.ERROR, message, nil, conversionErrorTypeName, detailMap)
+	return NewError(semtypes.Error, message, nil, conversionErrorTypeName, detailMap)
 }
 
 func (e *conversionFailure) Error() string {

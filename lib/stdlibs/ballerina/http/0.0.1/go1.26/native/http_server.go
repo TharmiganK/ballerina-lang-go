@@ -27,14 +27,14 @@ import (
 	"sync"
 	"time"
 
-	"ballerina/bir"
-	"ballerina/decimal"
-	"ballerina/model"
-	"ballerina/platform/pal"
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/bir"
+	"github.com/ballerina-nutcracker/ballerina/decimal"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/platform/pal"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 // listenerState is the Go-side state of an http:Listener object, stored on the
@@ -573,7 +573,7 @@ func buildRequest(method, rawPath, httpVersion string, headers map[string][]stri
 		holder = &requestBodyHolder{buf: []byte{}, contentLength: 0}
 	}
 	return values.NewObject(
-		semtypes.OBJECT,
+		semtypes.Object,
 		map[string]values.BalValue{
 			"rawPath":     rawPath,
 			"method":      method,

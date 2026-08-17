@@ -17,8 +17,8 @@
 package model
 
 import (
-	"ballerina/semtypes"
-	"ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
 )
 
 // OpaqueSymbol is a symbol whose definition cannot be written in Ballerina
@@ -39,6 +39,11 @@ type OpaqueFunctionSymbol struct {
 	name        string
 	ID          int          // per-package opaque id; serialization handle and (with the package) selects the monomorphizer
 	SymbolSpace *SymbolSpace // space the monomorphized function is added to
+	// Params are the declared parameters, in order, so named arguments resolve
+	// the same way they do in jBallerina. They belong to the symbol rather than
+	// to a lookup keyed by function name, because the same name means different
+	// things in different packages (array:remove vs map:remove).
+	Params []Param
 	// Monomorphization cache functions, if function it self don't support caching then function pointers are nil
 	Lookup          func(keys ...semtypes.SemType) (SymbolRef, bool)
 	Store           func(ref SymbolRef, keys ...semtypes.SemType)
@@ -57,8 +62,8 @@ const (
 	OpaqueFnXMLIterator = 4
 )
 
-func newOpaqueFunctionSymbol(name string, id int, isIsolatedParam func(int) bool) *OpaqueFunctionSymbol {
-	return &OpaqueFunctionSymbol{name: name, ID: id, IsIsolatedParam: isIsolatedParam}
+func newOpaqueFunctionSymbol(name string, id int, isIsolatedParam func(int) bool, params ...Param) *OpaqueFunctionSymbol {
+	return &OpaqueFunctionSymbol{name: name, ID: id, IsIsolatedParam: isIsolatedParam, Params: params}
 }
 
 func noIsolatedParams(int) bool { return false }
@@ -126,13 +131,21 @@ func OpaqueSymbols(pkg PackageIdentifier) []Symbol {
 		return langXMLOpaqueSymbols()
 	case "lang.array":
 		return []Symbol{
-			newOpaqueFunctionSymbol("push", OpaqueFnArrayPush, noIsolatedParams),
-			newOpaqueFunctionSymbol("map", OpaqueFnArrayMap, func(index int) bool { return index == 1 }),
-			newOpaqueFunctionSymbol("indexOf", OpaqueFnArrayIndexOf, noIsolatedParams),
-			newOpaqueFunctionSymbol("remove", OpaqueFnArrayRemove, noIsolatedParams),
+			newOpaqueFunctionSymbol("push", OpaqueFnArrayPush, noIsolatedParams,
+				Param{Name: "arr"}, Param{Name: "vals", Flag: ParamFlagRestParam}),
+			newOpaqueFunctionSymbol("map", OpaqueFnArrayMap, func(index int) bool { return index == 1 },
+				Param{Name: "arr"}, Param{Name: "func"}),
+			// startIndex defaults to 0; the Go extern applies that default when
+			// the call site omits it, so no default expression is carried here.
+			newOpaqueFunctionSymbol("indexOf", OpaqueFnArrayIndexOf, noIsolatedParams,
+				Param{Name: "arr"}, Param{Name: "val"},
+				Param{Name: "startIndex", Flag: ParamFlagDefaultable}),
+			newOpaqueFunctionSymbol("remove", OpaqueFnArrayRemove, noIsolatedParams,
+				Param{Name: "arr"}, Param{Name: "index"}),
 		}
 	case "lang.map":
-		return []Symbol{newOpaqueFunctionSymbol("remove", OpaqueFnMapRemove, noIsolatedParams)}
+		return []Symbol{newOpaqueFunctionSymbol("remove", OpaqueFnMapRemove, noIsolatedParams,
+			Param{Name: "m"}, Param{Name: "k"})}
 	default:
 		return nil
 	}
@@ -143,12 +156,12 @@ func langIntOpaqueSymbols() []Symbol {
 		name string
 		ty   semtypes.SemType
 	}{
-		{"Signed8", semtypes.SINT8},
-		{"Signed16", semtypes.SINT16},
-		{"Signed32", semtypes.SINT32},
-		{"Unsigned8", semtypes.UINT8},
-		{"Unsigned16", semtypes.UINT16},
-		{"Unsigned32", semtypes.UINT32},
+		{"Signed8", semtypes.SignedInt8},
+		{"Signed16", semtypes.SignedInt16},
+		{"Signed32", semtypes.SignedInt32},
+		{"Unsigned8", semtypes.UnsignedInt8},
+		{"Unsigned16", semtypes.UnsignedInt16},
+		{"Unsigned32", semtypes.UnsignedInt32},
 	}
 	syms := make([]Symbol, len(defs))
 	for i, def := range defs {
@@ -158,7 +171,7 @@ func langIntOpaqueSymbols() []Symbol {
 }
 
 func langStringOpaqueSymbols() []Symbol {
-	return []Symbol{newOpaqueTypeSymbol("Char", semtypes.CHAR, 0)}
+	return []Symbol{newOpaqueTypeSymbol("Char", semtypes.Char, 0)}
 }
 
 func langXMLOpaqueSymbols() []Symbol {
@@ -166,10 +179,10 @@ func langXMLOpaqueSymbols() []Symbol {
 		name string
 		ty   semtypes.SemType
 	}{
-		{"Element", semtypes.XML_ELEMENT},
-		{"Comment", semtypes.XML_COMMENT},
-		{"Text", semtypes.XML_TEXT},
-		{"ProcessingInstruction", semtypes.XML_PI},
+		{"Element", semtypes.XMLElement},
+		{"Comment", semtypes.XMLComment},
+		{"Text", semtypes.XMLText},
+		{"ProcessingInstruction", semtypes.XMLProcessingInstruction},
 	}
 	syms := make([]Symbol, len(defs)+1)
 	for i, def := range defs {

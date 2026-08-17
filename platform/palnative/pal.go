@@ -22,13 +22,14 @@ package palnative
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"time"
 
-	"ballerina/platform/pal"
+	"github.com/ballerina-nutcracker/ballerina/platform/pal"
 )
 
 var processStart = time.Now()
@@ -80,6 +81,21 @@ func NewPlatform() (pal.Platform, func()) {
 				_, err = f.Write(data)
 				return err
 			},
+			OpenReadable: func(path string) (io.ReadCloser, error) {
+				return os.Open(path)
+			},
+			OpenWritable: func(path string, appendMode bool) (io.WriteCloser, error) {
+				if err := createParentDirs(path); err != nil {
+					return nil, err
+				}
+				flag := os.O_CREATE | os.O_WRONLY
+				if appendMode {
+					flag |= os.O_APPEND
+				} else {
+					flag |= os.O_TRUNC
+				}
+				return os.OpenFile(path, flag, 0o644)
+			},
 		},
 		OS: pal.OS{
 			GetEnv: func(name string) string {
@@ -122,7 +138,7 @@ func NewPlatform() (pal.Platform, func()) {
 		Time: pal.Time{
 			Now:          time.Now,
 			MonotonicNow: func() time.Duration { return time.Since(processStart) },
-			Sleep:        time.Sleep,
+			After:        time.After,
 		},
 		HTTP: pal.HTTP{
 			NewClient: NewHTTPClient,

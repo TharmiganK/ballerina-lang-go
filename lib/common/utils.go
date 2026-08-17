@@ -17,8 +17,8 @@
 package common
 
 import (
-	"ballerina/model"
-	"ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/model"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
 )
 
 func FunctionSignatureToSemType(env semtypes.Env, fs *model.TypedFunctionSignature) semtypes.SemType {
@@ -26,12 +26,13 @@ func FunctionSignatureToSemType(env semtypes.Env, fs *model.TypedFunctionSignatu
 	if !semtypes.IsZero(fs.RestParamType) {
 		restTy = fs.RestParamType
 	} else {
-		restTy = semtypes.NEVER
+		restTy = semtypes.Never
 	}
 
 	// Build the parameter list type
 	paramListDefn := semtypes.NewListDefinition()
-	paramListTy := paramListDefn.DefineListTypeWrapped(env, fs.ParamTypes, len(fs.ParamTypes), restTy, semtypes.CellMutability_CELL_MUT_NONE)
+	paramListTy := paramListDefn.Define(env, fs.ParamTypes, semtypes.ListRest(restTy),
+		semtypes.ListMutability(semtypes.CellMutabilityNone))
 
 	// Build the function type
 	functionDefn := semtypes.NewFunctionDefinition()

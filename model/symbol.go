@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync"
 
-	"ballerina/semtypes"
-	"ballerina/tools/diagnostics"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/tools/diagnostics"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 type Scope interface {
@@ -191,7 +191,7 @@ func (ref *RefTypeOp) Apply(ctx semtypes.Context, args []semtypes.SemType) semty
 }
 
 func (ref *RefTypeOp) FixedPart() semtypes.SemType {
-	return semtypes.NEVER
+	return semtypes.Never
 }
 
 type SymbolKind uint
@@ -1563,7 +1563,7 @@ func (s *dependentlyTypedFunctionSymbol) SetReturnType(op TypeOp) {
 
 func (s *dependentlyTypedFunctionSymbol) Monomorphize(ctx semtypes.Context, name string, origRef SymbolRef, argTys []semtypes.SemType) FunctionSymbol {
 	fixed := argTys
-	rest := semtypes.NEVER
+	rest := semtypes.Never
 	if len(argTys) > len(s.paramTypes) {
 		fixed = argTys[:len(s.paramTypes)]
 		for _, each := range argTys[len(s.paramTypes):] {

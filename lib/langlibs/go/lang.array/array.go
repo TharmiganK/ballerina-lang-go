@@ -21,10 +21,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"ballerina/runtime"
-	"ballerina/runtime/extern"
-	"ballerina/semtypes"
-	"ballerina/values"
+	"github.com/ballerina-nutcracker/ballerina/runtime"
+	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
+	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 const (
@@ -80,9 +80,10 @@ func arrayPush(ctx *extern.Context, args []values.BalValue) (values.BalValue, er
 func arrayMap(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	source := args[0].(*values.List)
 	callback := args[1].(*values.Function)
-	memberTy := semtypes.ListProj(ctx.TypeCtx(), source.Type, semtypes.INT)
+	memberTy := semtypes.ListProj(ctx.TypeCtx(), source.Type, semtypes.Int)
 	argListDef := semtypes.NewListDefinition()
-	argListTy := argListDef.DefineListTypeWrapped(ctx.TypeEnv(), []semtypes.SemType{memberTy}, 1, semtypes.NEVER, semtypes.CellMutability_CELL_MUT_NONE)
+	argListTy := argListDef.Define(ctx.TypeEnv(), []semtypes.SemType{memberTy},
+		semtypes.ListMutability(semtypes.CellMutabilityNone))
 	var resultMemberTy semtypes.SemType
 	if semtypes.IsNever(memberTy) {
 		resultMemberTy = semtypes.FunctionReturnType(ctx.TypeCtx(), callback.Type, semtypes.FunctionParamListType(ctx.TypeCtx(), callback.Type))
@@ -102,7 +103,7 @@ func arrayMap(ctx *extern.Context, args []values.BalValue) (values.BalValue, err
 	}
 
 	resultDef := semtypes.NewListDefinition()
-	resultTy := resultDef.DefineListTypeWrappedWithEnvSemType(ctx.TypeEnv(), resultMemberTy)
+	resultTy := resultDef.Define(ctx.TypeEnv(), nil, semtypes.ListRest(resultMemberTy))
 	atomic := semtypes.ToListAtomicType(ctx.TypeEnv(), resultTy)
 	filler, _ := values.FillerFactoryFor(ctx.TypeCtx(), resultMemberTy)
 	return values.NewList(resultTy, atomic, false, filler, 0, items), nil
@@ -111,6 +112,8 @@ func arrayMap(ctx *extern.Context, args []values.BalValue) (values.BalValue, err
 // arrayIndexOf bails out before the int64->int conversion below: on a
 // 32-bit int platform (e.g. wasm) a large startIndex would truncate,
 // possibly to a negative value, and list.Get is unchecked.
+// It also returns nil (no match) once startIndex reaches the list's
+// length, before the loop below ever indexes into it.
 func arrayIndexOf(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	list := args[0].(*values.List)
 	val := args[1]
@@ -134,13 +137,13 @@ func arrayIndexOf(_ *extern.Context, args []values.BalValue) (values.BalValue, e
 	return nil, nil
 }
 
-func arrayRemove(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+func arrayRemove(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 	list := args[0].(*values.List)
 	index := args[1].(int64)
 	if index < 0 || index >= int64(list.Len()) {
 		panic(values.NewErrorWithMessage(fmt.Sprintf("invalid array index: %d", index)))
 	}
-	return list.RemoveAt(int(index)), nil
+	return list.RemoveAt(ctx.TypeCtx(), int(index)), nil
 }
 
 func arrayRemoveAll(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
@@ -152,7 +155,7 @@ func arrayRemoveAll(_ *extern.Context, args []values.BalValue) (values.BalValue,
 func initArrayModule(rt *runtime.Runtime) {
 	env := rt.GetTypeEnv()
 	ld := semtypes.NewListDefinition()
-	byteArrTy := ld.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE)
+	byteArrTy := ld.Define(env, nil, semtypes.ListRest(semtypes.Byte))
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "length", arrayLength)
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "toBase64", arrayToBase64)

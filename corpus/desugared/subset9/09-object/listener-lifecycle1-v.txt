@@ -81,7 +81,8 @@
         (invocation io println (
           (literal testMain))))))
   (function $default$0 (
-    (variable svc)) ()
+    (variable svc (type
+      (value-type )))) ()
     (block-function-body
       (return
         (literal <nil>))))

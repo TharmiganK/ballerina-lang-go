@@ -69,9 +69,9 @@ func initAvroModule(rt *runtime.Runtime) {
 	anydataMapMd := semtypes.NewMappingDefinition()
 	types := &avroTypes{
 		env:           env,
-		byteArrTy:     byteArrLd.DefineListTypeWrappedWithEnvSemType(env, semtypes.BYTE),
-		anydataListTy: anydataListLd.DefineListTypeWrappedWithEnvSemType(env, anydataTy),
-		anydataMapTy:  anydataMapMd.DefineMappingTypeWrapped(env, nil, anydataTy),
+		byteArrTy:     byteArrLd.Define(env, nil, semtypes.ListRest(semtypes.Byte)),
+		anydataListTy: anydataListLd.Define(env, nil, semtypes.ListRest(anydataTy)),
+		anydataMapTy:  anydataMapMd.Define(env, nil, anydataTy),
 	}
 	types.anydataListAt = semtypes.ToListAtomicType(env, types.anydataListTy)
 	types.anydataMapAt = semtypes.ToMappingAtomicType(semtypes.ContextFrom(env), types.anydataMapTy)
@@ -89,7 +89,7 @@ func init() {
 // distinct error types cannot be constructed from Go, so avro:Error is
 // declared as a plain alias in avro.bal.
 func newAvroError(message string, cause values.BalValue) *values.Error {
-	return values.NewError(semtypes.ERROR, message, cause, "Error", nil)
+	return values.NewError(semtypes.Error, message, cause, "Error", nil)
 }
 
 // avroErrorFrom mirrors jBallerina's Utils.createError: a fixed outer message

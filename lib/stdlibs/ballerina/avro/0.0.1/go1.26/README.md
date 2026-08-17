@@ -70,7 +70,7 @@ Support Levels:
 | Named type references and namespaces | Supported | |
 | Recursive schemas | Supported | |
 | Module error type | Partially Supported | `avro:Error` is declared, but as a plain `error` alias; the `distinct` type descriptor is not yet supported. |
-| Readonly and intersection target types | Not Yet Supported | `readonly &` intersection types cannot be used as a `fromAvro` target; jBallerina freezes the decoded value in that case. |
+| Readonly and intersection target types | Supported | `readonly & T` binds and freezes the decoded value, for a record, an array, and a tuple. |
 
 ### Notable Behavioural Changes
 

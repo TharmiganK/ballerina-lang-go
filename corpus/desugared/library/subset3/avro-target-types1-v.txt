@@ -433,4 +433,60 @@
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (
-            (simple-var-ref list)))))))))
+            (simple-var-ref list))))))
+      (var-def
+        (variable $desugar$23 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairSchema) (
+            (simple-var-ref encoded)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$23))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$23))) ())
+      (var-def
+        (variable frozenRecord (type
+          (intersection-type
+            (value-type readonly)
+            (user-defined-type Pair))) (expr
+          (simple-var-ref $desugar$23))))
+      (expression-stmt
+        (invocation io println (
+          (index-based-access
+            (simple-var-ref frozenRecord)
+            (literal k)))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref frozenRecord)
+            (value-type readonly)))))
+      (var-def
+        (variable $desugar$24 (expr
+          (invocation fromAvro expr:
+            (simple-var-ref pairArray) (
+            (simple-var-ref two)
+            (typedesc-expr))))))
+      (if
+        (type-test-expr is
+          (simple-var-ref $desugar$24))
+        (block-stmt
+          (return
+            (simple-var-ref $desugar$24))) ())
+      (var-def
+        (variable frozenArray (type
+          (intersection-type
+            (value-type readonly)
+            (array-type
+              (value-type int) dimensions: 1 ([])))) (expr
+          (simple-var-ref $desugar$24))))
+      (expression-stmt
+        (invocation io println (
+          (invocation lang.array length (
+            (simple-var-ref frozenArray))))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref frozenArray)
+            (value-type readonly))))))))

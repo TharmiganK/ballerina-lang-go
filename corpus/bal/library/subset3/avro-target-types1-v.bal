@@ -80,4 +80,14 @@ public function main() returns error? {
     io:println(tuple[1]); // @output 2
     int[] list = check pairArray.fromAvro(two);
     io:println(list.length()); // @output 2
+
+    // A readonly & intersection target binds and freezes the decoded value,
+    // for a record as well as an array.
+    readonly & Pair frozenRecord = check pairSchema.fromAvro(encoded);
+    io:println(frozenRecord.k); // @output one
+    io:println(frozenRecord is readonly); // @output true
+
+    readonly & int[] frozenArray = check pairArray.fromAvro(two);
+    io:println(frozenArray.length()); // @output 2
+    io:println(frozenArray is readonly); // @output true
 }

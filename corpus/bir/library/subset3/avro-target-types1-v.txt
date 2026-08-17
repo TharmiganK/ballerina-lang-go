@@ -494,6 +494,60 @@ main() -> nil|error{
     %167 = println(%166) -> bb96;
   }
   bb96 {
+    %168 = ConstantLoad typedesc
+    %169 = fromAvro(pairSchema,encoded,%168) -> bb97;
+  }
+  bb97 {
+    $desugar$23 = %169;
+    %171 = $desugar$23 is error
+    %171 ? bb98 : bb99;
+  }
+  bb98 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$23);
+    PopScopeFrame
+    return;
+  }
+  bb99 {
+    frozenRecord = $desugar$23;
+    %174 = ConstantLoad k
+    %173 = frozenRecord[%174];
+    %175 = println(%173) -> bb100;
+  }
+  bb100 {
+    %176 = frozenRecord is nil|boolean|int|float|decimal|string|error|typedesc|handle|function|regexp|readonly|readonly|table|xml<xml:Text|xml:Element|xml:Comment|xml:ProcessingInstruction>|readonly
+    %177 = %176;
+    %178 = println(%177) -> bb101;
+  }
+  bb101 {
+    %179 = ConstantLoad typedesc
+    %180 = fromAvro(pairArray,two,%179) -> bb102;
+  }
+  bb102 {
+    $desugar$24 = %180;
+    %182 = $desugar$24 is error
+    %182 ? bb103 : bb104;
+  }
+  bb103 {
+    PushScopeFrame 0
+    (1, %0) = (1, $desugar$24);
+    PopScopeFrame
+    return;
+  }
+  bb104 {
+    frozenArray = $desugar$24;
+    %184 = length(frozenArray) -> bb105;
+  }
+  bb105 {
+    %185 = %184;
+    %186 = println(%185) -> bb106;
+  }
+  bb106 {
+    %187 = frozenArray is nil|boolean|int|float|decimal|string|error|typedesc|handle|function|regexp|readonly|readonly|table|xml<xml:Text|xml:Element|xml:Comment|xml:ProcessingInstruction>|readonly
+    %188 = %187;
+    %189 = println(%188) -> bb107;
+  }
+  bb107 {
     return;
   }
 }

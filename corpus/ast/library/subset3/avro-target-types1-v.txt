@@ -239,4 +239,41 @@
       (expression-stmt
         (invocation io println (
           (invocation length expr:
-            (simple-var-ref list) ())))))))
+            (simple-var-ref list) ()))))
+      (var-def
+        (variable frozenRecord (type
+          (intersection-type
+            (value-type readonly)
+            (user-defined-type Pair))) (expr
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref pairSchema) (
+              (simple-var-ref encoded)))))))
+      (expression-stmt
+        (invocation io println (
+          (field-based-access k
+            (simple-var-ref frozenRecord)))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref frozenRecord)
+            (value-type readonly)))))
+      (var-def
+        (variable frozenArray (type
+          (intersection-type
+            (value-type readonly)
+            (array-type
+              (value-type int) dimensions: 1 ([])))) (expr
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref pairArray) (
+              (simple-var-ref two)))))))
+      (expression-stmt
+        (invocation io println (
+          (invocation length expr:
+            (simple-var-ref frozenArray) ()))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref frozenArray)
+            (value-type readonly))))))))

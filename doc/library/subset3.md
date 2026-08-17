@@ -44,8 +44,8 @@ that case.
 
 Records, enums, tuples, singletons, `map<T>`, `T[]`, `json`, `map<json>`,
 `anydata` and nilable forms of all of these are accepted as targets, along with
-numeric widening from `int` to `float` and `decimal`. `readonly &` intersection
-targets are not yet supported.
+numeric widening from `int` to `float` and `decimal`. A `readonly &`
+intersection of any of these is accepted too and binds to a frozen value.
 
 ## [io](https://github.com/ballerina-platform/module-ballerina-io/blob/master/docs/spec/spec.md)
 

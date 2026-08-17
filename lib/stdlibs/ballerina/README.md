@@ -12,7 +12,7 @@ in each package's support table (Supported + Partially Supported + Not Yet Suppo
 
 | Package                                           | Supported | Partially Supported | Not Yet Supported | Support % |
 |---------------------------------------------------|---|---|---|---|
-| [avro](avro/0.0.1/go1.26/README.md)               | 14 | 1 | 1 | 88% |
+| [avro](avro/0.0.1/go1.26/README.md)               | 15 | 1 | 0 | 94% |
 | [crypto](crypto/0.0.1/go1.26/README.md)           | 26 | 1 | 5 | 81% |
 | [http](http/0.0.1/go1.26/README.md)               | 26 | 7 | 40 | 36% |
 | [io](io/0.0.1/go1.26/README.md)                   | 21 | 2 | 4 | 78% |
@@ -22,7 +22,7 @@ in each package's support table (Supported + Partially Supported + Not Yet Suppo
 | [random](random/0.0.1/go1.26/README.md)           | 3 | 1 | 1 | 60% |
 | [time](time/0.0.1/go1.26/README.md)               | 31 | 1 | 0 | 97% |
 | [url](url/0.0.1/go1.26/README.md)                 | 3 | 0 | 1 | 75% |
-| **Total**                                         | **147** | **16** | **67** | **64%** |
+| **Total**                                         | **148** | **16** | **66** | **64%** |
 
 ## Notable Behavioural Changes
 

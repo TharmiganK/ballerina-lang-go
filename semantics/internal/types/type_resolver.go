@@ -8373,8 +8373,10 @@ func monomorphizeArrayIndexOf(t typeResolver, sym *model.OpaqueFunctionSymbol, p
 		}
 	}
 	cx := t.typeContext()
-	if !semtypes.IsSubtype(cx, containerTy, semtypes.List) {
-		t.semanticError("expect first argument to be a subtype of (any|error)[]", pos)
+	anydataArrDef := semtypes.NewListDefinition()
+	anydataArrTy := anydataArrDef.Define(t.typeEnv(), nil, semtypes.ListRest(semtypes.CreateAnydata(cx)))
+	if !semtypes.IsSubtype(cx, containerTy, anydataArrTy) {
+		t.semanticError("expect first argument to be a subtype of anydata[]", pos)
 		return model.SymbolRef{}, chain, false
 	}
 	valType := semtypes.ListProj(cx, containerTy, semtypes.Int)

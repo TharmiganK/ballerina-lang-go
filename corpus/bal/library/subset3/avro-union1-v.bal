@@ -112,4 +112,34 @@ public function main() returns error? {
     io:println(widenedToFloat.length()); // @output 5
     float floatFromInt = check stringOrFloat.fromAvro(widenedToFloat);
     io:println(floatFromInt); // @output 5.0
+
+    // Avro permits a union to combine a bytes/fixed branch with an array
+    // branch — they're different kinds — even though a Ballerina value
+    // reaches both as *values.List: a byte[] value always takes the bytes
+    // branch, an int[] value always takes the array branch, in either
+    // declared order.
+    avro:Schema bytesThenArray = check new (string
+        `["bytes", {"type": "array", "items": "int"}]`);
+    avro:Schema arrayThenBytes = check new (string
+        `[{"type": "array", "items": "int"}, "bytes"]`);
+    byte[] rawBytes = [1, 2, 3];
+    int[] rawInts = [1, 2, 3];
+    io:println((check bytesThenArray.toAvro(rawBytes)).length()); // @output 5
+    io:println((check arrayThenBytes.toAvro(rawBytes)).length()); // @output 5
+    io:println((check bytesThenArray.toAvro(rawInts)).length()); // @output 6
+    io:println((check arrayThenBytes.toAvro(rawInts)).length()); // @output 6
+
+    // The same holds for a union combining a record branch with a map
+    // branch: a record value always takes the record branch, a map<int>
+    // value always takes the map branch, in either declared order.
+    avro:Schema recordThenMap = check new (string
+        `[{"type": "record", "name": "Point", "fields": [{"name": "x", "type": "int"}]}, {"type": "map", "values": "int"}]`);
+    avro:Schema mapThenRecord = check new (string
+        `[{"type": "map", "values": "int"}, {"type": "record", "name": "Point", "fields": [{"name": "x", "type": "int"}]}]`);
+    Point onePoint = {x: 1};
+    map<int> oneMap = {x: 1};
+    io:println((check recordThenMap.toAvro(onePoint)).length()); // @output 2
+    io:println((check mapThenRecord.toAvro(onePoint)).length()); // @output 2
+    io:println((check recordThenMap.toAvro(oneMap)).length()); // @output 6
+    io:println((check mapThenRecord.toAvro(oneMap)).length()); // @output 6
 }

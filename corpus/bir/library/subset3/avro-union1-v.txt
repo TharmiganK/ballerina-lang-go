@@ -430,7 +430,7 @@ main() -> nil|error{
     GOTO bb84;
   }
   bb84 {
-    PushScopeFrame 188
+    PushScopeFrame 288
     %0 = newObject ballerina/avro:Schema
     %1 = ConstantLoad ["double", "long"]
     %2 = init(%0,%1) -> bb85;
@@ -1051,6 +1051,334 @@ main() -> nil|error{
     %187 = println(%186) -> bb201;
   }
   bb201 {
+    %188 = newObject ballerina/avro:Schema
+    %189 = ConstantLoad ["bytes", {"type": "array", "items": "int"}]
+    %190 = init(%188,%189) -> bb202;
+  }
+  bb202 {
+    %192 = %190 is nil
+    %192 ? bb203 : bb204;
+  }
+  bb203 {
+    %191 = %188;
+    GOTO bb205;
+  }
+  bb204 {
+    %191 = %190;
+    GOTO bb205;
+  }
+  bb205 {
+    $desugar$41 = %191;
+    %194 = $desugar$41 is error
+    %194 ? bb206 : bb207;
+  }
+  bb206 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$41);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb207 {
+    bytesThenArray = $desugar$41;
+    %196 = newObject ballerina/avro:Schema
+    %197 = ConstantLoad [{"type": "array", "items": "int"}, "bytes"]
+    %198 = init(%196,%197) -> bb208;
+  }
+  bb208 {
+    %200 = %198 is nil
+    %200 ? bb209 : bb210;
+  }
+  bb209 {
+    %199 = %196;
+    GOTO bb211;
+  }
+  bb210 {
+    %199 = %198;
+    GOTO bb211;
+  }
+  bb211 {
+    $desugar$42 = %199;
+    %202 = $desugar$42 is error
+    %202 ? bb212 : bb213;
+  }
+  bb212 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$42);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb213 {
+    arrayThenBytes = $desugar$42;
+    %204 = ConstantLoad 1
+    %205 = ConstantLoad 2
+    %206 = ConstantLoad 3
+    %207 = ConstantLoad 3
+    %208 = newArray [int:Unsigned8...][%207]{%204, %205, %206}
+    rawBytes = %208;
+    %210 = ConstantLoad 1
+    %211 = ConstantLoad 2
+    %212 = ConstantLoad 3
+    %213 = ConstantLoad 3
+    %214 = newArray [int...][%213]{%210, %211, %212}
+    rawInts = %214;
+    %216 = toAvro(bytesThenArray,rawBytes) -> bb214;
+  }
+  bb214 {
+    $desugar$43 = %216;
+    %218 = $desugar$43 is error
+    %218 ? bb215 : bb216;
+  }
+  bb215 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$43);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb216 {
+    %219 = length($desugar$43) -> bb217;
+  }
+  bb217 {
+    %220 = %219;
+    %221 = println(%220) -> bb218;
+  }
+  bb218 {
+    %222 = toAvro(arrayThenBytes,rawBytes) -> bb219;
+  }
+  bb219 {
+    $desugar$44 = %222;
+    %224 = $desugar$44 is error
+    %224 ? bb220 : bb221;
+  }
+  bb220 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$44);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb221 {
+    %225 = length($desugar$44) -> bb222;
+  }
+  bb222 {
+    %226 = %225;
+    %227 = println(%226) -> bb223;
+  }
+  bb223 {
+    %228 = toAvro(bytesThenArray,rawInts) -> bb224;
+  }
+  bb224 {
+    $desugar$45 = %228;
+    %230 = $desugar$45 is error
+    %230 ? bb225 : bb226;
+  }
+  bb225 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$45);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb226 {
+    %231 = length($desugar$45) -> bb227;
+  }
+  bb227 {
+    %232 = %231;
+    %233 = println(%232) -> bb228;
+  }
+  bb228 {
+    %234 = toAvro(arrayThenBytes,rawInts) -> bb229;
+  }
+  bb229 {
+    $desugar$46 = %234;
+    %236 = $desugar$46 is error
+    %236 ? bb230 : bb231;
+  }
+  bb230 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$46);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb231 {
+    %237 = length($desugar$46) -> bb232;
+  }
+  bb232 {
+    %238 = %237;
+    %239 = println(%238) -> bb233;
+  }
+  bb233 {
+    %240 = newObject ballerina/avro:Schema
+    %241 = ConstantLoad [{"type": "record", "name": "Point", "fields": [{"name": "x", "type": "int"}]}, {"type": "map", "values": "int"}]
+    %242 = init(%240,%241) -> bb234;
+  }
+  bb234 {
+    %244 = %242 is nil
+    %244 ? bb235 : bb236;
+  }
+  bb235 {
+    %243 = %240;
+    GOTO bb237;
+  }
+  bb236 {
+    %243 = %242;
+    GOTO bb237;
+  }
+  bb237 {
+    $desugar$47 = %243;
+    %246 = $desugar$47 is error
+    %246 ? bb238 : bb239;
+  }
+  bb238 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$47);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb239 {
+    recordThenMap = $desugar$47;
+    %248 = newObject ballerina/avro:Schema
+    %249 = ConstantLoad [{"type": "map", "values": "int"}, {"type": "record", "name": "Point", "fields": [{"name": "x", "type": "int"}]}]
+    %250 = init(%248,%249) -> bb240;
+  }
+  bb240 {
+    %252 = %250 is nil
+    %252 ? bb241 : bb242;
+  }
+  bb241 {
+    %251 = %248;
+    GOTO bb243;
+  }
+  bb242 {
+    %251 = %250;
+    GOTO bb243;
+  }
+  bb243 {
+    $desugar$48 = %251;
+    %254 = $desugar$48 is error
+    %254 ? bb244 : bb245;
+  }
+  bb244 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$48);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb245 {
+    mapThenRecord = $desugar$48;
+    %256 = ConstantLoad x
+    %257 = ConstantLoad 1
+    %258 = newMap {| x: int, never... |}{%256=%257}
+    onePoint = %258;
+    %260 = ConstantLoad x
+    %261 = ConstantLoad 1
+    %262 = newMap {| int... |}{%260=%261}
+    oneMap = %262;
+    %264 = toAvro(recordThenMap,onePoint) -> bb246;
+  }
+  bb246 {
+    $desugar$49 = %264;
+    %266 = $desugar$49 is error
+    %266 ? bb247 : bb248;
+  }
+  bb247 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$49);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb248 {
+    %267 = length($desugar$49) -> bb249;
+  }
+  bb249 {
+    %268 = %267;
+    %269 = println(%268) -> bb250;
+  }
+  bb250 {
+    %270 = toAvro(mapThenRecord,onePoint) -> bb251;
+  }
+  bb251 {
+    $desugar$50 = %270;
+    %272 = $desugar$50 is error
+    %272 ? bb252 : bb253;
+  }
+  bb252 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$50);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb253 {
+    %273 = length($desugar$50) -> bb254;
+  }
+  bb254 {
+    %274 = %273;
+    %275 = println(%274) -> bb255;
+  }
+  bb255 {
+    %276 = toAvro(recordThenMap,oneMap) -> bb256;
+  }
+  bb256 {
+    $desugar$51 = %276;
+    %278 = $desugar$51 is error
+    %278 ? bb257 : bb258;
+  }
+  bb257 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$51);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb258 {
+    %279 = length($desugar$51) -> bb259;
+  }
+  bb259 {
+    %280 = %279;
+    %281 = println(%280) -> bb260;
+  }
+  bb260 {
+    %282 = toAvro(mapThenRecord,oneMap) -> bb261;
+  }
+  bb261 {
+    $desugar$52 = %282;
+    %284 = $desugar$52 is error
+    %284 ? bb262 : bb263;
+  }
+  bb262 {
+    PushScopeFrame 0
+    (3, %0) = (1, $desugar$52);
+    PopScopeFrame
+    PopScopeFrame
+    PopScopeFrame
+    return;
+  }
+  bb263 {
+    %285 = length($desugar$52) -> bb264;
+  }
+  bb264 {
+    %286 = %285;
+    %287 = println(%286) -> bb265;
+  }
+  bb265 {
     PopScopeFrame
     PopScopeFrame
     return;

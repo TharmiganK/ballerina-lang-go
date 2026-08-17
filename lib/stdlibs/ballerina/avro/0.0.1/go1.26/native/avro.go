@@ -134,13 +134,13 @@ func generateSchemaExtern() extern.NativeFunc {
 }
 
 func toAvroExtern(types *avroTypes) extern.NativeFunc {
-	return func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	return func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 		self, _ := args[0].(*values.Object)
 		schema, schemaErr := schemaOf(self)
 		if schemaErr != nil {
 			return schemaErr, nil
 		}
-		native, err := encodeValue(schema.shape, args[1])
+		native, err := encodeValue(ctx.TypeCtx(), schema.shape, args[1])
 		if err != nil {
 			return avroErrorFrom(serializationError, err), nil
 		}

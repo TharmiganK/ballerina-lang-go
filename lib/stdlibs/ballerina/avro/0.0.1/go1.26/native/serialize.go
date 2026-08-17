@@ -31,14 +31,17 @@ import (
 	"fmt"
 
 	"github.com/ballerina-nutcracker/ballerina/decimal"
+	"github.com/ballerina-nutcracker/ballerina/semtypes"
 	"github.com/ballerina-nutcracker/ballerina/values"
 )
 
 // encodeValue converts data to goavro's native representation for s. The
 // schema drives the walk; each leaf decides for itself which Ballerina values
 // it accepts, and how far it will coerce them, so that the result matches
-// what jBallerina's Avro writer produces for the same value.
-func encodeValue(s *shape, data values.BalValue) (any, error) {
+// what jBallerina's Avro writer produces for the same value. tc is only
+// needed by encodeUnion's branch selection, to tell a byte[] apart from any
+// other list and a record apart from a plain map — see naturalBranch.
+func encodeValue(tc semtypes.Context, s *shape, data values.BalValue) (any, error) {
 	switch s.kind {
 	case shapeNull:
 		return encodeNull(data)
@@ -61,13 +64,13 @@ func encodeValue(s *shape, data values.BalValue) (any, error) {
 	case shapeEnum:
 		return encodeEnum(data)
 	case shapeRecord:
-		return encodeRecord(s, data)
+		return encodeRecord(tc, s, data)
 	case shapeMap:
-		return encodeMap(s, data)
+		return encodeMap(tc, s, data)
 	case shapeArray:
-		return encodeArray(s, data)
+		return encodeArray(tc, s, data)
 	case shapeUnion:
-		return encodeUnion(s, data)
+		return encodeUnion(tc, s, data)
 	default:
 		return nil, fmt.Errorf("unsupported Avro schema kind: %v", s.kind)
 	}
@@ -182,7 +185,7 @@ func encodeEnum(data values.BalValue) (any, error) {
 // field always reaches the field's own type check rather than silently
 // picking up the schema's default value. jBallerina's RecordSerializer never
 // applies write-side defaults either.
-func encodeRecord(s *shape, data values.BalValue) (any, error) {
+func encodeRecord(tc semtypes.Context, s *shape, data values.BalValue) (any, error) {
 	record, ok := data.(*values.Map)
 	if !ok {
 		return nil, typeMismatch("record", data)
@@ -190,7 +193,7 @@ func encodeRecord(s *shape, data values.BalValue) (any, error) {
 	fields := make(map[string]any, len(s.fields))
 	for _, field := range s.fields {
 		value, _ := record.Get(field.name)
-		encoded, err := encodeValue(field.shape, value)
+		encoded, err := encodeValue(tc, field.shape, value)
 		if err != nil {
 			return nil, fmt.Errorf("field '%s': %w", field.name, err)
 		}
@@ -199,7 +202,7 @@ func encodeRecord(s *shape, data values.BalValue) (any, error) {
 	return fields, nil
 }
 
-func encodeMap(s *shape, data values.BalValue) (any, error) {
+func encodeMap(tc semtypes.Context, s *shape, data values.BalValue) (any, error) {
 	entries, ok := data.(*values.Map)
 	if !ok {
 		return nil, typeMismatch("map", data)
@@ -207,7 +210,7 @@ func encodeMap(s *shape, data values.BalValue) (any, error) {
 	result := make(map[string]any, entries.Len())
 	for _, key := range entries.Keys() {
 		value, _ := entries.Get(key)
-		encoded, err := encodeValue(s.value, value)
+		encoded, err := encodeValue(tc, s.value, value)
 		if err != nil {
 			return nil, fmt.Errorf("key '%s': %w", key, err)
 		}
@@ -216,14 +219,14 @@ func encodeMap(s *shape, data values.BalValue) (any, error) {
 	return result, nil
 }
 
-func encodeArray(s *shape, data values.BalValue) (any, error) {
+func encodeArray(tc semtypes.Context, s *shape, data values.BalValue) (any, error) {
 	items, ok := data.(*values.List)
 	if !ok {
 		return nil, typeMismatch("array", data)
 	}
 	result := make([]any, items.Len())
 	for i := range items.Len() {
-		encoded, err := encodeValue(s.item, items.Get(i))
+		encoded, err := encodeValue(tc, s.item, items.Get(i))
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -246,16 +249,17 @@ func encodeArray(s *shape, data values.BalValue) (any, error) {
 // A chosen null branch encodes to a bare Go nil — goavro's union encoder reads
 // that as the null-branch signal — while every other branch is wrapped in a
 // single-entry map keyed by its exact goavro type name.
-func encodeUnion(s *shape, data values.BalValue) (any, error) {
-	for _, claims := range []func(*shape, values.BalValue) bool{naturalBranch, widenedBranch} {
+func encodeUnion(tc semtypes.Context, s *shape, data values.BalValue) (any, error) {
+	amb := branchAmbiguity(s.branches)
+	for _, claims := range []func(semtypes.Context, *shape, values.BalValue, ambiguity) bool{naturalBranch, widenedBranch} {
 		for _, branch := range s.branches {
-			if !claims(branch, data) {
+			if !claims(tc, branch, data, amb) {
 				continue
 			}
 			if branch.kind == shapeNull {
 				return nil, nil
 			}
-			encoded, err := encodeValue(branch, data)
+			encoded, err := encodeValue(tc, branch, data)
 			if err != nil {
 				return nil, err
 			}
@@ -265,10 +269,58 @@ func encodeUnion(s *shape, data values.BalValue) (any, error) {
 	return nil, fmt.Errorf("value does not match with the Avro union types")
 }
 
+// ambiguity records which container-level clashes s's branches actually
+// contain, so naturalBranch only pays for a semtype-based disambiguation
+// where a clash is possible.
+type ambiguity struct {
+	// bytesVsArray is set when the union has both a bytes/fixed branch and
+	// an array branch — Avro permits this since they're different kinds,
+	// but both store a Ballerina value as *values.List.
+	bytesVsArray bool
+	// recordVsMap is set when the union has both a record branch and a map
+	// branch — legal for the same reason, and both store a Ballerina value
+	// as *values.Map.
+	recordVsMap bool
+}
+
+func branchAmbiguity(branches []*shape) ambiguity {
+	var hasBytesLike, hasArray, hasRecord, hasMap bool
+	for _, branch := range branches {
+		switch branch.kind {
+		case shapeBytes, shapeFixed:
+			hasBytesLike = true
+		case shapeArray:
+			hasArray = true
+		case shapeRecord:
+			hasRecord = true
+		case shapeMap:
+			hasMap = true
+		}
+	}
+	return ambiguity{
+		bytesVsArray: hasBytesLike && hasArray,
+		recordVsMap:  hasRecord && hasMap,
+	}
+}
+
 // naturalBranch reports whether branch is the Avro type a Ballerina value
 // encodes to without conversion, so a lossless branch always wins over a
 // widening one.
-func naturalBranch(branch *shape, data values.BalValue) bool {
+//
+// bytes/fixed and array both store a Ballerina value as *values.List, and
+// record and map both store one as *values.Map — the Go container alone
+// can't tell them apart. When a union actually combines one of each (legal
+// in Avro, since they're different kinds), the amb flags it carries force a
+// look at the value's own inherent type — isByteList/isRecordLike — the
+// same signal jBallerina's runtime type tag uses to pick the same branch
+// regardless of declaration order. Outside that clash the plain container
+// check is kept: a bare `anydata` argument built from a mapping-constructor
+// literal (`schema.toAvro({x: 1})`, with no schema-derived expected type to
+// resolve against) always has the generic, field-less map<anydata> inherent
+// type in this interpreter — same as in jBallerina — so requiring
+// isRecordLike unconditionally would reject it even against a schema with
+// no competing map branch to confuse it with.
+func naturalBranch(tc semtypes.Context, branch *shape, data values.BalValue, amb ambiguity) bool {
 	switch branch.kind {
 	case shapeNull:
 		return data == nil
@@ -285,16 +337,44 @@ func naturalBranch(branch *shape, data values.BalValue) bool {
 		_, ok := data.(string)
 		return ok
 	case shapeBytes, shapeFixed:
-		_, ok := data.(*values.List)
-		return ok
+		list, ok := data.(*values.List)
+		return ok && (!amb.bytesVsArray || isByteList(tc, list))
 	case shapeArray:
-		_, ok := data.(*values.List)
-		return ok
-	case shapeRecord, shapeMap:
-		_, ok := data.(*values.Map)
-		return ok
+		list, ok := data.(*values.List)
+		return ok && (!amb.bytesVsArray || !isByteList(tc, list))
+	case shapeRecord:
+		m, ok := data.(*values.Map)
+		return ok && (!amb.recordVsMap || isRecordLike(tc, m))
+	case shapeMap:
+		m, ok := data.(*values.Map)
+		return ok && (!amb.recordVsMap || !isRecordLike(tc, m))
 	}
 	return false
+}
+
+// isByteList reports whether every member list.Type admits — its fixed
+// slots and its rest — is a subtype of byte, i.e. whether list is genuinely
+// a byte[] rather than some other list sharing the same Go representation.
+func isByteList(tc semtypes.Context, list *values.List) bool {
+	atomic := semtypes.ToListAtomicType(tc.Env(), list.Type)
+	if atomic == nil {
+		return false
+	}
+	for i := range atomic.FixedLength() {
+		if !semtypes.IsSubtype(tc, atomic.MemberAt(i), semtypes.Byte) {
+			return false
+		}
+	}
+	return semtypes.IsSubtype(tc, atomic.Rest(), semtypes.Byte)
+}
+
+// isRecordLike reports whether m's inherent type carries any declared field
+// names. A plain map<T> has none — every member type is reached through the
+// mapping's open "rest" type — while a record (even one flowing through as
+// anydata) always has its fields named individually.
+func isRecordLike(tc semtypes.Context, m *values.Map) bool {
+	atomic := semtypes.ToMappingAtomicType(tc, m.Type)
+	return atomic != nil && len(atomic.FieldNames()) > 0
 }
 
 // widenedBranch follows jBallerina's SerializeVisitor.deriveBallerinaTag, where
@@ -302,7 +382,7 @@ func naturalBranch(branch *shape, data values.BalValue) bool {
 // converting. It claims exactly what the matching encoder accepts, so a branch
 // chosen here always encodes; jBallerina's table is wider than its encoders and
 // can pick a branch that then fails.
-func widenedBranch(branch *shape, data values.BalValue) bool {
+func widenedBranch(_ semtypes.Context, branch *shape, data values.BalValue, _ ambiguity) bool {
 	switch branch.kind {
 	case shapeFloat:
 		_, ok := data.(int64)

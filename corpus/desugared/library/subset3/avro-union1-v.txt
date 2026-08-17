@@ -723,4 +723,220 @@
               (simple-var-ref $desugar$40))))
           (expression-stmt
             (invocation io println (
-              (simple-var-ref floatFromInt)))))))))
+              (simple-var-ref floatFromInt))))
+          (var-def
+            (variable $desugar$41 (expr
+              (new (
+                (literal ["bytes", {"type": "array", "items": "int"}]))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$41))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$41))) ())
+          (var-def
+            (variable bytesThenArray (type
+              (user-defined-type avro Schema)) (expr
+              (simple-var-ref $desugar$41))))
+          (var-def
+            (variable $desugar$42 (expr
+              (new (
+                (literal [{"type": "array", "items": "int"}, "bytes"]))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$42))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$42))) ())
+          (var-def
+            (variable arrayThenBytes (type
+              (user-defined-type avro Schema)) (expr
+              (simple-var-ref $desugar$42))))
+          (var-def
+            (variable rawBytes (type
+              (array-type
+                (value-type byte) dimensions: 1 ([]))) (expr
+              (list-constructor-expr
+                (literal 1)
+                (literal 2)
+                (literal 3)))))
+          (var-def
+            (variable rawInts (type
+              (array-type
+                (value-type int) dimensions: 1 ([]))) (expr
+              (list-constructor-expr
+                (literal 1)
+                (literal 2)
+                (literal 3)))))
+          (var-def
+            (variable $desugar$43 (expr
+              (invocation toAvro expr:
+                (simple-var-ref bytesThenArray) (
+                (simple-var-ref rawBytes))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$43))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$43))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$43)))))))
+          (var-def
+            (variable $desugar$44 (expr
+              (invocation toAvro expr:
+                (simple-var-ref arrayThenBytes) (
+                (simple-var-ref rawBytes))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$44))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$44))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$44)))))))
+          (var-def
+            (variable $desugar$45 (expr
+              (invocation toAvro expr:
+                (simple-var-ref bytesThenArray) (
+                (simple-var-ref rawInts))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$45))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$45))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$45)))))))
+          (var-def
+            (variable $desugar$46 (expr
+              (invocation toAvro expr:
+                (simple-var-ref arrayThenBytes) (
+                (simple-var-ref rawInts))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$46))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$46))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$46)))))))
+          (var-def
+            (variable $desugar$47 (expr
+              (new (
+                (literal [{"type": "record", "name": "Point", "fields": [{"name": "x", "type": "int"}]}, {"type": "map", "values": "int"}]))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$47))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$47))) ())
+          (var-def
+            (variable recordThenMap (type
+              (user-defined-type avro Schema)) (expr
+              (simple-var-ref $desugar$47))))
+          (var-def
+            (variable $desugar$48 (expr
+              (new (
+                (literal [{"type": "map", "values": "int"}, {"type": "record", "name": "Point", "fields": [{"name": "x", "type": "int"}]}]))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$48))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$48))) ())
+          (var-def
+            (variable mapThenRecord (type
+              (user-defined-type avro Schema)) (expr
+              (simple-var-ref $desugar$48))))
+          (var-def
+            (variable onePoint (type
+              (user-defined-type Point)) (expr
+              (mapping-constructor-expr
+                (key-value
+                  (literal x)
+                  (literal 1))))))
+          (var-def
+            (variable oneMap (type
+              (constrained-type
+                (builtin-ref-type map)
+                (value-type int))) (expr
+              (mapping-constructor-expr
+                (key-value
+                  (literal x)
+                  (literal 1))))))
+          (var-def
+            (variable $desugar$49 (expr
+              (invocation toAvro expr:
+                (simple-var-ref recordThenMap) (
+                (simple-var-ref onePoint))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$49))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$49))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$49)))))))
+          (var-def
+            (variable $desugar$50 (expr
+              (invocation toAvro expr:
+                (simple-var-ref mapThenRecord) (
+                (simple-var-ref onePoint))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$50))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$50))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$50)))))))
+          (var-def
+            (variable $desugar$51 (expr
+              (invocation toAvro expr:
+                (simple-var-ref recordThenMap) (
+                (simple-var-ref oneMap))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$51))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$51))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$51)))))))
+          (var-def
+            (variable $desugar$52 (expr
+              (invocation toAvro expr:
+                (simple-var-ref mapThenRecord) (
+                (simple-var-ref oneMap))))))
+          (if
+            (type-test-expr is
+              (simple-var-ref $desugar$52))
+            (block-stmt
+              (return
+                (simple-var-ref $desugar$52))) ())
+          (expression-stmt
+            (invocation io println (
+              (invocation lang.array length (
+                (group-expr
+                  (simple-var-ref $desugar$52))))))))))))

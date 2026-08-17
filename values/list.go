@@ -163,7 +163,7 @@ func (l *List) Clear() {
 // removed. Testing the mandatory count rather than the rest type covers the
 // fixed-length case too, since there every member is mandatory.
 func (l *List) checkCanShrinkTo(newLen int) {
-	mandatory := l.atomic.Members.FixedLength
+	mandatory := l.atomic.FixedLength()
 	if newLen >= mandatory {
 		return
 	}
@@ -178,7 +178,7 @@ func (l *List) checkCanShrinkTo(newLen int) {
 // mandatory slot whose type it does not belong to — removing index 0 of
 // `[int, string, int...]` would otherwise leave the string in the int slot.
 func (l *List) checkShiftedMemberTypes(tc semtypes.Context, idx int) {
-	for pos := idx; pos < l.atomic.Members.FixedLength; pos++ {
+	for pos := idx; pos < l.atomic.FixedLength(); pos++ {
 		l.checkMemberType(tc, pos, l.elems[pos+1])
 	}
 }

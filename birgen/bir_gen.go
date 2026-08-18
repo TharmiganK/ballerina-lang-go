@@ -964,6 +964,10 @@ func handleActionOrExpression(ctx context, curBB *bir.BIRBasicBlock, expr ast.BL
 		return literal(ctx, curBB, &expr.BLangLiteral)
 	case *ast.BLangBinaryExpr:
 		return binaryExpression(ctx, curBB, expr)
+	case *ast.BLangCheckedExpr:
+		return checkedExpression(ctx, curBB, expr.Expr, expr.GetDeterminedType(), false, expr.GetPosition())
+	case *ast.BLangCheckPanickedExpr:
+		return checkedExpression(ctx, curBB, expr.Expr, expr.GetDeterminedType(), true, expr.GetPosition())
 	case *ast.BLangVarRef:
 		return simpleVariableReference(ctx, curBB, expr)
 	case *ast.BLangUnaryExpr:
@@ -1652,6 +1656,40 @@ func binaryExpression(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLangBina
 	default:
 		return binaryExpressionInner(ctx, curBB, expr.OpKind, expr.LhsExpr, expr.RhsExpr, expr.GetDeterminedType(), ctx.function().loc(expr.GetPosition()))
 	}
+}
+
+func checkedExpression(ctx context, curBB *bir.BIRBasicBlock, expr ast.BLangActionOrExpression, resultType semtypes.SemType, isPanic bool, exprPos diagnostics.Location) expressionEffect {
+	pos := ctx.function().loc(exprPos)
+	resultOperand := ctx.addTempVar(resultType)
+	innerEffect := handleActionOrExpression(ctx, curBB, expr)
+
+	isErrorOperand := ctx.addTempVar(semtypes.Boolean)
+	typeTest := bir.NewTypeTest(semtypes.Error, isErrorOperand, innerEffect.result, pos)
+	innerEffect.block.Instructions = append(innerEffect.block.Instructions, typeTest)
+
+	errorBB := ctx.function().addBB()
+	successBB := ctx.function().addBB()
+	doneBB := ctx.function().addBB()
+	innerEffect.block.Terminator = bir.NewBranch(isErrorOperand, errorBB, successBB, pos)
+
+	if isPanic {
+		panicOp := innerEffect.result
+		if _, depth := functionRoot(ctx); depth > 0 {
+			store, fromRoot := addFunctionTempVar(ctx, innerEffect.result.VariableDcl.GetType())
+			errorBB.Instructions = append(errorBB.Instructions, bir.NewMove(innerEffect.result, store, pos))
+			panicOp = fromRoot
+		}
+		errorBB = unwindFunction(ctx, errorBB, pos)
+		errorBB.Terminator = bir.NewPanic(panicOp, pos)
+	} else {
+		errorBB.Instructions = append(errorBB.Instructions, bir.NewMove(innerEffect.result, retVar(ctx), pos))
+		errorBB = unwindFunction(ctx, errorBB, pos)
+		errorBB.Terminator = bir.NewReturn(pos)
+	}
+
+	successBB.Instructions = append(successBB.Instructions, bir.NewMove(innerEffect.result, resultOperand, pos))
+	successBB.Terminator = bir.NewGoto(doneBB, pos)
+	return expressionEffect{result: resultOperand, block: doneBB}
 }
 
 func logicalAndExpression(ctx context, curBB *bir.BIRBasicBlock, expr *ast.BLangBinaryExpr) expressionEffect {

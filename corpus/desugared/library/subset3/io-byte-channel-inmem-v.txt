@@ -16,19 +16,11 @@
             (literal 33)
             (literal 44)))))
       (var-def
-        (variable $desugar$0 (expr
-          (invocation io createReadableChannel (
-            (simple-var-ref content))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$0))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$0))) ())
-      (var-def
         (variable channel (type
           (user-defined-type io ReadableByteChannel)) (expr
-          (simple-var-ref $desugar$0))))
+          (checked-expr
+            (invocation io createReadableChannel (
+              (simple-var-ref content)))))))
       (var-def
         (variable result (type
           (union-type
@@ -58,18 +50,10 @@
                 (simple-var-ref result)
                 (literal 3)))))) ())
       (block-stmt
-        (var-def
-          (variable $desugar$1 (expr
-            (invocation close expr:
-              (simple-var-ref channel) ()))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$1))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$1))) ())
         (expression-stmt
-          (simple-var-ref $desugar$1))
+          (checked-expr
+            (invocation close expr:
+              (simple-var-ref channel) ())))
         (var-def
           (variable second (type
             (union-type

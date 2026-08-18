@@ -8,78 +8,80 @@ main() -> nil|error{
     %5 = ConstantLoad 4
     %6 = newArray [int:Unsigned8...][%5]{%1, %2, %3, %4}
     content = %6;
-    %8 = createReadableChannel(content) -> bb1;
+    %9 = createReadableChannel(content) -> bb1;
   }
   bb1 {
-    $desugar$0 = %8;
-    %10 = $desugar$0 is error
+    %10 = %9 is error
     %10 ? bb2 : bb3;
   }
   bb2 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$0);
-    PopScopeFrame
+    %0 = %9;
     return;
   }
   bb3 {
-    channel = $desugar$0;
-    %12 = readAll(channel) -> bb4;
+    %8 = %9;
+    GOTO bb4;
   }
   bb4 {
-    result = %12;
-    %14 = result is [int:Unsigned8...]
-    %14 ? bb5 : bb10;
+    channel = %8;
+    %12 = readAll(channel) -> bb5;
   }
   bb5 {
-    PushScopeFrame 11
-    %0 = length((1, result)) -> bb6;
+    result = %12;
+    %14 = result is [int:Unsigned8...]
+    %14 ? bb6 : bb11;
   }
   bb6 {
-    %1 = %0;
-    %2 = println(%1) -> bb7;
+    PushScopeFrame 11
+    %0 = length((1, result)) -> bb7;
   }
   bb7 {
+    %1 = %0;
+    %2 = println(%1) -> bb8;
+  }
+  bb8 {
     %4 = ConstantLoad 0
     %3 = (1, result)[%4];
     %5 = %3;
-    %6 = println(%5) -> bb8;
+    %6 = println(%5) -> bb9;
   }
-  bb8 {
+  bb9 {
     %8 = ConstantLoad 3
     %7 = (1, result)[%8];
     %9 = %7;
-    %10 = println(%9) -> bb9;
-  }
-  bb9 {
-    PopScopeFrame
-    GOTO bb10;
+    %10 = println(%9) -> bb10;
   }
   bb10 {
-    PushScopeFrame 8
-    %0 = close((1, channel)) -> bb11;
+    PopScopeFrame
+    GOTO bb11;
   }
   bb11 {
-    $desugar$1 = %0;
-    %2 = $desugar$1 is error
-    %2 ? bb12 : bb13;
+    PushScopeFrame 8
+    %1 = close((1, channel)) -> bb12;
   }
   bb12 {
-    PushScopeFrame 0
-    (2, %0) = (1, $desugar$1);
-    PopScopeFrame
+    %2 = %1 is error
+    %2 ? bb13 : bb14;
+  }
+  bb13 {
+    (1, %0) = %1;
     PopScopeFrame
     return;
   }
-  bb13 {
-    %3 = close((1, channel)) -> bb14;
-  }
   bb14 {
+    %0 = %1;
+    GOTO bb15;
+  }
+  bb15 {
+    %3 = close((1, channel)) -> bb16;
+  }
+  bb16 {
     second = %3;
     %5 = second is error
     %6 = %5;
-    %7 = println(%6) -> bb15;
+    %7 = println(%6) -> bb17;
   }
-  bb15 {
+  bb17 {
     PopScopeFrame
     return;
   }

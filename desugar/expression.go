@@ -933,11 +933,21 @@ func walkErrorConstructorExpr(cx *functionContext, expr *ast.BLangErrorConstruct
 }
 
 func walkCheckedExpr(cx *functionContext, expr *ast.BLangCheckedExpr) desugaredNode[ast.BLangActionOrExpression] {
-	return desugarCheckedExpr(cx, expr, false)
+	result := walkExpression(cx, expr.Expr)
+	expr.Expr = result.replacementNode
+	return desugaredNode[ast.BLangActionOrExpression]{
+		initStmts:       result.initStmts,
+		replacementNode: expr,
+	}
 }
 
 func walkCheckPanickedExpr(cx *functionContext, expr *ast.BLangCheckPanickedExpr) desugaredNode[ast.BLangActionOrExpression] {
-	return desugarCheckedExpr(cx, &expr.BLangCheckedExpr, true)
+	result := walkExpression(cx, expr.Expr)
+	expr.Expr = result.replacementNode
+	return desugaredNode[ast.BLangActionOrExpression]{
+		initStmts:       result.initStmts,
+		replacementNode: expr,
+	}
 }
 
 func walkTrapExpr(cx *functionContext, expr *ast.BLangTrapExpr) desugaredNode[ast.BLangActionOrExpression] {
@@ -949,91 +959,6 @@ func walkTrapExpr(cx *functionContext, expr *ast.BLangTrapExpr) desugaredNode[as
 	}
 	expr.Expr = result.replacementNode.(ast.BLangExpression)
 	return desugaredNode[ast.BLangActionOrExpression]{initStmts: nil, replacementNode: expr}
-}
-
-func desugarCheckedExpr(cx *functionContext, expr *ast.BLangCheckedExpr, isPanic bool) desugaredNode[ast.BLangActionOrExpression] {
-	var initStmts []ast.StatementNode
-
-	// Walk the inner expression first
-	if expr.Expr != nil {
-		result := walkExpression(cx, expr.Expr)
-		initStmts = append(initStmts, result.initStmts...)
-		expr.Expr = result.replacementNode
-	}
-
-	innerTy := expr.Expr.GetDeterminedType()
-	resultTy := expr.GetDeterminedType()
-
-	basePos := expr.Expr.GetPosition()
-
-	// TODO: extract util to add definition and get reference
-	// Create temp var: $desugar$N = <inner expr>
-	tempName, tempSymbol := cx.addDesugardSymbol(innerTy, model.SymbolKindVariable, false, basePos)
-	tempVarName := newIdentifier(tempName)
-	tempVarName.SetPosition(basePos)
-	tempVar := &ast.BLangVariable{Name: tempVarName}
-	tempVar.Name.SetDeterminedType(semtypes.Never)
-	tempVar.SetDeterminedType(semtypes.Never)
-	tempVar.SetInitialExpression(expr.Expr)
-	tempVar.SetSymbol(tempSymbol)
-	tempVar.SetPosition(basePos)
-	tempVarDef := &ast.BLangVariableDef{Var: tempVar}
-	tempVarDef.SetDeterminedType(semtypes.Never)
-	tempVarDef.SetPosition(basePos)
-	initStmts = append(initStmts, tempVarDef)
-
-	// Type test: $desugar$N is error
-	tempVarRefForTest := &ast.BLangVarRef{VariableName: tempVarName}
-	tempVarRefForTest.SetSymbol(tempSymbol)
-	tempVarRefForTest.SetDeterminedType(innerTy)
-	tempVarRefForTest.SetPosition(basePos)
-
-	typeTestExpr := ast.NewBLangTypeTestExpr(
-		basePos,
-		tempVarRefForTest,
-		ast.TypeData{Type: semtypes.Error},
-		false,
-	)
-	typeTestExpr.SetDeterminedType(semtypes.Boolean)
-
-	// If body: return or panic
-	tempVarRefForBody := &ast.BLangVarRef{VariableName: tempVarName}
-	tempVarRefForBody.SetSymbol(tempSymbol)
-	tempVarRefForBody.SetDeterminedType(innerTy)
-	tempVarRefForBody.SetPosition(basePos)
-
-	var bodyStmt ast.StatementNode
-	if isPanic {
-		panicStmt := &ast.BLangPanic{Expr: tempVarRefForBody}
-		panicStmt.SetPosition(expr.GetPosition())
-		bodyStmt = panicStmt
-	} else {
-		returnStmt := &ast.BLangReturn{Expr: tempVarRefForBody}
-		returnStmt.SetPosition(basePos)
-		bodyStmt = returnStmt
-	}
-
-	ifBody := ast.BLangBlockStmt{
-		Stmts: []ast.StatementNode{bodyStmt},
-	}
-	ifBody.SetPosition(basePos)
-	ifStmt := &ast.BLangIf{
-		Expr: typeTestExpr,
-		Body: ifBody,
-	}
-	ifStmt.SetPosition(basePos)
-	initStmts = append(initStmts, ifStmt)
-
-	// Replacement: var ref typed as non-error type
-	replacementVarRef := &ast.BLangVarRef{VariableName: tempVarName}
-	replacementVarRef.SetSymbol(tempSymbol)
-	replacementVarRef.SetDeterminedType(resultTy)
-	replacementVarRef.SetPosition(basePos)
-
-	return desugaredNode[ast.BLangActionOrExpression]{
-		initStmts:       initStmts,
-		replacementNode: replacementVarRef,
-	}
 }
 
 func walkLambdaFunction(cx *functionContext, expr *ast.BLangLambdaFunction) desugaredNode[ast.BLangActionOrExpression] {

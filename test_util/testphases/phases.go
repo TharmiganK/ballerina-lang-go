@@ -132,9 +132,14 @@ func loadBuiltinPublicSymbols(env *context.CompilerEnvironment) map[semantics.Pa
 		compilationUnits := []*ast.BLangCompilationUnit{cu}
 
 		// Pass accumulated stdlib symbols so packages that import other stdlibs (e.g. os→io, crypto→time) resolve correctly.
-		importedByCU := semantics.ResolveCompilationUnitImports(cx, compilationUnits, semantics.GetImplicitImports(cx),
-			result, entry.org)
-		pkgScope, exported := semantics.ResolveSymbols(cx, *pkgID, importedByCU)
+		pkgScope, exported, importedSymbols := semantics.ResolveSymbols(
+			cx,
+			*pkgID,
+			compilationUnits,
+			make(map[string]model.ExportedSymbolSpace),
+			result,
+			entry.org,
+		)
 		if cx.HasErrors() {
 			continue
 		}
@@ -143,7 +148,7 @@ func loadBuiltinPublicSymbols(env *context.CompilerEnvironment) map[semantics.Pa
 		pkg.Scope = pkgScope
 		pkg.Imports = nil
 
-		semantics.ResolvePublicNodeTypes(cx, pkg, importedByCU[0].Imports)
+		semantics.ResolvePublicNodeTypes(cx, pkg, importedSymbols)
 		if cx.HasErrors() {
 			continue
 		}
@@ -211,12 +216,17 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 	pkgID := result.CompilationUnit.GetPackageID()
 	result.CompilationUnit.SetPackageID(pkgID)
 	compilationUnits := []*ast.BLangCompilationUnit{result.CompilationUnit}
-	importedByCU := semantics.ResolveCompilationUnitImports(cx, compilationUnits, langlibs.ImplicitImports, langlibs.PublicSymbols, "")
-	pkgScope, _ := semantics.ResolveSymbols(cx, *pkgID, importedByCU)
+	pkgScope, _, importedSymbols := semantics.ResolveSymbols(
+		cx,
+		*pkgID,
+		compilationUnits,
+		langlibs.ImplicitImports,
+		langlibs.PublicSymbols,
+		"",
+	)
 	result.Package = nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
 	result.Package.PackageID = pkgID
 	result.Package.Scope = pkgScope
-	importedSymbols := importedByCU[0].Imports
 	if phase == PhaseSymbolResolution || cx.HasDiagnostics() {
 		return result, nil
 	}

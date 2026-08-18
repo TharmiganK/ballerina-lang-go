@@ -39,53 +39,21 @@ type PackageIdentifier struct {
 	ModuleName string
 }
 
-// CompilationUnitImports contains the imports resolved for one compilation unit.
-type CompilationUnitImports struct {
-	CompilationUnit *ast.BLangCompilationUnit
-	Imports         map[string]model.ExportedSymbolSpace
-}
-
-// GetImplicitImports returns symbols for compiler-provided language-library imports.
-// Deprecated: should be removed with https://github.com/ballerina-nutcracker/ballerina/issues/688.
-func GetImplicitImports(ctx *context.CompilerContext) map[string]model.ExportedSymbolSpace {
-	return symbols.GetImplicitImports(ctx)
-}
-
-// ResolveCompilationUnitImports resolves imports for each compilation unit.
-// Deprecated: should be removed with https://github.com/ballerina-nutcracker/ballerina/issues/688.
-func ResolveCompilationUnitImports(
+// ResolveSymbols binds imports, resolves package symbols, and returns its scope,
+// exported symbols, and the merged imported symbol spaces.
+func ResolveSymbols(
 	ctx *context.CompilerContext,
+	pkgID model.PackageID,
 	compilationUnits []*ast.BLangCompilationUnit,
 	implicitImports map[string]model.ExportedSymbolSpace,
 	publicSymbols map[PackageIdentifier]model.ExportedSymbolSpace,
 	defaultOrg string,
-) []CompilationUnitImports {
+) (model.Scope, model.ExportedSymbolSpace, map[string]model.ExportedSymbolSpace) {
 	internalPublicSymbols := make(map[symbols.PackageIdentifier]model.ExportedSymbolSpace, len(publicSymbols))
 	for id, symbolSpace := range publicSymbols {
 		internalPublicSymbols[symbols.PackageIdentifier{OrgName: id.OrgName, ModuleName: id.ModuleName}] = symbolSpace
 	}
-	resolved := symbols.ResolveCompilationUnitImports(ctx, compilationUnits, implicitImports, internalPublicSymbols, defaultOrg)
-	result := make([]CompilationUnitImports, len(resolved))
-	for i, imports := range resolved {
-		result[i] = CompilationUnitImports{CompilationUnit: imports.CompilationUnit, Imports: imports.Imports}
-	}
-	return result
-}
-
-// ResolveSymbols resolves package symbols and returns its scope and exported symbols.
-func ResolveSymbols(
-	ctx *context.CompilerContext,
-	pkgID model.PackageID,
-	imports []CompilationUnitImports,
-) (model.Scope, model.ExportedSymbolSpace) {
-	internalImports := make([]symbols.CompilationUnitImports, len(imports))
-	for i, unitImports := range imports {
-		internalImports[i] = symbols.CompilationUnitImports{
-			CompilationUnit: unitImports.CompilationUnit,
-			Imports:         unitImports.Imports,
-		}
-	}
-	return symbols.Resolve(ctx, pkgID, internalImports)
+	return symbols.Resolve(ctx, pkgID, compilationUnits, implicitImports, internalPublicSymbols, defaultOrg)
 }
 
 // ResolvePublicNodeTypes resolves the types exposed by a package.

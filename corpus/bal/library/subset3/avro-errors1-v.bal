@@ -79,6 +79,7 @@ public function main() returns error? {
     io:println(floatSchema.toAvro(1.5d) is avro:Error); // @output true
     avro:Schema bytesSchema = check new (string `{"type": "bytes"}`);
     io:println(bytesSchema.toAvro("text") is avro:Error); // @output true
+    io:println(bytesSchema.toAvro(["a", "b"]) is avro:Error); // @output true
     avro:Schema enumSchema = check new (string
         `{"type": "enum", "name": "E", "symbols": ["A"]}`);
     io:println(enumSchema.toAvro(1) is avro:Error); // @output true

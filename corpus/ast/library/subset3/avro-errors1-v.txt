@@ -251,6 +251,15 @@
                     (simple-var-ref bytesSchema) (
                     (literal text)))
                   (user-defined-type avro Error)))))
+            (expression-stmt
+              (invocation io println (
+                (type-test-expr is
+                  (invocation toAvro expr:
+                    (simple-var-ref bytesSchema) (
+                    (list-constructor-expr
+                      (literal a)
+                      (literal b))))
+                  (user-defined-type avro Error)))))
             (var-def
               (variable enumSchema (type
                 (user-defined-type avro Schema)) (expr

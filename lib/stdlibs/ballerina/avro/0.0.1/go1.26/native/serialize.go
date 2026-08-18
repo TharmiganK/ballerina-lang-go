@@ -163,13 +163,23 @@ func stringOf(data values.BalValue) string {
 
 // encodeBytes also serves fixed: both take a byte[] as-is and leave size and
 // membership checks (fixed's exact length, enum's exact symbol) to goavro,
-// which already implements and tests them.
+// which already implements and tests them. hasInt64Elements guards
+// ToByteSlice, which panics on a non-int64 element instead of erroring.
 func encodeBytes(data values.BalValue) (any, error) {
 	value, ok := data.(*values.List)
-	if !ok {
+	if !ok || !hasInt64Elements(value) {
 		return nil, typeMismatch("bytes", data)
 	}
 	return value.ToByteSlice(), nil
+}
+
+func hasInt64Elements(list *values.List) bool {
+	for i := range list.Len() {
+		if _, ok := list.Get(i).(int64); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func encodeEnum(data values.BalValue) (any, error) {

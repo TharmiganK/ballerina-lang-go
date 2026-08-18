@@ -997,12 +997,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			self.Put("body", &responseBodyHolder{buf: []byte(args[1].(string))})
-			ct := "text/plain"
-			if len(args) > 2 {
-				if s, ok := args[2].(string); ok && s != "" {
-					ct = s
-				}
-			}
+			ct := payloadContentType(responseContentType(self), optionalArg(args, 2), "text/plain")
 			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
 			return nil, nil
 		})
@@ -1015,12 +1010,7 @@ func initHttpModule(rt *runtime.Runtime) {
 				return values.NewErrorWithMessage("setJsonPayload: " + err.Error()), nil
 			}
 			self.Put("body", &responseBodyHolder{buf: b})
-			ct := "application/json"
-			if len(args) > 2 {
-				if s, ok := args[2].(string); ok && s != "" {
-					ct = s
-				}
-			}
+			ct := payloadContentType(responseContentType(self), optionalArg(args, 2), "application/json")
 			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
 			return nil, nil
 		})
@@ -1047,12 +1037,7 @@ func initHttpModule(rt *runtime.Runtime) {
 			}
 			b := list.ToByteSlice()
 			self.Put("body", &responseBodyHolder{buf: b})
-			ct := "application/octet-stream"
-			if len(args) > 2 {
-				if s, ok := args[2].(string); ok && s != "" {
-					ct = s
-				}
-			}
+			ct := payloadContentType(responseContentType(self), optionalArg(args, 2), "application/octet-stream")
 			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
 			return nil, nil
 		})
@@ -1277,13 +1262,9 @@ func initHttpModule(rt *runtime.Runtime) {
 			self := args[0].(*values.Object)
 			payload, _ := args[1].(string)
 			self.Put("$body", &requestBodyHolder{buf: []byte(payload)})
-			ct := "text/plain"
-			if len(args) > 2 {
-				if s, ok := args[2].(string); ok && s != "" {
-					ct = s
-				}
-			}
-			setRequestHeader(self, "content-type", ct, ctx.TypeCtx())
+			tc := ctx.TypeCtx()
+			ct := payloadContentType(requestContentType(tc, self), optionalArg(args, 2), "text/plain")
+			setRequestHeader(self, "content-type", ct, tc)
 			return nil, nil
 		})
 
@@ -1295,13 +1276,9 @@ func initHttpModule(rt *runtime.Runtime) {
 				return values.NewErrorWithMessage("setJsonPayload: " + err.Error()), nil
 			}
 			self.Put("$body", &requestBodyHolder{buf: b})
-			ct := "application/json"
-			if len(args) > 2 {
-				if s, ok := args[2].(string); ok && s != "" {
-					ct = s
-				}
-			}
-			setRequestHeader(self, "content-type", ct, ctx.TypeCtx())
+			tc := ctx.TypeCtx()
+			ct := payloadContentType(requestContentType(tc, self), optionalArg(args, 2), "application/json")
+			setRequestHeader(self, "content-type", ct, tc)
 			return nil, nil
 		})
 
@@ -1333,13 +1310,9 @@ func initHttpModule(rt *runtime.Runtime) {
 				}
 			}
 			self.Put("$body", &requestBodyHolder{buf: raw})
-			ct := "application/octet-stream"
-			if len(args) > 2 {
-				if s, ok := args[2].(string); ok && s != "" {
-					ct = s
-				}
-			}
-			setRequestHeader(self, "content-type", ct, ctx.TypeCtx())
+			tc := ctx.TypeCtx()
+			ct := payloadContentType(requestContentType(tc, self), optionalArg(args, 2), "application/octet-stream")
+			setRequestHeader(self, "content-type", ct, tc)
 			return nil, nil
 		})
 

@@ -701,13 +701,10 @@ func writeResponseObject(w http.ResponseWriter, resp *values.Object, holder *res
 		}
 	}
 	// WriteHeader must be called before writing the body; once body bytes
-	// start flowing via writeStream, headers are already committed.
+	// start flowing via writeStream, headers are already committed, so a write error here
+	// can't be recovered with a JSON error body.
 	w.WriteHeader(statusCode)
-	if holder != nil {
-		// Headers are already committed; a write error here can't be recovered
-		// with a JSON error body, so just stop.
-		_ = holder.writeStream(w)
-	}
+	_ = holder.writeStream(w)
 }
 
 // copyBufPool reuses 32 KB buffers for streaming a backend response body to the

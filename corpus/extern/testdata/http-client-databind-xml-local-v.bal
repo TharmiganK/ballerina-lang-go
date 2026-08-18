@@ -90,6 +90,11 @@ public function testMain() returns error? {
     xml single = check c->get("/db/elem");
     io:println(single is xml:Element); // @output true
 
+    // A declared xml:Element target (not just an xml value checked with `is`) goes through
+    // the conversion path rather than the fast admits() pass-through a bare xml target hits.
+    xml:Element narrowed = check c->get("/db/elem");
+    io:println(narrowed); // @output <a><b>1</b></a>
+
     xml textXml = check c->get("/db/textXml");
     io:println(textXml); // @output <a>1</a>
 
@@ -110,6 +115,11 @@ public function testMain() returns error? {
     xml seq = check c->get("/db/seqXml");
     io:println(seq); // @output <a/><b/>
     io:println(seq is xml:Element); // @output false
+
+    // A sequence body against a declared xml:Element target fails conversion outright
+    // rather than partially binding.
+    xml:Element|error tooWide = c->get("/db/seqXml");
+    io:println(tooWide is error); // @output true
 
     // An empty body binds to () for a nilable target.
     xml? optional = check c->get("/db/emptyXml");

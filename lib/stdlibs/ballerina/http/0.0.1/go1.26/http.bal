@@ -268,29 +268,32 @@ public class Response {
 
     private isolated function initNative() = external;
 
-    # Sets the response body to a plain string and Content-Type to `text/plain`.
+    # Sets the response body to a plain string, defaulting Content-Type to `text/plain`.
     #
     # + payload     - The string payload
-    # + contentType - Optional MIME type; defaults to `text/plain`
+    # + contentType - Optional MIME type; defaults to `text/plain` when a Content-Type
+    #                 is not already set
     public isolated function setTextPayload(string payload, string? contentType = ()) = external;
 
-    # Sets the response body to a JSON value and Content-Type to `application/json`.
+    # Sets the response body to a JSON value, defaulting Content-Type to `application/json`.
     #
     # + payload     - The JSON payload
-    # + contentType - Optional MIME type; defaults to `application/json`
+    # + contentType - Optional MIME type; defaults to `application/json` when a Content-Type
+    #                 is not already set
     public isolated function setJsonPayload(json payload, string? contentType = ()) = external;
 
-    # Sets the response body to an XML value and Content-Type to `application/xml`.
+    # Sets the response body to an XML value, defaulting Content-Type to `application/xml`.
     #
     # + payload     - The XML payload
     # + contentType - Optional MIME type; defaults to `application/xml` when the response
     #                 does not already carry a Content-Type
     public isolated function setXmlPayload(xml payload, string? contentType = ()) = external;
 
-    # Sets the response body to a byte array and Content-Type to `application/octet-stream`.
+    # Sets the response body to a byte array, defaulting Content-Type to `application/octet-stream`.
     #
     # + payload     - The binary payload
-    # + contentType - Optional MIME type; defaults to `application/octet-stream`
+    # + contentType - Optional MIME type; defaults to `application/octet-stream` when a
+    #                 Content-Type is not already set
     public isolated function setBinaryPayload(byte[] payload, string? contentType = ()) = external;
 
     # Sets or replaces a response header.
@@ -408,29 +411,32 @@ public class Request {
     # The extra path info for the request.
     public string extraPathInfo = "";
 
-    # Sets the request body as plain text with `Content-Type: text/plain`.
+    # Sets the request body as plain text, defaulting Content-Type to `text/plain`.
     #
     # + payload     - The text body to set
-    # + contentType - Optional MIME type; defaults to `text/plain`
+    # + contentType - Optional MIME type; defaults to `text/plain` when a Content-Type
+    #                 is not already set
     public isolated function setTextPayload(string payload, string? contentType = ()) = external;
 
-    # Sets the request body as JSON with `Content-Type: application/json`.
+    # Sets the request body as JSON, defaulting Content-Type to `application/json`.
     #
     # + payload     - The JSON value to set
-    # + contentType - Optional MIME type; defaults to `application/json`
+    # + contentType - Optional MIME type; defaults to `application/json` when a Content-Type
+    #                 is not already set
     public isolated function setJsonPayload(json payload, string? contentType = ()) = external;
 
-    # Sets the request body as XML with `Content-Type: application/xml`.
+    # Sets the request body as XML, defaulting Content-Type to `application/xml`.
     #
     # + payload     - The XML value to set
     # + contentType - Optional MIME type; defaults to `application/xml` when the request
     #                 does not already carry a Content-Type
     public isolated function setXmlPayload(xml payload, string? contentType = ()) = external;
 
-    # Sets the request body as bytes with `Content-Type: application/octet-stream`.
+    # Sets the request body as bytes, defaulting Content-Type to `application/octet-stream`.
     #
     # + payload     - The byte array to set
-    # + contentType - Optional MIME type; defaults to `application/octet-stream`
+    # + contentType - Optional MIME type; defaults to `application/octet-stream` when a
+    #                 Content-Type is not already set
     public isolated function setBinaryPayload(byte[] payload, string? contentType = ()) = external;
 
     # Sets a header on the request. Replaces any existing value for the header.

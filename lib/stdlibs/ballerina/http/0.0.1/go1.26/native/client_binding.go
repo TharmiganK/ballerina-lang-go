@@ -388,11 +388,11 @@ func formDataValue(ctx *extern.Context, types *httpTypes, resp *values.Object) v
 	return out
 }
 
+// Both callers are reached only after performDataBinding has already called responseBody
+// once (and returned its error, if any), so the cached, always-successful re-read here never
+// needs its own error check.
 func xmlValue(ctx *extern.Context, resp *values.Object) values.BalValue {
-	body, err := responseBody(resp)
-	if err != nil {
-		return values.NewErrorWithMessage(err.Error())
-	}
+	body, _ := responseBody(resp)
 	payload, xmlErr := decodeXMLBody(ctx, body, "response")
 	if xmlErr != nil {
 		return xmlErr

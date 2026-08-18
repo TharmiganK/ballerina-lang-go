@@ -25,10 +25,10 @@ import (
 )
 
 // The dispatch order mirrors jBallerina's Response.setPayload (http_response.bal:538-557).
+// v is never nil: writeResult intercepts a () resource return before reaching here, and
+// both msgToBody call sites guard against a nil RequestMessage before this is invoked.
 func outboundPayload(tc semtypes.Context, types *httpTypes, v values.BalValue) ([]byte, string, error) {
 	switch p := v.(type) {
-	case nil:
-		return nil, "", nil
 	case string:
 		return []byte(p), "text/plain", nil
 	case values.XMLValue:

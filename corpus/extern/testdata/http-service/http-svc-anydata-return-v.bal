@@ -22,6 +22,13 @@ type Album record {|
     int year;
 |};
 
+// A non-Response object is not an http:Response — the return type is technically
+// compilable (only a function-typed or client-object return is rejected), but writeResult
+// must still reject it rather than treating it as a serialisable anydata value.
+class Widget {
+    int id = 1;
+}
+
 service /svc on new http:Listener(19223) {
     resource function get xmlBody() returns xml {
         return xml `<a><b>1</b></a>`;
@@ -71,6 +78,17 @@ service /svc on new http:Listener(19223) {
     // An error return is still the 500 envelope.
     resource function get boom() returns xml|error {
         return error("kaboom");
+    }
+
+    // A value that fails to serialize as JSON (float:NaN has no JSON representation)
+    // reports the failure rather than sending a malformed body.
+    resource function get notFinite() returns float {
+        return float:NaN;
+    }
+
+    // A non-Response object return is rejected, not silently treated as anydata.
+    resource function get widget() returns Widget {
+        return new Widget();
     }
 }
 
@@ -123,6 +141,12 @@ public function testMain() returns error? {
 
     http:Response errRes = check c->get("/svc/boom");
     io:println(errRes.statusCode); // @output 500
+
+    http:Response nanRes = check c->get("/svc/notFinite");
+    io:println(nanRes.statusCode); // @output 500
+
+    http:Response widgetRes = check c->get("/svc/widget");
+    io:println(widgetRes.statusCode); // @output 500
 
     return;
 }

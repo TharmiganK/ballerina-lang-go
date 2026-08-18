@@ -1146,15 +1146,10 @@ func initHttpModule(rt *runtime.Runtime) {
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
 			bodyVal, _ := self.Get("body")
-			var body []byte
-			if holder, ok := bodyVal.(*responseBodyHolder); ok {
-				var err error
-				body, err = holder.materialize()
-				if err != nil {
-					return values.NewErrorWithMessage(err.Error()), nil
-				}
-			} else if s, ok := bodyVal.(string); ok {
-				body = []byte(s)
+			holder := bodyVal.(*responseBodyHolder)
+			body, err := holder.materialize()
+			if err != nil {
+				return values.NewErrorWithMessage(err.Error()), nil
 			}
 			payload, xmlErr := decodeXMLBody(ctx, body, "response")
 			if xmlErr != nil {

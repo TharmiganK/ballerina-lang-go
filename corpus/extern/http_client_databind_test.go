@@ -98,6 +98,7 @@ func truncatingServer() *httptest.Server {
 	routes := map[string]canned{
 		"/trunc-json": {200, "application/json", `{"name": "Alice"}`},
 		"/trunc-text": {200, "text/plain", "red"},
+		"/trunc-xml":  {200, "application/xml", "<a>1</a>"},
 		"/trunc-blob": {200, "application/octet-stream", "\x01\x02"},
 		"/trunc-form": {200, "application/x-www-form-urlencoded", "a=1"},
 		"/trunc-404":  {404, "application/json", `{"error": "gone"}`},

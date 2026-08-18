@@ -1,6 +1,7 @@
 -- stdout --
 4xx: Not Found
 5xx: Internal Server Error
+4xx-xml: Not Found
 404
 moved body
 Payload binding failed: '7' value cannot be converted to '{| age: int, name: string, never... |}'

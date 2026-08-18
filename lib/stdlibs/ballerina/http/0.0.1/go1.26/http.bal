@@ -690,7 +690,7 @@ public isolated client class Client {
     # Creates a new resource or submits data to a resource for processing.
     #
     # + path - The request path (appended to the base URL)
-    # + message - The request body (`string`, `byte[]`, JSON-compatible value, or `http:Request`)
+    # + message - The request body (`string`, `xml`, `byte[]`, JSON-compatible value, or `http:Request`)
     # + headers - Optional request headers as a `map<string|string[]>`
     # + mediaType - Optional `Content-Type` override; inferred from `message` if omitted
     # + targetType - The expected return type, used for automatic data binding. Inferred from
@@ -703,7 +703,7 @@ public isolated client class Client {
     # Creates a new resource or replaces a representation of the specified resource.
     #
     # + path - The request path (appended to the base URL)
-    # + message - The request body (`string`, `byte[]`, JSON-compatible value, or `http:Request`)
+    # + message - The request body (`string`, `xml`, `byte[]`, JSON-compatible value, or `http:Request`)
     # + headers - Optional request headers as a `map<string|string[]>`
     # + mediaType - Optional `Content-Type` override; inferred from `message` if omitted
     # + targetType - The expected return type, used for automatic data binding. Inferred from
@@ -716,7 +716,7 @@ public isolated client class Client {
     # Applies a partial modification to the specified resource.
     #
     # + path - The request path (appended to the base URL)
-    # + message - The request body (`string`, `byte[]`, JSON-compatible value, or `http:Request`)
+    # + message - The request body (`string`, `xml`, `byte[]`, JSON-compatible value, or `http:Request`)
     # + headers - Optional request headers as a `map<string|string[]>`
     # + mediaType - Optional `Content-Type` override; inferred from `message` if omitted
     # + targetType - The expected return type, used for automatic data binding. Inferred from
@@ -729,7 +729,7 @@ public isolated client class Client {
     # Deletes the specified resource.
     #
     # + path - The request path (appended to the base URL)
-    # + message - Optional request body (`string`, `byte[]`, JSON-compatible value, or `http:Request`)
+    # + message - Optional request body (`string`, `xml`, `byte[]`, JSON-compatible value, or `http:Request`)
     # + headers - Optional request headers as a `map<string|string[]>`
     # + mediaType - Optional `Content-Type` override; inferred from `message` if omitted
     # + targetType - The expected return type, used for automatic data binding. Inferred from
@@ -764,7 +764,7 @@ public isolated client class Client {
     #
     # + httpVerb - The HTTP method to use (e.g., `"GET"`, `"POST"`, `"PUT"`)
     # + path - The request path (appended to the base URL)
-    # + message - The request body (`string`, `byte[]`, JSON-compatible value, or `http:Request`)
+    # + message - The request body (`string`, `xml`, `byte[]`, JSON-compatible value, or `http:Request`)
     # + headers - Optional request headers as a `map<string|string[]>`
     # + mediaType - Optional `Content-Type` override; inferred from `message` if omitted
     # + targetType - The expected return type, used for automatic data binding. Inferred from

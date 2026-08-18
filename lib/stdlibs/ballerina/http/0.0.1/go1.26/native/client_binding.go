@@ -204,12 +204,13 @@ func builderFromType(ctx *extern.Context, types *httpTypes, resp *values.Object,
 func xmlPayloadBuilder(ctx *extern.Context, resp *values.Object,
 	target semtypes.SemType, contentType string) values.BalValue {
 	tc := ctx.TypeCtx()
-	switch {
-	case narrowsTo(tc, target, semtypes.XML), admits(tc, target, semtypes.XML):
-		return bindAtTarget(tc, xmlValue(ctx, resp), semtypes.XML, target)
-	default:
+	// A union member narrower than xml (e.g. xml:Element) only intersects XML rather than
+	// admitting or narrowing to it, so the target is accepted whenever some member could
+	// hold an xml value; bindAtTarget then converts to (or rejects) the exact member.
+	if semtypes.IsEmpty(tc, semtypes.Intersect(target, semtypes.XML)) {
 		return incompatibleTargetError(tc, target, contentType)
 	}
+	return bindAtTarget(tc, xmlValue(ctx, resp), semtypes.XML, target)
 }
 
 func textPayloadBuilder(ctx *extern.Context, types *httpTypes, resp *values.Object,

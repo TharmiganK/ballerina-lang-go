@@ -398,9 +398,11 @@ func initHttpModule(rt *runtime.Runtime) {
 	// msgToBody converts a Ballerina RequestMessage value to (io.Reader, contentLength, contentType).
 	msgToBody := func(tc semtypes.Context, msg values.BalValue) (io.Reader, int64, string) {
 		// An http:Request carries its own body and content-type; every other
-		// RequestMessage is serialised the same way a resource return value is.
+		// RequestMessage is serialised the same way a resource return value is. jBallerina
+		// uses the Request object as-is (http_commons.bal:97-99), so an absent Content-Type
+		// stays absent rather than being defaulted.
 		if req, ok := msg.(*values.Object); ok {
-			ct := "application/octet-stream"
+			ct := ""
 			if cts := rawRequestHeaders(req)["content-type"]; len(cts) > 0 {
 				ct = cts[0]
 			}

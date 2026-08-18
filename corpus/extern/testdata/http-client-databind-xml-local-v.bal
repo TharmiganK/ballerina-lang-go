@@ -100,6 +100,12 @@ public function testMain() returns error? {
     xml|json unionTarget = check c->get("/db/elem");
     io:println(unionTarget is xml); // @output true
 
+    // A union member narrower than xml only intersects it rather than admitting or
+    // narrowing to it; the xml builder still selects, and the parsed element fits the
+    // narrower member.
+    xml:Element|json narrowUnion = check c->get("/db/elem");
+    io:println(narrowUnion is xml:Element); // @output true
+
     // A multi-item sequence is still xml, but not xml:Element.
     xml seq = check c->get("/db/seqXml");
     io:println(seq); // @output <a/><b/>

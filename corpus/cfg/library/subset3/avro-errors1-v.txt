@@ -249,6 +249,14 @@
           (invocation toAvro expr:
             (simple-var-ref bytesSchema) (
             (list-constructor-expr
+              (literal x))))
+          (user-defined-type avro Error)))))
+    (expression-stmt
+      (invocation io println (
+        (type-test-expr is
+          (invocation toAvro expr:
+            (simple-var-ref bytesSchema) (
+            (list-constructor-expr
               (literal a)
               (literal b))))
           (user-defined-type avro Error)))))

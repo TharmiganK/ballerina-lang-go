@@ -69,6 +69,12 @@ public function main() returns error? {
     byte[] blob = check bytesSchema.fromAvro(check bytesSchema.toAvro([0, 127, 255]));
     io:println(blob[2]); // @output 255
 
+    // An out-of-range int wraps into a byte, the same narrowing a
+    // 64-to-32-bit int schema applies.
+    byte[] wrappedBytes = check bytesSchema.fromAvro(check bytesSchema.toAvro([300, -1]));
+    io:println(wrappedBytes[0]); // @output 44
+    io:println(wrappedBytes[1]); // @output 255
+
     // An int widens into either floating-point schema.
     float widened = check floatSchema.fromAvro(check floatSchema.toAvro(5));
     io:println(widened); // @output 5.0

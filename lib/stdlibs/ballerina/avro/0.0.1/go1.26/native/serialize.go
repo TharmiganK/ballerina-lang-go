@@ -161,10 +161,12 @@ func stringOf(data values.BalValue) string {
 	return values.String(data, map[uintptr]bool{})
 }
 
-// encodeBytes also serves fixed: both take a byte[] as-is and leave size and
-// membership checks (fixed's exact length, enum's exact symbol) to goavro,
-// which already implements and tests them. hasInt64Elements guards
-// ToByteSlice, which panics on a non-int64 element instead of erroring.
+// encodeBytes also serves fixed: both take a byte[] as-is and leave fixed's
+// exact-length check to goavro, which already implements and tests it.
+// hasInt64Elements guards ToByteSlice, which type-asserts every element to
+// int64 unconditionally and panics on anything else; an out-of-range int
+// (e.g. 300 or -1) is still accepted and wraps into a byte the same way an
+// int wraps into an int schema.
 func encodeBytes(data values.BalValue) (any, error) {
 	value, ok := data.(*values.List)
 	if !ok || !hasInt64Elements(value) {

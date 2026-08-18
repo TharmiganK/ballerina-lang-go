@@ -282,6 +282,31 @@
           (simple-var-ref blob)
           (literal 2)))))
     (var-def
+      (variable wrappedBytes (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (checked-expr
+          (invocation fromAvro expr:
+            (simple-var-ref bytesSchema) (
+            (checked-expr
+              (invocation toAvro expr:
+                (simple-var-ref bytesSchema) (
+                (list-constructor-expr
+                  (literal 300)
+                  (unary-expr -
+                    (literal 1))))))
+            (typedesc-expr)))))))
+    (expression-stmt
+      (invocation io println (
+        (index-based-access
+          (simple-var-ref wrappedBytes)
+          (literal 0)))))
+    (expression-stmt
+      (invocation io println (
+        (index-based-access
+          (simple-var-ref wrappedBytes)
+          (literal 1)))))
+    (var-def
       (variable widened (type
         (value-type float)) (expr
         (checked-expr

@@ -8,7 +8,7 @@ failed to parse JSON payload: invalid character 'o' in literal null (expecting '
 failed to parse JSON payload: invalid character 'a' in literal true (expecting 'u')
 failed to parse JSON payload: invalid character 'a' in literal true (expecting 'u')
 incompatible '{| age: int, name: string, never... |}' found for 'text/plain' mime type
-Payload binding failed: 'application/xml' responses are not supported
+incompatible 'string' found for 'application/xml' mime type
 Payload binding failed: '"plain text body"' value cannot be converted to '"green"|"red"'
 Payload binding failed: '[int:Unsigned8...]' value cannot be converted to '[int:Unsigned8, int:Unsigned8, never...]'
 Payload binding failed: '"plain text body"' value cannot be converted to 'nil|"green"|"red"'

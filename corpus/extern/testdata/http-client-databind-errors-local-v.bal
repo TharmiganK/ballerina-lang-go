@@ -227,10 +227,10 @@ public function testMain() returns error? {
         io:println(wrongMime.message()); // @output incompatible '{| age: int, name: string, never... |}' found for 'text/plain' mime type
     }
 
-    // xml payload binding is not implemented yet.
-    string|error asXml = c->get("/db/xmlBody");
-    if asXml is error {
-        io:println(asXml.message()); // @output Payload binding failed: 'application/xml' responses are not supported
+    // An application/xml response has no string builder, so a string target is rejected.
+    string|error asString = c->get("/db/xmlBody");
+    if asString is error {
+        io:println(asString.message()); // @output incompatible 'string' found for 'application/xml' mime type
     }
 
     // A body that is not a member of an enum target fails conversion.

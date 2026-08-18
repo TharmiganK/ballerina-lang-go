@@ -306,6 +306,23 @@ func rawRequestHeaders(self *values.Object) map[string][]string {
 }
 
 // setRequestHeader sets a single-value header on an http:Request object's $headers map.
+func requestContentType(tc semtypes.Context, self *values.Object) string {
+	hdrs, ok := requestHeadersMap(tc, self)
+	if !ok {
+		return ""
+	}
+	v, ok := hdrs.Get("content-type")
+	if !ok {
+		return ""
+	}
+	list, ok := v.(*values.List)
+	if !ok || list.Len() == 0 {
+		return ""
+	}
+	s, _ := list.Get(0).(string)
+	return s
+}
+
 func setRequestHeader(self *values.Object, name, val string, tc semtypes.Context) {
 	hdrs, ok := requestHeadersMap(tc, self)
 	if !ok {
@@ -332,9 +349,10 @@ func goCtxOrBackground(_ *extern.Context) context.Context {
 // only reads methodKeys (never mutates it), so sharing one map is safe and
 // avoids re-allocating it on every request.
 var requestMethodKeyCache = makeMethodKeys("ballerina/http:Request.", []string{
-	"setTextPayload", "setJsonPayload", "setBinaryPayload",
+	"setTextPayload", "setJsonPayload", "setXmlPayload", "setBinaryPayload",
 	"setHeader", "addHeader", "removeHeader", "removeAllHeaders", "getHeaderNames",
-	"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getBinaryPayload",
+	"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getXmlPayload",
+	"getBinaryPayload",
 	"getHeader", "getHeaders", "hasHeader", "getQueryParams", "getQueryParamValue", "getQueryParamValues",
 })
 
@@ -379,42 +397,29 @@ func initHttpModule(rt *runtime.Runtime) {
 
 	// msgToBody converts a Ballerina RequestMessage value to (io.Reader, contentLength, contentType).
 	msgToBody := func(tc semtypes.Context, msg values.BalValue) (io.Reader, int64, string) {
-		switch v := msg.(type) {
-		case string:
-			b := []byte(v)
-			return bytes.NewReader(b), int64(len(b)), "text/plain"
-		case *values.Object:
-			// http:Request object — extract body and content-type
+		// An http:Request carries its own body and content-type; every other
+		// RequestMessage is serialised the same way a resource return value is.
+		if req, ok := msg.(*values.Object); ok {
 			ct := "application/octet-stream"
-			if cts := rawRequestHeaders(v)["content-type"]; len(cts) > 0 {
+			if cts := rawRequestHeaders(req)["content-type"]; len(cts) > 0 {
 				ct = cts[0]
 			}
-			bodyVal, _ := v.Get("$body")
-			if holder, ok := bodyVal.(*requestBodyHolder); ok {
-				buf := holder.materialize()
-				if holder.readErr != nil {
-					return nil, 0, "json_error"
-				}
-				return bytes.NewReader(buf), int64(len(buf)), ct
+			bodyVal, _ := req.Get("$body")
+			holder, ok := bodyVal.(*requestBodyHolder)
+			if !ok {
+				return bytes.NewReader([]byte{}), 0, ct
 			}
-			return bytes.NewReader([]byte{}), 0, ct
-		case *values.List:
-			if !semtypes.IsZero(v.Type) && semtypes.IsSubtype(tc, v.Type, types.byteArrTy) {
-				b := v.ToByteSlice()
-				return bytes.NewReader(b), int64(len(b)), "application/octet-stream"
-			}
-			b, err := toJSONBytes(v)
-			if err != nil {
+			buf := holder.materialize()
+			if holder.readErr != nil {
 				return nil, 0, "json_error"
 			}
-			return bytes.NewReader(b), int64(len(b)), "application/json"
-		default:
-			b, err := toJSONBytes(v)
-			if err != nil {
-				return nil, 0, "json_error"
-			}
-			return bytes.NewReader(b), int64(len(b)), "application/json"
+			return bytes.NewReader(buf), int64(len(buf)), ct
 		}
+		b, ct, err := outboundPayload(tc, &types, msg)
+		if err != nil {
+			return nil, 0, "json_error"
+		}
+		return bytes.NewReader(b), int64(len(b)), ct
 	}
 
 	// execBody serves post, put, patch and delete, whose parameter lists are identical:
@@ -1018,6 +1023,19 @@ func initHttpModule(rt *runtime.Runtime) {
 			return nil, nil
 		})
 
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.setXmlPayload",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			body := ""
+			if payload, ok := args[1].(values.XMLValue); ok {
+				body = payload.XMLString()
+			}
+			self.Put("body", &responseBodyHolder{buf: []byte(body)})
+			ct := payloadContentType(responseContentType(self), optionalArg(args, 2), "application/xml")
+			responseHeaders(self).Put(ctx.TypeCtx(), "content-type", newListValue([]values.BalValue{ct}))
+			return nil, nil
+		})
+
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.setBinaryPayload",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
@@ -1133,6 +1151,27 @@ func initHttpModule(rt *runtime.Runtime) {
 			payload, jsonErr := decodeJSONBody(ctx, &types, body)
 			if jsonErr != nil {
 				return jsonErr, nil
+			}
+			return payload, nil
+		})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Response.getXmlPayload",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			bodyVal, _ := self.Get("body")
+			var body []byte
+			if holder, ok := bodyVal.(*responseBodyHolder); ok {
+				var err error
+				body, err = holder.materialize()
+				if err != nil {
+					return values.NewErrorWithMessage(err.Error()), nil
+				}
+			} else if s, ok := bodyVal.(string); ok {
+				body = []byte(s)
+			}
+			payload, xmlErr := decodeXMLBody(ctx, body, "response")
+			if xmlErr != nil {
+				return xmlErr, nil
 			}
 			return payload, nil
 		})
@@ -1264,6 +1303,20 @@ func initHttpModule(rt *runtime.Runtime) {
 			return nil, nil
 		})
 
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setXmlPayload",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			body := ""
+			if payload, ok := args[1].(values.XMLValue); ok {
+				body = payload.XMLString()
+			}
+			self.Put("$body", &requestBodyHolder{buf: []byte(body)})
+			tc := ctx.TypeCtx()
+			ct := payloadContentType(requestContentType(tc, self), optionalArg(args, 2), "application/xml")
+			setRequestHeader(self, "content-type", ct, tc)
+			return nil, nil
+		})
+
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.setBinaryPayload",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
 			self := args[0].(*values.Object)
@@ -1363,23 +1416,7 @@ func initHttpModule(rt *runtime.Runtime) {
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getContentType",
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			self := args[0].(*values.Object)
-			hdrs, ok := requestHeadersMap(ctx.TypeCtx(), self)
-			if !ok {
-				return "", nil
-			}
-			v, ok := hdrs.Get("content-type")
-			if !ok {
-				return "", nil
-			}
-			list := v.(*values.List)
-			if list.Len() == 0 {
-				return "", nil
-			}
-			if s, ok := list.Get(0).(string); ok {
-				return s, nil
-			}
-			return "", nil
+			return requestContentType(ctx.TypeCtx(), args[0].(*values.Object)), nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getTextPayload",
@@ -1417,6 +1454,25 @@ func initHttpModule(rt *runtime.Runtime) {
 				return values.NewErrorWithMessage("getJsonPayload: " + err.Error()), nil
 			}
 			return values.GoToBalValue(ctx.TypeCtx(), v, types.jsonListTy, types.jsonMapTy), nil
+		})
+
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getXmlPayload",
+		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+			self := args[0].(*values.Object)
+			bodyVal, _ := self.Get("$body")
+			holder, _ := bodyVal.(*requestBodyHolder)
+			var body []byte
+			if holder != nil {
+				body = holder.materialize()
+				if holder.readErr != nil {
+					return values.NewErrorWithMessage("failed to read request body: " + holder.readErr.Error()), nil
+				}
+			}
+			payload, xmlErr := decodeXMLBody(ctx, body, "request")
+			if xmlErr != nil {
+				return xmlErr, nil
+			}
+			return payload, nil
 		})
 
 	runtime.RegisterExternFunction(rt, orgName, moduleName, "Request.getBinaryPayload",
@@ -1537,7 +1593,7 @@ func initHttpModule(rt *runtime.Runtime) {
 		})
 
 	// Server-side: register the http:Listener class and its native methods.
-	registerListenerExterns(rt)
+	registerListenerExterns(rt, &types)
 }
 
 // splitOutsideQuotes splits s on every occurrence of sep that is not inside a
@@ -1739,9 +1795,10 @@ func extractHeaders(arg values.BalValue) map[string][]string {
 // responseMethodKeyCache mirrors requestMethodKeyCache for Response objects:
 // a constant map built once and shared read-only across all Response objects.
 var responseMethodKeyCache = makeMethodKeys("ballerina/http:Response.", []string{
-	"setTextPayload", "setJsonPayload", "setBinaryPayload",
+	"setTextPayload", "setJsonPayload", "setXmlPayload", "setBinaryPayload",
 	"setHeader", "addHeader", "removeHeader", "removeAllHeaders",
-	"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getBinaryPayload",
+	"setContentType", "getContentType", "getTextPayload", "getJsonPayload", "getXmlPayload",
+	"getBinaryPayload",
 	"hasHeader", "getHeader", "getHeaders", "getHeaderNames",
 })
 

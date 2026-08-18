@@ -44,6 +44,15 @@ func TestHttpClientDataBindErrorsLocal(t *testing.T) {
 	runExtern(t, fileCase("http-client-databind-errors-local-v"), newHTTPPal(palnative.NewHTTPClient), nil)
 }
 
+// TestHttpClientDataBindXmlLocal covers the xml payload builder: media-type variants, the
+// narrower xml:Element target, empty and malformed bodies, an incompatible target, and an
+// xml request payload round-tripping through getXmlPayload on an inbound request.
+func TestHttpClientDataBindXmlLocal(t *testing.T) {
+	skipIfNoLoopback(t)
+	t.Parallel()
+	runExtern(t, fileCase("http-client-databind-xml-local-v"), newHTTPPal(palnative.NewHTTPClient), nil)
+}
+
 // TestHttpClientDataBindNoContentTypeLocal covers the target-type fallback for a response
 // carrying no Content-Type at all. A Ballerina service cannot produce one — the server always
 // emits a Content-Type, and removeHeader on it does not take — so this case keeps a Go server.

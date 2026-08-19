@@ -28,9 +28,13 @@ import (
 // InvokableHandle is provides a unified representation that can be used to execute any function/method
 // in runtime
 type InvokableHandle struct {
-	invoke    func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error)
-	signature func() (extern.FunctionSignature, bool)
-	metadata  func(ctx *extern.Context) (extern.FunctionMetadata, bool)
+	invoke func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error)
+	// descriptor describes the parameters and the return type of the invokable.
+	// It is nil when the invokable has no BIR declaration.
+	descriptor *bir.BIRFunction
+	// firstParam is the index of the first declared parameter within the
+	// descriptor, skipping the parameters supplied by the invoke closure.
+	firstParam int
 }
 
 func NewBIRHandle(fn *bir.BIRFunction) *InvokableHandle {
@@ -106,17 +110,7 @@ func newInvokableHandle(
 	descriptor *bir.BIRFunction,
 	firstParam int,
 ) *InvokableHandle {
-	handle := &InvokableHandle{invoke: invoke}
-	if descriptor == nil {
-		return handle
-	}
-	handle.signature = func() (extern.FunctionSignature, bool) {
-		return describeFunctionSignature(descriptor, firstParam)
-	}
-	handle.metadata = func(ctx *extern.Context) (extern.FunctionMetadata, bool) {
-		return describeFunctionMetadata(ctx, descriptor, firstParam)
-	}
-	return handle
+	return &InvokableHandle{invoke: invoke, descriptor: descriptor, firstParam: firstParam}
 }
 
 func describeFunctionSignature(fn *bir.BIRFunction, firstParam int) (extern.FunctionSignature, bool) {
@@ -174,16 +168,16 @@ func describeFunctionMetadata(ctx *extern.Context, fn *bir.BIRFunction, firstPar
 
 func FunctionSignature(_ *extern.Context, impl any) (extern.FunctionSignature, bool) {
 	handle, ok := impl.(*InvokableHandle)
-	if !ok || handle.signature == nil {
+	if !ok || handle.descriptor == nil {
 		return extern.FunctionSignature{}, false
 	}
-	return handle.signature()
+	return describeFunctionSignature(handle.descriptor, handle.firstParam)
 }
 
 func FunctionMetadata(ctx *extern.Context, impl any) (extern.FunctionMetadata, bool) {
 	handle, ok := impl.(*InvokableHandle)
-	if !ok || handle.metadata == nil {
+	if !ok || handle.descriptor == nil {
 		return extern.FunctionMetadata{}, false
 	}
-	return handle.metadata(ctx)
+	return describeFunctionMetadata(ctx, handle.descriptor, handle.firstParam)
 }

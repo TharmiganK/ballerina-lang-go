@@ -8,19 +8,11 @@
       (value-type null)))
     (block-function-body
       (var-def
-        (variable $desugar$0 (expr
-          (new (
-            (literal {"type": "fixed", "name": "Md5", "namespace": "demo", "size": 4}))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$0))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$0))) ())
-      (var-def
         (variable digestSchema (type
           (user-defined-type avro Schema)) (expr
-          (simple-var-ref $desugar$0))))
+          (checked-expr
+            (new (
+              (literal {"type": "fixed", "name": "Md5", "namespace": "demo", "size": 4})))))))
       (var-def
         (variable toEncode (type
           (array-type
@@ -31,42 +23,26 @@
             (literal 7)
             (literal 6)))))
       (var-def
-        (variable $desugar$1 (expr
-          (invocation toAvro expr:
-            (simple-var-ref digestSchema) (
-            (simple-var-ref toEncode))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$1))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$1))) ())
-      (var-def
         (variable encoded (type
           (array-type
             (value-type byte) dimensions: 1 ([]))) (expr
-          (simple-var-ref $desugar$1))))
+          (checked-expr
+            (invocation toAvro expr:
+              (simple-var-ref digestSchema) (
+              (simple-var-ref toEncode)))))))
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (
             (simple-var-ref encoded))))))
       (var-def
-        (variable $desugar$2 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref digestSchema) (
-            (simple-var-ref encoded)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$2))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$2))) ())
-      (var-def
         (variable digest (type
           (array-type
             (value-type byte) dimensions: 1 ([]))) (expr
-          (simple-var-ref $desugar$2))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref digestSchema) (
+              (simple-var-ref encoded)
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (
@@ -176,22 +152,14 @@
             (simple-var-ref wrongType)
             (user-defined-type avro Error)))))
       (var-def
-        (variable $desugar$3 (expr
-          (new (
-            (literal {
-        "type": "record", "name": "Wrapper", "namespace": "demo",
-        "fields": [{"name": "hash",
-                    "type": ["null", {"type": "fixed", "name": "Md5", "size": 4}]}]}))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$3))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$3))) ())
-      (var-def
         (variable wrapper (type
           (user-defined-type avro Schema)) (expr
-          (simple-var-ref $desugar$3))))
+          (checked-expr
+            (new (
+              (literal {
+        "type": "record", "name": "Wrapper", "namespace": "demo",
+        "fields": [{"name": "hash",
+                    "type": ["null", {"type": "fixed", "name": "Md5", "size": 4}]}]})))))))
       (var-def
         (variable hashBytes (type
           (array-type
@@ -202,38 +170,22 @@
             (literal 3)
             (literal 4)))))
       (var-def
-        (variable $desugar$4 (expr
-          (invocation toAvro expr:
-            (simple-var-ref wrapper) (
-            (mapping-constructor-expr
-              (key-value
-                (literal hash)
-                (simple-var-ref hashBytes))))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$4))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$4))) ())
-      (var-def
-        (variable $desugar$5 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref wrapper) (
-            (simple-var-ref $desugar$4)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$5))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$5))) ())
-      (var-def
         (variable wrapped (type
           (constrained-type
             (builtin-ref-type map)
             (array-type
               (value-type byte) dimensions: 1 ([])))) (expr
-          (simple-var-ref $desugar$5))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref wrapper) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref wrapper) (
+                  (mapping-constructor-expr
+                    (key-value
+                      (literal hash)
+                      (simple-var-ref hashBytes))))))
+              (typedesc-expr)))))))
       (var-def
         (variable hash (type
           (union-type

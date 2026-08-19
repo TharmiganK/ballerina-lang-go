@@ -73,19 +73,11 @@
               (simple-var-ref unknownName)
               (user-defined-type avro Error)))))
         (var-def
-          (variable $desugar$0 (expr
-            (new (
-              (literal {"type": "int"}))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$0))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$0))) ())
-        (var-def
           (variable intSchema (type
             (user-defined-type avro Schema)) (expr
-            (simple-var-ref $desugar$0))))
+            (checked-expr
+              (new (
+                (literal {"type": "int"})))))))
         (var-def
           (variable truncated (type
             (union-type
@@ -111,21 +103,13 @@
                   (simple-var-ref truncated))))))) ())
         (block-stmt
           (var-def
-            (variable $desugar$1 (expr
-              (new (
-                (literal {
-        "type": "record", "name": "Strict", "fields": [
-            {"name": "a", "type": "int"}, {"name": "b", "type": "int"}]}))))))
-          (if
-            (type-test-expr is
-              (simple-var-ref $desugar$1))
-            (block-stmt
-              (return
-                (simple-var-ref $desugar$1))) ())
-          (var-def
             (variable recordSchema (type
               (user-defined-type avro Schema)) (expr
-              (simple-var-ref $desugar$1))))
+              (checked-expr
+                (new (
+                  (literal {
+        "type": "record", "name": "Strict", "fields": [
+            {"name": "a", "type": "int"}, {"name": "b", "type": "int"}]})))))))
           (var-def
             (variable partial (type
               (array-type
@@ -171,19 +155,11 @@
                     (simple-var-ref mismatch))))))) ())
           (block-stmt
             (var-def
-              (variable $desugar$2 (expr
-                (new (
-                  (literal {"type": "null"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$2))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$2))) ())
-            (var-def
               (variable nullSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$2))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "null"})))))))
             (var-def
               (variable notNull (type
                 (union-type
@@ -199,19 +175,11 @@
                   (simple-var-ref notNull)
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$3 (expr
-                (new (
-                  (literal {"type": "boolean"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$3))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$3))) ())
-            (var-def
               (variable boolSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$3))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "boolean"})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -220,19 +188,11 @@
                     (literal 1)))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$4 (expr
-                (new (
-                  (literal {"type": "long"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$4))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$4))) ())
-            (var-def
               (variable longSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$4))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "long"})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -248,19 +208,11 @@
                     (literal 1.5)))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$5 (expr
-                (new (
-                  (literal {"type": "double"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$5))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$5))) ())
-            (var-def
               (variable doubleSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$5))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "double"})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -269,19 +221,11 @@
                     (literal true)))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$6 (expr
-                (new (
-                  (literal {"type": "float"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$6))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$6))) ())
-            (var-def
               (variable floatSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$6))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "float"})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -290,19 +234,11 @@
                     (literal 1.5)))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$7 (expr
-                (new (
-                  (literal {"type": "bytes"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$7))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$7))) ())
-            (var-def
               (variable bytesSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$7))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "bytes"})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -351,19 +287,11 @@
                       (literal 300))))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$8 (expr
-                (new (
-                  (literal {"type": "enum", "name": "E", "symbols": ["A"]}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$8))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$8))) ())
-            (var-def
               (variable enumSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$8))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "enum", "name": "E", "symbols": ["A"]})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -372,19 +300,11 @@
                     (literal 1)))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$9 (expr
-                (new (
-                  (literal {"type": "record", "name": "T", "fields": [{"name": "a", "type": "int"}]}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$9))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$9))) ())
-            (var-def
               (variable recordSchemaTypes (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$9))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "record", "name": "T", "fields": [{"name": "a", "type": "int"}]})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -414,30 +334,11 @@
                     (literal 3.9)))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$10 (expr
-                (new (
-                  (literal {"type": "string"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$10))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$10))) ())
-            (var-def
               (variable strSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$10))))
-            (var-def
-              (variable $desugar$11 (expr
-                (invocation toAvro expr:
-                  (simple-var-ref strSchema) (
-                  (literal text))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$11))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$11))) ())
+                (checked-expr
+                  (new (
+                    (literal {"type": "string"})))))))
             (var-def
               (variable wrongTarget (type
                 (union-type
@@ -445,7 +346,10 @@
                   (user-defined-type avro Error))) (expr
                 (invocation fromAvro expr:
                   (simple-var-ref strSchema) (
-                  (simple-var-ref $desugar$11)
+                  (checked-expr
+                    (invocation toAvro expr:
+                      (simple-var-ref strSchema) (
+                      (literal text))))
                   (typedesc-expr))))))
             (expression-stmt
               (invocation io println (
@@ -453,34 +357,12 @@
                   (simple-var-ref wrongTarget)
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$12 (expr
-                (new (
-                  (literal {
-        "type": "record", "name": "OnlyA", "fields": [{"name": "a", "type": "int"}]}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$12))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$12))) ())
-            (var-def
               (variable onlyA (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$12))))
-            (var-def
-              (variable $desugar$13 (expr
-                (invocation toAvro expr:
-                  (simple-var-ref onlyA) (
-                  (mapping-constructor-expr
-                    (key-value
-                      (literal a)
-                      (literal 1))))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$13))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$13))) ())
+                (checked-expr
+                  (new (
+                    (literal {
+        "type": "record", "name": "OnlyA", "fields": [{"name": "a", "type": "int"}]})))))))
             (var-def
               (variable incomplete (type
                 (union-type
@@ -488,7 +370,13 @@
                   (user-defined-type avro Error))) (expr
                 (invocation fromAvro expr:
                   (simple-var-ref onlyA) (
-                  (simple-var-ref $desugar$13)
+                  (checked-expr
+                    (invocation toAvro expr:
+                      (simple-var-ref onlyA) (
+                      (mapping-constructor-expr
+                        (key-value
+                          (literal a)
+                          (literal 1))))))
                   (typedesc-expr))))))
             (expression-stmt
               (invocation io println (
@@ -503,19 +391,11 @@
                     (literal <nil>)))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$14 (expr
-                (new (
-                  (literal {"type": "map", "values": "int"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$14))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$14))) ())
-            (var-def
               (variable mapIntSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$14))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "map", "values": "int"})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is
@@ -527,19 +407,11 @@
                         (literal text)))))
                   (user-defined-type avro Error)))))
             (var-def
-              (variable $desugar$15 (expr
-                (new (
-                  (literal {"type": "array", "items": "int"}))))))
-            (if
-              (type-test-expr is
-                (simple-var-ref $desugar$15))
-              (block-stmt
-                (return
-                  (simple-var-ref $desugar$15))) ())
-            (var-def
               (variable arrayIntSchema (type
                 (user-defined-type avro Schema)) (expr
-                (simple-var-ref $desugar$15))))
+                (checked-expr
+                  (new (
+                    (literal {"type": "array", "items": "int"})))))))
             (expression-stmt
               (invocation io println (
                 (type-test-expr is

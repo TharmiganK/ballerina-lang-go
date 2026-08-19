@@ -1,288 +1,301 @@
 module $anon.. v 0.0.0;
 main() -> nil|error{
   bb0 {
-    %1 = newObject ballerina/avro:Schema
-    %2 = ConstantLoad {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]}
-    %3 = init(%1,%2) -> bb1;
+    %2 = newObject ballerina/avro:Schema
+    %3 = ConstantLoad {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]}
+    %4 = init(%2,%3) -> bb1;
   }
   bb1 {
-    %5 = %3 is nil
-    %5 ? bb2 : bb3;
+    %6 = %4 is nil
+    %6 ? bb2 : bb3;
   }
   bb2 {
-    %4 = %1;
+    %5 = %2;
     GOTO bb4;
   }
   bb3 {
-    %4 = %3;
+    %5 = %4;
     GOTO bb4;
   }
   bb4 {
-    $desugar$0 = %4;
-    %7 = $desugar$0 is error
+    %7 = %5 is error
     %7 ? bb5 : bb6;
   }
   bb5 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$0);
-    PopScopeFrame
+    %0 = %5;
     return;
   }
   bb6 {
-    suitSchema = $desugar$0;
-    %9 = ConstantLoad HEARTS
-    %10 = toAvro(suitSchema,%9) -> bb7;
+    %1 = %5;
+    GOTO bb7;
   }
   bb7 {
-    $desugar$1 = %10;
-    %12 = $desugar$1 is error
-    %12 ? bb8 : bb9;
+    suitSchema = %1;
+    %10 = ConstantLoad HEARTS
+    %11 = toAvro(suitSchema,%10) -> bb8;
   }
   bb8 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$1);
-    PopScopeFrame
-    return;
+    %12 = %11 is error
+    %12 ? bb9 : bb10;
   }
   bb9 {
-    first = $desugar$1;
-    %14 = length(first) -> bb10;
+    %0 = %11;
+    return;
   }
   bb10 {
-    %15 = %14;
-    %16 = println(%15) -> bb11;
+    %9 = %11;
+    GOTO bb11;
   }
   bb11 {
-    %17 = ConstantLoad typedesc
-    %18 = fromAvro(suitSchema,first,%17) -> bb12;
+    first = %9;
+    %14 = length(first) -> bb12;
   }
   bb12 {
-    $desugar$2 = %18;
-    %20 = $desugar$2 is error
-    %20 ? bb13 : bb14;
+    %15 = %14;
+    %16 = println(%15) -> bb13;
   }
   bb13 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$2);
-    PopScopeFrame
-    return;
+    %18 = ConstantLoad typedesc
+    %19 = fromAvro(suitSchema,first,%18) -> bb14;
   }
   bb14 {
-    hearts = $desugar$2;
-    %22 = println(hearts) -> bb15;
+    %20 = %19 is error
+    %20 ? bb15 : bb16;
   }
   bb15 {
-    %23 = ConstantLoad CLUBS
-    %24 = toAvro(suitSchema,%23) -> bb16;
-  }
-  bb16 {
-    $desugar$3 = %24;
-    %26 = $desugar$3 is error
-    %26 ? bb17 : bb18;
-  }
-  bb17 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$3);
-    PopScopeFrame
+    %0 = %19;
     return;
   }
+  bb16 {
+    %17 = %19;
+    GOTO bb17;
+  }
+  bb17 {
+    hearts = %17;
+    %22 = println(hearts) -> bb18;
+  }
   bb18 {
-    %27 = ConstantLoad typedesc
-    %28 = fromAvro(suitSchema,$desugar$3,%27) -> bb19;
+    %25 = ConstantLoad CLUBS
+    %26 = toAvro(suitSchema,%25) -> bb19;
   }
   bb19 {
-    $desugar$4 = %28;
-    %30 = $desugar$4 is error
-    %30 ? bb20 : bb21;
+    %27 = %26 is error
+    %27 ? bb20 : bb21;
   }
   bb20 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$4);
-    PopScopeFrame
+    %0 = %26;
     return;
   }
   bb21 {
-    last = $desugar$4;
-    %32 = println(last) -> bb22;
+    %24 = %26;
+    GOTO bb22;
   }
   bb22 {
+    %28 = ConstantLoad typedesc
+    %29 = fromAvro(suitSchema,%24,%28) -> bb23;
+  }
+  bb23 {
+    %30 = %29 is error
+    %30 ? bb24 : bb25;
+  }
+  bb24 {
+    %0 = %29;
+    return;
+  }
+  bb25 {
+    %23 = %29;
+    GOTO bb26;
+  }
+  bb26 {
+    last = %23;
+    %32 = println(last) -> bb27;
+  }
+  bb27 {
     %34 = ConstantLoad CLUBS
     %33 = == last %34;
     %35 = %33;
-    %36 = println(%35) -> bb23;
-  }
-  bb23 {
-    %37 = ConstantLoad SPADES
-    %38 = toAvro(suitSchema,%37) -> bb24;
-  }
-  bb24 {
-    $desugar$5 = %38;
-    %40 = $desugar$5 is error
-    %40 ? bb25 : bb26;
-  }
-  bb25 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$5);
-    PopScopeFrame
-    return;
-  }
-  bb26 {
-    %41 = ConstantLoad typedesc
-    %42 = fromAvro(suitSchema,$desugar$5,%41) -> bb27;
-  }
-  bb27 {
-    $desugar$6 = %42;
-    %44 = $desugar$6 is error
-    %44 ? bb28 : bb29;
+    %36 = println(%35) -> bb28;
   }
   bb28 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$6);
-    PopScopeFrame
-    return;
+    %39 = ConstantLoad SPADES
+    %40 = toAvro(suitSchema,%39) -> bb29;
   }
   bb29 {
-    asText = $desugar$6;
-    %46 = println(asText) -> bb30;
+    %41 = %40 is error
+    %41 ? bb30 : bb31;
   }
   bb30 {
-    %47 = ConstantLoad DIAMONDS
-    %48 = toAvro(suitSchema,%47) -> bb31;
+    %0 = %40;
+    return;
   }
   bb31 {
-    unknown = %48;
-    %50 = unknown is error
-    %51 = %50;
-    %52 = println(%51) -> bb32;
+    %38 = %40;
+    GOTO bb32;
   }
   bb32 {
-    %53 = ConstantLoad SPADES
-    %54 = toAvro(suitSchema,%53) -> bb33;
+    %42 = ConstantLoad typedesc
+    %43 = fromAvro(suitSchema,%38,%42) -> bb33;
   }
   bb33 {
-    $desugar$7 = %54;
-    %56 = $desugar$7 is error
-    %56 ? bb34 : bb35;
+    %44 = %43 is error
+    %44 ? bb34 : bb35;
   }
   bb34 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$7);
-    PopScopeFrame
+    %0 = %43;
     return;
   }
   bb35 {
-    %57 = ConstantLoad typedesc
-    %58 = fromAvro(suitSchema,$desugar$7,%57) -> bb36;
+    %37 = %43;
+    GOTO bb36;
   }
   bb36 {
+    asText = %37;
+    %46 = println(asText) -> bb37;
+  }
+  bb37 {
+    %47 = ConstantLoad DIAMONDS
+    %48 = toAvro(suitSchema,%47) -> bb38;
+  }
+  bb38 {
+    unknown = %48;
+    %50 = unknown is error
+    %51 = %50;
+    %52 = println(%51) -> bb39;
+  }
+  bb39 {
+    %54 = ConstantLoad SPADES
+    %55 = toAvro(suitSchema,%54) -> bb40;
+  }
+  bb40 {
+    %56 = %55 is error
+    %56 ? bb41 : bb42;
+  }
+  bb41 {
+    %0 = %55;
+    return;
+  }
+  bb42 {
+    %53 = %55;
+    GOTO bb43;
+  }
+  bb43 {
+    %57 = ConstantLoad typedesc
+    %58 = fromAvro(suitSchema,%53,%57) -> bb44;
+  }
+  bb44 {
     tooWide = %58;
     %60 = tooWide is error
     %61 = %60;
-    %62 = println(%61) -> bb37;
-  }
-  bb37 {
-    %63 = ConstantLoad HEARTS
-    %64 = toAvro(suitSchema,%63) -> bb38;
-  }
-  bb38 {
-    $desugar$8 = %64;
-    %66 = $desugar$8 is error
-    %66 ? bb39 : bb40;
-  }
-  bb39 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$8);
-    PopScopeFrame
-    return;
-  }
-  bb40 {
-    %67 = ConstantLoad typedesc
-    %68 = fromAvro(suitSchema,$desugar$8,%67) -> bb41;
-  }
-  bb41 {
-    $desugar$9 = %68;
-    %70 = $desugar$9 is error
-    %70 ? bb42 : bb43;
-  }
-  bb42 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$9);
-    PopScopeFrame
-    return;
-  }
-  bb43 {
-    admitted = $desugar$9;
-    %72 = println(admitted) -> bb44;
-  }
-  bb44 {
-    %73 = newObject ballerina/avro:Schema
-    %74 = ConstantLoad {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]}
-    %75 = evalTemplate[string]("{\n        \"type\": \"record\", \"name\": \"Hand\", \"namespace\": \"cards\",\n        \"fields\": [{\"name\": \"suit\", \"type\": ", %74, "}]}")
-    %76 = init(%73,%75) -> bb45;
+    %62 = println(%61) -> bb45;
   }
   bb45 {
-    %78 = %76 is nil
-    %78 ? bb46 : bb47;
+    %65 = ConstantLoad HEARTS
+    %66 = toAvro(suitSchema,%65) -> bb46;
   }
   bb46 {
-    %77 = %73;
-    GOTO bb48;
+    %67 = %66 is error
+    %67 ? bb47 : bb48;
   }
   bb47 {
-    %77 = %76;
-    GOTO bb48;
+    %0 = %66;
+    return;
   }
   bb48 {
-    $desugar$10 = %77;
-    %80 = $desugar$10 is error
-    %80 ? bb49 : bb50;
+    %64 = %66;
+    GOTO bb49;
   }
   bb49 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$10);
-    PopScopeFrame
-    return;
+    %68 = ConstantLoad typedesc
+    %69 = fromAvro(suitSchema,%64,%68) -> bb50;
   }
   bb50 {
-    handSchema = $desugar$10;
-    %82 = ConstantLoad suit
-    %83 = ConstantLoad CLUBS
-    %84 = newMap {| anydata... |}{%82=%83}
-    %85 = toAvro(handSchema,%84) -> bb51;
+    %70 = %69 is error
+    %70 ? bb51 : bb52;
   }
   bb51 {
-    $desugar$11 = %85;
-    %87 = $desugar$11 is error
-    %87 ? bb52 : bb53;
+    %0 = %69;
+    return;
   }
   bb52 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$11);
-    PopScopeFrame
-    return;
+    %63 = %69;
+    GOTO bb53;
   }
   bb53 {
-    %88 = ConstantLoad typedesc
-    %89 = fromAvro(handSchema,$desugar$11,%88) -> bb54;
+    admitted = %63;
+    %72 = println(admitted) -> bb54;
   }
   bb54 {
-    $desugar$12 = %89;
-    %91 = $desugar$12 is error
-    %91 ? bb55 : bb56;
+    %74 = newObject ballerina/avro:Schema
+    %75 = ConstantLoad {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]}
+    %76 = evalTemplate[string]("{\n        \"type\": \"record\", \"name\": \"Hand\", \"namespace\": \"cards\",\n        \"fields\": [{\"name\": \"suit\", \"type\": ", %75, "}]}")
+    %77 = init(%74,%76) -> bb55;
   }
   bb55 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$12);
-    PopScopeFrame
-    return;
+    %79 = %77 is nil
+    %79 ? bb56 : bb57;
   }
   bb56 {
-    hand = $desugar$12;
-    %94 = ConstantLoad suit
-    %93 = hand[%94];
-    %95 = println(%93) -> bb57;
+    %78 = %74;
+    GOTO bb58;
   }
   bb57 {
+    %78 = %77;
+    GOTO bb58;
+  }
+  bb58 {
+    %80 = %78 is error
+    %80 ? bb59 : bb60;
+  }
+  bb59 {
+    %0 = %78;
+    return;
+  }
+  bb60 {
+    %73 = %78;
+    GOTO bb61;
+  }
+  bb61 {
+    handSchema = %73;
+    %84 = ConstantLoad suit
+    %85 = ConstantLoad CLUBS
+    %86 = newMap {| anydata... |}{%84=%85}
+    %87 = toAvro(handSchema,%86) -> bb62;
+  }
+  bb62 {
+    %88 = %87 is error
+    %88 ? bb63 : bb64;
+  }
+  bb63 {
+    %0 = %87;
+    return;
+  }
+  bb64 {
+    %83 = %87;
+    GOTO bb65;
+  }
+  bb65 {
+    %89 = ConstantLoad typedesc
+    %90 = fromAvro(handSchema,%83,%89) -> bb66;
+  }
+  bb66 {
+    %91 = %90 is error
+    %91 ? bb67 : bb68;
+  }
+  bb67 {
+    %0 = %90;
+    return;
+  }
+  bb68 {
+    %82 = %90;
+    GOTO bb69;
+  }
+  bb69 {
+    hand = %82;
+    %94 = ConstantLoad suit
+    %93 = hand[%94];
+    %95 = println(%93) -> bb70;
+  }
+  bb70 {
     return;
   }
 }

@@ -32,25 +32,17 @@
       (value-type null)))
     (block-function-body
       (var-def
-        (variable $desugar$0 (expr
-          (new (
-            (literal {
+        (variable nested (type
+          (user-defined-type avro Schema)) (expr
+          (checked-expr
+            (new (
+              (literal {
     "type": "record", "name": "Outer", "namespace": "demo",
     "fields": [
         {"name": "id", "type": "int"},
         {"name": "inner", "type": {"type": "record", "name": "Inner",
             "fields": [{"name": "label", "type": "string"}]}}
-    ]}))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$0))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$0))) ())
-      (var-def
-        (variable nested (type
-          (user-defined-type avro Schema)) (expr
-          (simple-var-ref $desugar$0))))
+    ]})))))))
       (var-def
         (variable nestedValue (type
           (user-defined-type Outer)) (expr
@@ -65,32 +57,16 @@
                   (literal label)
                   (literal deep))))))))
       (var-def
-        (variable $desugar$1 (expr
-          (invocation toAvro expr:
-            (simple-var-ref nested) (
-            (simple-var-ref nestedValue))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$1))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$1))) ())
-      (var-def
-        (variable $desugar$2 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref nested) (
-            (simple-var-ref $desugar$1)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$2))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$2))) ())
-      (var-def
         (variable back (type
           (user-defined-type Outer)) (expr
-          (simple-var-ref $desugar$2))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref nested) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref nested) (
+                  (simple-var-ref nestedValue))))
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (index-based-access
@@ -104,50 +80,26 @@
               (literal inner))
             (literal label)))))
       (var-def
-        (variable $desugar$3 (expr
-          (new (
-            (literal {
-        "type": "record", "name": "IdOnly", "fields": [{"name": "id", "type": "int"}]}))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$3))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$3))) ())
-      (var-def
         (variable idOnly (type
           (user-defined-type avro Schema)) (expr
-          (simple-var-ref $desugar$3))))
-      (var-def
-        (variable $desugar$4 (expr
-          (invocation toAvro expr:
-            (simple-var-ref idOnly) (
-            (mapping-constructor-expr
-              (key-value
-                (literal id)
-                (literal 3))))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$4))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$4))) ())
-      (var-def
-        (variable $desugar$5 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref idOnly) (
-            (simple-var-ref $desugar$4)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$5))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$5))) ())
+          (checked-expr
+            (new (
+              (literal {
+        "type": "record", "name": "IdOnly", "fields": [{"name": "id", "type": "int"}]})))))))
       (var-def
         (variable open (type
           (user-defined-type Open)) (expr
-          (simple-var-ref $desugar$5))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref idOnly) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref idOnly) (
+                  (mapping-constructor-expr
+                    (key-value
+                      (literal id)
+                      (literal 3))))))
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (index-based-access
@@ -161,43 +113,27 @@
               (literal note))
             (value-type null)))))
       (var-def
-        (variable $desugar$6 (expr
-          (invocation toAvro expr:
-            (simple-var-ref idOnly) (
-            (mapping-constructor-expr
-              (key-value
-                (literal id)
-                (literal 4))
-              (key-value
-                (literal extra)
-                (literal dropped))))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$6))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$6))) ())
-      (var-def
         (variable ignoring (type
           (array-type
             (value-type byte) dimensions: 1 ([]))) (expr
-          (simple-var-ref $desugar$6))))
-      (var-def
-        (variable $desugar$7 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref idOnly) (
-            (simple-var-ref ignoring)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$7))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$7))) ())
+          (checked-expr
+            (invocation toAvro expr:
+              (simple-var-ref idOnly) (
+              (mapping-constructor-expr
+                (key-value
+                  (literal id)
+                  (literal 4))
+                (key-value
+                  (literal extra)
+                  (literal dropped)))))))))
       (var-def
         (variable trimmed (type
           (user-defined-type Open)) (expr
-          (simple-var-ref $desugar$7))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref idOnly) (
+              (simple-var-ref ignoring)
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (index-based-access
@@ -211,24 +147,16 @@
               (literal extra))
             (value-type null)))))
       (var-def
-        (variable $desugar$8 (expr
-          (new (
-            (literal {
+        (variable nodeSchema (type
+          (user-defined-type avro Schema)) (expr
+          (checked-expr
+            (new (
+              (literal {
         "type": "record", "name": "Node", "namespace": "demo",
         "fields": [
             {"name": "value", "type": "int"},
             {"name": "next", "type": ["null", "Node"]}
-        ]}))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$8))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$8))) ())
-      (var-def
-        (variable nodeSchema (type
-          (user-defined-type avro Schema)) (expr
-          (simple-var-ref $desugar$8))))
+        ]})))))))
       (var-def
         (variable chain (type
           (user-defined-type Node)) (expr
@@ -246,32 +174,16 @@
                   (literal next)
                   (literal <nil>))))))))
       (var-def
-        (variable $desugar$9 (expr
-          (invocation toAvro expr:
-            (simple-var-ref nodeSchema) (
-            (simple-var-ref chain))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$9))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$9))) ())
-      (var-def
-        (variable $desugar$10 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref nodeSchema) (
-            (simple-var-ref $desugar$9)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$10))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$10))) ())
-      (var-def
         (variable backChain (type
           (user-defined-type Node)) (expr
-          (simple-var-ref $desugar$10))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref nodeSchema) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref nodeSchema) (
+                  (simple-var-ref chain))))
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (index-based-access
@@ -304,57 +216,33 @@
                 (value-type null)))))) ())
       (block-stmt
         (var-def
-          (variable $desugar$11 (expr
-            (new (
-              (literal {
-        "type": "record", "name": "Ordered", "fields": [
-            {"name": "b", "type": "string"},
-            {"name": "a", "type": "string"}]}))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$11))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$11))) ())
-        (var-def
           (variable ordered (type
             (user-defined-type avro Schema)) (expr
-            (simple-var-ref $desugar$11))))
-        (var-def
-          (variable $desugar$12 (expr
-            (invocation toAvro expr:
-              (simple-var-ref ordered) (
-              (mapping-constructor-expr
-                (key-value
-                  (literal a)
-                  (literal first))
-                (key-value
-                  (literal b)
-                  (literal second))))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$12))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$12))) ())
-        (var-def
-          (variable $desugar$13 (expr
-            (invocation fromAvro expr:
-              (simple-var-ref ordered) (
-              (simple-var-ref $desugar$12)
-              (typedesc-expr))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$13))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$13))) ())
+            (checked-expr
+              (new (
+                (literal {
+        "type": "record", "name": "Ordered", "fields": [
+            {"name": "b", "type": "string"},
+            {"name": "a", "type": "string"}]})))))))
         (var-def
           (variable pair (type
             (constrained-type
               (builtin-ref-type map)
               (value-type string))) (expr
-            (simple-var-ref $desugar$13))))
+            (checked-expr
+              (invocation fromAvro expr:
+                (simple-var-ref ordered) (
+                (checked-expr
+                  (invocation toAvro expr:
+                    (simple-var-ref ordered) (
+                    (mapping-constructor-expr
+                      (key-value
+                        (literal a)
+                        (literal first))
+                      (key-value
+                        (literal b)
+                        (literal second))))))
+                (typedesc-expr)))))))
         (expression-stmt
           (invocation io println (
             (index-based-access
@@ -366,22 +254,14 @@
               (simple-var-ref pair)
               (literal a)))))
         (var-def
-          (variable $desugar$14 (expr
-            (new (
-              (literal {
-        "type": "record", "name": "Both", "fields": [
-            {"name": "a", "type": "string"},
-            {"name": "b", "type": "int"}]}))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$14))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$14))) ())
-        (var-def
           (variable needsBoth (type
             (user-defined-type avro Schema)) (expr
-            (simple-var-ref $desugar$14))))
+            (checked-expr
+              (new (
+                (literal {
+        "type": "record", "name": "Both", "fields": [
+            {"name": "a", "type": "string"},
+            {"name": "b", "type": "int"}]})))))))
         (var-def
           (variable incomplete (type
             (union-type
@@ -400,19 +280,11 @@
               (simple-var-ref incomplete)
               (user-defined-type avro Error)))))
         (var-def
-          (variable $desugar$15 (expr
-            (new (
-              (literal {"type": "fixed", "name": "demo.dotted.Hash", "size": 2}))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$15))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$15))) ())
-        (var-def
           (variable dotted (type
             (user-defined-type avro Schema)) (expr
-            (simple-var-ref $desugar$15))))
+            (checked-expr
+              (new (
+                (literal {"type": "fixed", "name": "demo.dotted.Hash", "size": 2})))))))
         (var-def
           (variable dottedSource (type
             (array-type
@@ -421,78 +293,46 @@
               (literal 9)
               (literal 8)))))
         (var-def
-          (variable $desugar$16 (expr
-            (invocation toAvro expr:
-              (simple-var-ref dotted) (
-              (simple-var-ref dottedSource))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$16))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$16))) ())
-        (var-def
           (variable dottedBytes (type
             (array-type
               (value-type byte) dimensions: 1 ([]))) (expr
-            (simple-var-ref $desugar$16))))
+            (checked-expr
+              (invocation toAvro expr:
+                (simple-var-ref dotted) (
+                (simple-var-ref dottedSource)))))))
         (expression-stmt
           (invocation io println (
             (invocation lang.array length (
               (simple-var-ref dottedBytes))))))
         (var-def
-          (variable $desugar$17 (expr
-            (new (
-              (literal {
+          (variable plainNode (type
+            (user-defined-type avro Schema)) (expr
+            (checked-expr
+              (new (
+                (literal {
         "type": "record", "name": "PlainNode",
         "fields": [
             {"name": "value", "type": "int"},
-            {"name": "next", "type": ["null", "PlainNode"]}]}))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$17))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$17))) ())
-        (var-def
-          (variable plainNode (type
-            (user-defined-type avro Schema)) (expr
-            (simple-var-ref $desugar$17))))
-        (var-def
-          (variable $desugar$18 (expr
-            (invocation toAvro expr:
-              (simple-var-ref plainNode) (
-              (mapping-constructor-expr
-                (key-value
-                  (literal value)
-                  (literal 1))
-                (key-value
-                  (literal next)
-                  (literal <nil>))))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$18))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$18))) ())
-        (var-def
-          (variable $desugar$19 (expr
-            (invocation fromAvro expr:
-              (simple-var-ref plainNode) (
-              (simple-var-ref $desugar$18)
-              (typedesc-expr))))))
-        (if
-          (type-test-expr is
-            (simple-var-ref $desugar$19))
-          (block-stmt
-            (return
-              (simple-var-ref $desugar$19))) ())
+            {"name": "next", "type": ["null", "PlainNode"]}]})))))))
         (var-def
           (variable plain (type
             (constrained-type
               (builtin-ref-type map)
               (value-type anydata))) (expr
-            (simple-var-ref $desugar$19))))
+            (checked-expr
+              (invocation fromAvro expr:
+                (simple-var-ref plainNode) (
+                (checked-expr
+                  (invocation toAvro expr:
+                    (simple-var-ref plainNode) (
+                    (mapping-constructor-expr
+                      (key-value
+                        (literal value)
+                        (literal 1))
+                      (key-value
+                        (literal next)
+                        (literal <nil>))))))
+                (typedesc-expr)))))))
         (expression-stmt
           (invocation io println (
             (index-based-access

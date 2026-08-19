@@ -16,85 +16,45 @@
       (value-type null)))
     (block-function-body
       (var-def
-        (variable $desugar$0 (expr
-          (new (
-            (literal {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]}))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$0))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$0))) ())
-      (var-def
         (variable suitSchema (type
           (user-defined-type avro Schema)) (expr
-          (simple-var-ref $desugar$0))))
-      (var-def
-        (variable $desugar$1 (expr
-          (invocation toAvro expr:
-            (simple-var-ref suitSchema) (
-            (literal HEARTS))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$1))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$1))) ())
+          (checked-expr
+            (new (
+              (literal {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]})))))))
       (var-def
         (variable first (type
           (array-type
             (value-type byte) dimensions: 1 ([]))) (expr
-          (simple-var-ref $desugar$1))))
+          (checked-expr
+            (invocation toAvro expr:
+              (simple-var-ref suitSchema) (
+              (literal HEARTS)))))))
       (expression-stmt
         (invocation io println (
           (invocation lang.array length (
             (simple-var-ref first))))))
       (var-def
-        (variable $desugar$2 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref suitSchema) (
-            (simple-var-ref first)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$2))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$2))) ())
-      (var-def
         (variable hearts (type
           (user-defined-type Suit)) (expr
-          (simple-var-ref $desugar$2))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref suitSchema) (
+              (simple-var-ref first)
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref hearts))))
       (var-def
-        (variable $desugar$3 (expr
-          (invocation toAvro expr:
-            (simple-var-ref suitSchema) (
-            (literal CLUBS))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$3))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$3))) ())
-      (var-def
-        (variable $desugar$4 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref suitSchema) (
-            (simple-var-ref $desugar$3)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$4))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$4))) ())
-      (var-def
         (variable last (type
           (user-defined-type Suit)) (expr
-          (simple-var-ref $desugar$4))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref suitSchema) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref suitSchema) (
+                  (literal CLUBS))))
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref last))))
@@ -104,32 +64,16 @@
             (simple-var-ref last)
             (literal CLUBS)))))
       (var-def
-        (variable $desugar$5 (expr
-          (invocation toAvro expr:
-            (simple-var-ref suitSchema) (
-            (literal SPADES))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$5))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$5))) ())
-      (var-def
-        (variable $desugar$6 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref suitSchema) (
-            (simple-var-ref $desugar$5)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$6))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$6))) ())
-      (var-def
         (variable asText (type
           (value-type string)) (expr
-          (simple-var-ref $desugar$6))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref suitSchema) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref suitSchema) (
+                  (literal SPADES))))
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref asText))))
@@ -148,24 +92,16 @@
             (simple-var-ref unknown)
             (user-defined-type avro Error)))))
       (var-def
-        (variable $desugar$7 (expr
-          (invocation toAvro expr:
-            (simple-var-ref suitSchema) (
-            (literal SPADES))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$7))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$7))) ())
-      (var-def
         (variable tooWide (type
           (union-type
             (user-defined-type Narrow)
             (user-defined-type avro Error))) (expr
           (invocation fromAvro expr:
             (simple-var-ref suitSchema) (
-            (simple-var-ref $desugar$7)
+            (checked-expr
+              (invocation toAvro expr:
+                (simple-var-ref suitSchema) (
+                (literal SPADES))))
             (typedesc-expr))))))
       (expression-stmt
         (invocation io println (
@@ -173,84 +109,44 @@
             (simple-var-ref tooWide)
             (user-defined-type avro Error)))))
       (var-def
-        (variable $desugar$8 (expr
-          (invocation toAvro expr:
-            (simple-var-ref suitSchema) (
-            (literal HEARTS))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$8))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$8))) ())
-      (var-def
-        (variable $desugar$9 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref suitSchema) (
-            (simple-var-ref $desugar$8)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$9))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$9))) ())
-      (var-def
         (variable admitted (type
           (user-defined-type Narrow)) (expr
-          (simple-var-ref $desugar$9))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref suitSchema) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref suitSchema) (
+                  (literal HEARTS))))
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref admitted))))
       (var-def
-        (variable $desugar$10 (expr
-          (new (
-            (string-template-literal
-              (template-string "{\n        \"type\": \"record\", \"name\": \"Hand\", \"namespace\": \"cards\",\n        \"fields\": [{\"name\": \"suit\", \"type\": ")
-              (literal {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]})
-              (template-string "}]}")))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$10))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$10))) ())
-      (var-def
         (variable handSchema (type
           (user-defined-type avro Schema)) (expr
-          (simple-var-ref $desugar$10))))
-      (var-def
-        (variable $desugar$11 (expr
-          (invocation toAvro expr:
-            (simple-var-ref handSchema) (
-            (mapping-constructor-expr
-              (key-value
-                (literal suit)
-                (literal CLUBS))))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$11))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$11))) ())
-      (var-def
-        (variable $desugar$12 (expr
-          (invocation fromAvro expr:
-            (simple-var-ref handSchema) (
-            (simple-var-ref $desugar$11)
-            (typedesc-expr))))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$12))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$12))) ())
+          (checked-expr
+            (new (
+              (string-template-literal
+                (template-string "{\n        \"type\": \"record\", \"name\": \"Hand\", \"namespace\": \"cards\",\n        \"fields\": [{\"name\": \"suit\", \"type\": ")
+                (literal {"type": "enum", "name": "Suit", "namespace": "cards", "symbols": ["HEARTS", "SPADES", "CLUBS"]})
+                (template-string "}]}"))))))))
       (var-def
         (variable hand (type
           (constrained-type
             (builtin-ref-type map)
             (value-type string))) (expr
-          (simple-var-ref $desugar$12))))
+          (checked-expr
+            (invocation fromAvro expr:
+              (simple-var-ref handSchema) (
+              (checked-expr
+                (invocation toAvro expr:
+                  (simple-var-ref handSchema) (
+                  (mapping-constructor-expr
+                    (key-value
+                      (literal suit)
+                      (literal CLUBS))))))
+              (typedesc-expr)))))))
       (expression-stmt
         (invocation io println (
           (index-based-access

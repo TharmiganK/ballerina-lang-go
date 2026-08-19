@@ -2005,7 +2005,7 @@ func transformResourceMethodSignature(root *funcBlock, rm *ast.BLangResourceMeth
 		root.addLocalVar(model.Name(name), ctx.CompilerContext.SymbolType(ref), ref)
 		requiredParams = append(requiredParams, BIRParameter{
 			Name:        model.Name(name),
-			Annotations: values.NewAnnotationValues(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(ref),
 		})
 	}
 	for i := range rm.RequiredParams {

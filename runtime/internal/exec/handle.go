@@ -47,10 +47,6 @@ func newBIRHandle(fn *bir.BIRFunction, parentFrame *Frame) *InvokableHandle {
 	)
 }
 
-func NewNativeHandle(fn extern.NativeFunc) *InvokableHandle {
-	return newNativeHandle(fn, nil)
-}
-
 func newNativeHandle(fn extern.NativeFunc, descriptor *bir.BIRFunction) *InvokableHandle {
 	return newInvokableHandle(
 		func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
@@ -75,7 +71,7 @@ func NewFunctionValueHandle(env *extern.Env, fnValue *values.Function) (*Invokab
 	reg := env.Registry.(*modules.Registry)
 	lookupKey := fnValue.LookupKey
 	if builtin := reg.GetRuntimeBuiltin(lookupKey); builtin != nil {
-		return NewNativeHandle(builtin), nil
+		return newNativeHandle(builtin, reg.GetFunctionDescriptor(lookupKey)), nil
 	}
 	if fn := reg.GetBIRFunction(lookupKey); fn != nil {
 		return newBIRHandle(fn, parentFrameFromFunctionValue(fnValue)), nil

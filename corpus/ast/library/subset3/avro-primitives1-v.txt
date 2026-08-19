@@ -239,6 +239,11 @@
               (string-template-literal
                 (template-string "{\"type\": \"bytes\"}"))))))))
       (var-def
+        (variable emptySource (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr))))
+      (var-def
         (variable empty (type
           (array-type
             (value-type byte) dimensions: 1 ([]))) (expr
@@ -248,11 +253,19 @@
               (checked-expr
                 (invocation toAvro expr:
                   (simple-var-ref bytesSchema) (
-                  (list-constructor-expr))))))))))
+                  (simple-var-ref emptySource))))))))))
       (expression-stmt
         (invocation io println (
           (invocation length expr:
             (simple-var-ref empty) ()))))
+      (var-def
+        (variable blobSource (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 0)
+            (literal 127)
+            (literal 255)))))
       (var-def
         (variable blob (type
           (array-type
@@ -263,39 +276,12 @@
               (checked-expr
                 (invocation toAvro expr:
                   (simple-var-ref bytesSchema) (
-                  (list-constructor-expr
-                    (literal 0)
-                    (literal 127)
-                    (literal 255)))))))))))
+                  (simple-var-ref blobSource))))))))))
       (expression-stmt
         (invocation io println (
           (index-based-access
             (simple-var-ref blob)
             (literal 2)))))
-      (var-def
-        (variable wrappedBytes (type
-          (array-type
-            (value-type byte) dimensions: 1 ([]))) (expr
-          (checked-expr
-            (invocation fromAvro expr:
-              (simple-var-ref bytesSchema) (
-              (checked-expr
-                (invocation toAvro expr:
-                  (simple-var-ref bytesSchema) (
-                  (list-constructor-expr
-                    (literal 300)
-                    (unary-expr -
-                      (literal 1))))))))))))
-      (expression-stmt
-        (invocation io println (
-          (index-based-access
-            (simple-var-ref wrappedBytes)
-            (literal 0)))))
-      (expression-stmt
-        (invocation io println (
-          (index-based-access
-            (simple-var-ref wrappedBytes)
-            (literal 1)))))
       (var-def
         (variable widened (type
           (value-type float)) (expr

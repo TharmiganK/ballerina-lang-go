@@ -48,7 +48,8 @@ public function main() returns error? {
     io:println(text); // @output hello
 
     avro:Schema bytesSchema = check new (string `{"type": "bytes"}`);
-    byte[] blob = check bytesSchema.fromAvro(check bytesSchema.toAvro([1, 2, 3]));
+    byte[] blobSource = [1, 2, 3];
+    byte[] blob = check bytesSchema.fromAvro(check bytesSchema.toAvro(blobSource));
     io:println(blob.length()); // @output 3
 
     // A record with a nested record and an array field.
@@ -97,7 +98,8 @@ public function main() returns error? {
     // Fixed.
     avro:Schema fixedSchema = check new (string
         `{"type": "fixed", "name": "Md5", "size": 4}`);
-    byte[] digest = check fixedSchema.fromAvro(check fixedSchema.toAvro([9, 8, 7, 6]));
+    byte[] digestSource = [9, 8, 7, 6];
+    byte[] digest = check fixedSchema.fromAvro(check fixedSchema.toAvro(digestSource));
     io:println(digest[0]); // @output 9
 
     // An unparseable schema and a truncated payload both surface as avro:Error.

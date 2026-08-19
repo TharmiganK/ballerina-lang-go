@@ -140,13 +140,18 @@
           (user-defined-type avro Schema)) (expr
           (simple-var-ref $desugar$6))))
       (var-def
+        (variable blobSource (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 1)
+            (literal 2)
+            (literal 3)))))
+      (var-def
         (variable $desugar$7 (expr
           (invocation toAvro expr:
             (simple-var-ref bytesSchema) (
-            (list-constructor-expr
-              (literal 1)
-              (literal 2)
-              (literal 3)))))))
+            (simple-var-ref blobSource))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$7))
@@ -465,14 +470,19 @@
           (user-defined-type avro Schema)) (expr
           (simple-var-ref $desugar$23))))
       (var-def
+        (variable digestSource (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 9)
+            (literal 8)
+            (literal 7)
+            (literal 6)))))
+      (var-def
         (variable $desugar$24 (expr
           (invocation toAvro expr:
             (simple-var-ref fixedSchema) (
-            (list-constructor-expr
-              (literal 9)
-              (literal 8)
-              (literal 7)
-              (literal 6)))))))
+            (simple-var-ref digestSource))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$24))

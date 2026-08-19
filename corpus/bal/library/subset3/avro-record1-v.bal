@@ -100,7 +100,8 @@ public function main() returns error? {
 
     // A dotted name carries its own namespace, with no separate "namespace" key.
     avro:Schema dotted = check new (string `{"type": "fixed", "name": "demo.dotted.Hash", "size": 2}`);
-    byte[] dottedBytes = check dotted.toAvro([9, 8]);
+    byte[] dottedSource = [9, 8];
+    byte[] dottedBytes = check dotted.toAvro(dottedSource);
     io:println(dottedBytes.length()); // @output 2
 
     // A recursive schema with no namespace at all resolves the self-reference

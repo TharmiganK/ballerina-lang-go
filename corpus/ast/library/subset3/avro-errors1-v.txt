@@ -269,6 +269,29 @@
                       (literal b))))
                   (user-defined-type avro Error)))))
             (var-def
+              (variable inRangeInts (type
+                (array-type
+                  (value-type int) dimensions: 1 ([]))) (expr
+                (list-constructor-expr
+                  (literal 1)
+                  (literal 2)
+                  (literal 3)))))
+            (expression-stmt
+              (invocation io println (
+                (type-test-expr is
+                  (invocation toAvro expr:
+                    (simple-var-ref bytesSchema) (
+                    (simple-var-ref inRangeInts)))
+                  (user-defined-type avro Error)))))
+            (expression-stmt
+              (invocation io println (
+                (type-test-expr is
+                  (invocation toAvro expr:
+                    (simple-var-ref bytesSchema) (
+                    (list-constructor-expr
+                      (literal 300))))
+                  (user-defined-type avro Error)))))
+            (var-def
               (variable enumSchema (type
                 (user-defined-type avro Schema)) (expr
                 (checked-expr

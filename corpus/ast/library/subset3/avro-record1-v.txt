@@ -262,15 +262,20 @@
                 (string-template-literal
                   (template-string "{\"type\": \"fixed\", \"name\": \"demo.dotted.Hash\", \"size\": 2}"))))))))
         (var-def
+          (variable dottedSource (type
+            (array-type
+              (value-type byte) dimensions: 1 ([]))) (expr
+            (list-constructor-expr
+              (literal 9)
+              (literal 8)))))
+        (var-def
           (variable dottedBytes (type
             (array-type
               (value-type byte) dimensions: 1 ([]))) (expr
             (checked-expr
               (invocation toAvro expr:
                 (simple-var-ref dotted) (
-                (list-constructor-expr
-                  (literal 9)
-                  (literal 8))))))))
+                (simple-var-ref dottedSource)))))))
         (expression-stmt
           (invocation io println (
             (invocation length expr:

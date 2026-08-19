@@ -38,9 +38,9 @@ import (
 // encodeValue converts data to goavro's native representation for s. The
 // schema drives the walk; each leaf decides for itself which Ballerina values
 // it accepts, and how far it will coerce them, so that the result matches
-// what jBallerina's Avro writer produces for the same value. tc is only
-// needed by encodeUnion's branch selection, to tell a byte[] apart from any
-// other list and a record apart from a plain map — see naturalBranch.
+// what jBallerina's Avro writer produces for the same value. tc backs the
+// semtype checks encodeBytes and encodeUnion's branch selection need to tell
+// a byte[] apart from any other list, and a record apart from a plain map.
 func encodeValue(tc semtypes.Context, s *shape, data values.BalValue) (any, error) {
 	switch s.kind {
 	case shapeNull:
@@ -58,9 +58,9 @@ func encodeValue(tc semtypes.Context, s *shape, data values.BalValue) (any, erro
 	case shapeString:
 		return encodeString(data)
 	case shapeBytes:
-		return encodeBytes(data)
+		return encodeBytes(tc, data)
 	case shapeFixed:
-		return encodeBytes(data)
+		return encodeBytes(tc, data)
 	case shapeEnum:
 		return encodeEnum(data)
 	case shapeRecord:
@@ -163,25 +163,16 @@ func stringOf(data values.BalValue) string {
 
 // encodeBytes also serves fixed: both take a byte[] as-is and leave fixed's
 // exact-length check to goavro, which already implements and tests it.
-// hasInt64Elements guards ToByteSlice, which type-asserts every element to
-// int64 unconditionally and panics on anything else; an out-of-range int
-// (e.g. 300 or -1) is still accepted and wraps into a byte the same way an
-// int wraps into an int schema.
-func encodeBytes(data values.BalValue) (any, error) {
+// isByteList validates against the value's own type rather than its
+// elements: an int[] is rejected even when every element happens to fit in
+// a byte, the same way jBallerina rejects it (though jBallerina panics with
+// an uncaught NullPointerException instead of reporting a clean error).
+func encodeBytes(tc semtypes.Context, data values.BalValue) (any, error) {
 	value, ok := data.(*values.List)
-	if !ok || !hasInt64Elements(value) {
+	if !ok || !isByteList(tc, value) {
 		return nil, typeMismatch("bytes", data)
 	}
 	return value.ToByteSlice(), nil
-}
-
-func hasInt64Elements(list *values.List) bool {
-	for i := range list.Len() {
-		if _, ok := list.Get(i).(int64); !ok {
-			return false
-		}
-	}
-	return true
 }
 
 func encodeEnum(data values.BalValue) (any, error) {

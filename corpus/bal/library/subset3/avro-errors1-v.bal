@@ -81,6 +81,12 @@ public function main() returns error? {
     io:println(bytesSchema.toAvro("text") is avro:Error); // @output true
     io:println(bytesSchema.toAvro(["x"]) is avro:Error); // @output true
     io:println(bytesSchema.toAvro(["a", "b"]) is avro:Error); // @output true
+
+    // toAvro validates against the value's own type, not just its elements:
+    // an int[] is rejected even when every value fits in a byte.
+    int[] inRangeInts = [1, 2, 3];
+    io:println(bytesSchema.toAvro(inRangeInts) is avro:Error); // @output true
+    io:println(bytesSchema.toAvro([300]) is avro:Error); // @output true
     avro:Schema enumSchema = check new (string
         `{"type": "enum", "name": "E", "symbols": ["A"]}`);
     io:println(enumSchema.toAvro(1) is avro:Error); // @output true

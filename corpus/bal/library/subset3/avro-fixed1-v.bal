@@ -22,7 +22,8 @@ public function main() returns error? {
         `{"type": "fixed", "name": "Md5", "namespace": "demo", "size": 4}`);
 
     // fixed is written raw, with no length prefix.
-    byte[] encoded = check digestSchema.toAvro([9, 8, 7, 6]);
+    byte[] toEncode = [9, 8, 7, 6];
+    byte[] encoded = check digestSchema.toAvro(toEncode);
     io:println(encoded.length()); // @output 4
     byte[] digest = check digestSchema.fromAvro(encoded);
     io:println(digest.length()); // @output 4
@@ -35,21 +36,30 @@ public function main() returns error? {
     io:println(nothingSchema is avro:Error); // @output true
 
     // The byte count must match the declared size exactly.
-    byte[]|avro:Error tooShort = digestSchema.toAvro([1, 2]);
+    byte[] short = [1, 2];
+    byte[]|avro:Error tooShort = digestSchema.toAvro(short);
     io:println(tooShort is avro:Error); // @output true
-    byte[]|avro:Error tooLong = digestSchema.toAvro([1, 2, 3, 4, 5]);
+    byte[] long = [1, 2, 3, 4, 5];
+    byte[]|avro:Error tooLong = digestSchema.toAvro(long);
     io:println(tooLong is avro:Error); // @output true
 
     // A non-list value cannot fill a fixed schema.
     byte[]|avro:Error notBytes = digestSchema.toAvro("abcd");
     io:println(notBytes is avro:Error); // @output true
 
+    // toAvro validates against the value's own type, not just its elements:
+    // an int[] is rejected even though every value fits in a byte.
+    int[] intsInByteRange = [1, 2, 3, 4];
+    byte[]|avro:Error wrongType = digestSchema.toAvro(intsInByteRange);
+    io:println(wrongType is avro:Error); // @output true
+
     // fixed nests inside records and unions like any other type.
     avro:Schema wrapper = check new (string `{
         "type": "record", "name": "Wrapper", "namespace": "demo",
         "fields": [{"name": "hash",
                     "type": ["null", {"type": "fixed", "name": "Md5", "size": 4}]}]}`);
-    map<byte[]> wrapped = check wrapper.fromAvro(check wrapper.toAvro({hash: [1, 2, 3, 4]}));
+    byte[] hashBytes = [1, 2, 3, 4];
+    map<byte[]> wrapped = check wrapper.fromAvro(check wrapper.toAvro({hash: hashBytes}));
     byte[]? hash = wrapped["hash"];
     if hash is byte[] {
         io:println(hash[1]); // @output 2

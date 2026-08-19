@@ -55,6 +55,14 @@
             (string-template-literal
               (template-string "{\"type\": \"bytes\"}"))))))))
     (var-def
+      (variable blobSource (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 1)
+          (literal 2)
+          (literal 3)))))
+    (var-def
       (variable blob (type
         (array-type
           (value-type byte) dimensions: 1 ([]))) (expr
@@ -64,10 +72,7 @@
             (checked-expr
               (invocation toAvro expr:
                 (simple-var-ref bytesSchema) (
-                (list-constructor-expr
-                  (literal 1)
-                  (literal 2)
-                  (literal 3)))))
+                (simple-var-ref blobSource))))
             (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (
@@ -234,6 +239,15 @@
             (string-template-literal
               (template-string "{\"type\": \"fixed\", \"name\": \"Md5\", \"size\": 4}"))))))))
     (var-def
+      (variable digestSource (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (list-constructor-expr
+          (literal 9)
+          (literal 8)
+          (literal 7)
+          (literal 6)))))
+    (var-def
       (variable digest (type
         (array-type
           (value-type byte) dimensions: 1 ([]))) (expr
@@ -243,11 +257,7 @@
             (checked-expr
               (invocation toAvro expr:
                 (simple-var-ref fixedSchema) (
-                (list-constructor-expr
-                  (literal 9)
-                  (literal 8)
-                  (literal 7)
-                  (literal 6)))))
+                (simple-var-ref digestSource))))
             (typedesc-expr)))))))
     (expression-stmt
       (invocation io println (

@@ -414,12 +414,17 @@
             (user-defined-type avro Schema)) (expr
             (simple-var-ref $desugar$15))))
         (var-def
+          (variable dottedSource (type
+            (array-type
+              (value-type byte) dimensions: 1 ([]))) (expr
+            (list-constructor-expr
+              (literal 9)
+              (literal 8)))))
+        (var-def
           (variable $desugar$16 (expr
             (invocation toAvro expr:
               (simple-var-ref dotted) (
-              (list-constructor-expr
-                (literal 9)
-                (literal 8)))))))
+              (simple-var-ref dottedSource))))))
         (if
           (type-test-expr is
             (simple-var-ref $desugar$16))

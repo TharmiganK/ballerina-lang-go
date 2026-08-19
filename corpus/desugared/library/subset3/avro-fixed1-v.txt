@@ -22,14 +22,19 @@
           (user-defined-type avro Schema)) (expr
           (simple-var-ref $desugar$0))))
       (var-def
+        (variable toEncode (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 9)
+            (literal 8)
+            (literal 7)
+            (literal 6)))))
+      (var-def
         (variable $desugar$1 (expr
           (invocation toAvro expr:
             (simple-var-ref digestSchema) (
-            (list-constructor-expr
-              (literal 9)
-              (literal 8)
-              (literal 7)
-              (literal 6)))))))
+            (simple-var-ref toEncode))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$1))
@@ -89,6 +94,13 @@
             (simple-var-ref nothingSchema)
             (user-defined-type avro Error)))))
       (var-def
+        (variable short (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 1)
+            (literal 2)))))
+      (var-def
         (variable tooShort (type
           (union-type
             (array-type
@@ -96,14 +108,22 @@
             (user-defined-type avro Error))) (expr
           (invocation toAvro expr:
             (simple-var-ref digestSchema) (
-            (list-constructor-expr
-              (literal 1)
-              (literal 2)))))))
+            (simple-var-ref short))))))
       (expression-stmt
         (invocation io println (
           (type-test-expr is
             (simple-var-ref tooShort)
             (user-defined-type avro Error)))))
+      (var-def
+        (variable long (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 1)
+            (literal 2)
+            (literal 3)
+            (literal 4)
+            (literal 5)))))
       (var-def
         (variable tooLong (type
           (union-type
@@ -112,12 +132,7 @@
             (user-defined-type avro Error))) (expr
           (invocation toAvro expr:
             (simple-var-ref digestSchema) (
-            (list-constructor-expr
-              (literal 1)
-              (literal 2)
-              (literal 3)
-              (literal 4)
-              (literal 5)))))))
+            (simple-var-ref long))))))
       (expression-stmt
         (invocation io println (
           (type-test-expr is
@@ -138,6 +153,29 @@
             (simple-var-ref notBytes)
             (user-defined-type avro Error)))))
       (var-def
+        (variable intsInByteRange (type
+          (array-type
+            (value-type int) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 1)
+            (literal 2)
+            (literal 3)
+            (literal 4)))))
+      (var-def
+        (variable wrongType (type
+          (union-type
+            (array-type
+              (value-type byte) dimensions: 1 ([]))
+            (user-defined-type avro Error))) (expr
+          (invocation toAvro expr:
+            (simple-var-ref digestSchema) (
+            (simple-var-ref intsInByteRange))))))
+      (expression-stmt
+        (invocation io println (
+          (type-test-expr is
+            (simple-var-ref wrongType)
+            (user-defined-type avro Error)))))
+      (var-def
         (variable $desugar$3 (expr
           (new (
             (literal {
@@ -155,17 +193,22 @@
           (user-defined-type avro Schema)) (expr
           (simple-var-ref $desugar$3))))
       (var-def
+        (variable hashBytes (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (list-constructor-expr
+            (literal 1)
+            (literal 2)
+            (literal 3)
+            (literal 4)))))
+      (var-def
         (variable $desugar$4 (expr
           (invocation toAvro expr:
             (simple-var-ref wrapper) (
             (mapping-constructor-expr
               (key-value
                 (literal hash)
-                (list-constructor-expr
-                  (literal 1)
-                  (literal 2)
-                  (literal 3)
-                  (literal 4)))))))))
+                (simple-var-ref hashBytes))))))))
       (if
         (type-test-expr is
           (simple-var-ref $desugar$4))

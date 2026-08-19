@@ -736,13 +736,14 @@ main() -> nil|error{
   bb148 {
     bytesSchema = $desugar$35;
     %227 = ConstantLoad 0
-    %228 = newArray [anydata...][%227]{}
-    %229 = toAvro(bytesSchema,%228) -> bb149;
+    %228 = newArray [int:Unsigned8...][%227]{}
+    emptySource = %228;
+    %230 = toAvro(bytesSchema,emptySource) -> bb149;
   }
   bb149 {
-    $desugar$36 = %229;
-    %231 = $desugar$36 is error
-    %231 ? bb150 : bb151;
+    $desugar$36 = %230;
+    %232 = $desugar$36 is error
+    %232 ? bb150 : bb151;
   }
   bb150 {
     PushScopeFrame 0
@@ -751,13 +752,13 @@ main() -> nil|error{
     return;
   }
   bb151 {
-    %232 = ConstantLoad typedesc
-    %233 = fromAvro(bytesSchema,$desugar$36,%232) -> bb152;
+    %233 = ConstantLoad typedesc
+    %234 = fromAvro(bytesSchema,$desugar$36,%233) -> bb152;
   }
   bb152 {
-    $desugar$37 = %233;
-    %235 = $desugar$37 is error
-    %235 ? bb153 : bb154;
+    $desugar$37 = %234;
+    %236 = $desugar$37 is error
+    %236 ? bb153 : bb154;
   }
   bb153 {
     PushScopeFrame 0
@@ -767,24 +768,25 @@ main() -> nil|error{
   }
   bb154 {
     empty = $desugar$37;
-    %237 = length(empty) -> bb155;
+    %238 = length(empty) -> bb155;
   }
   bb155 {
-    %238 = %237;
-    %239 = println(%238) -> bb156;
+    %239 = %238;
+    %240 = println(%239) -> bb156;
   }
   bb156 {
-    %240 = ConstantLoad 0
-    %241 = ConstantLoad 127
-    %242 = ConstantLoad 255
-    %243 = ConstantLoad 3
-    %244 = newArray [anydata...][%243]{%240, %241, %242}
-    %245 = toAvro(bytesSchema,%244) -> bb157;
+    %241 = ConstantLoad 0
+    %242 = ConstantLoad 127
+    %243 = ConstantLoad 255
+    %244 = ConstantLoad 3
+    %245 = newArray [int:Unsigned8...][%244]{%241, %242, %243}
+    blobSource = %245;
+    %247 = toAvro(bytesSchema,blobSource) -> bb157;
   }
   bb157 {
-    $desugar$38 = %245;
-    %247 = $desugar$38 is error
-    %247 ? bb158 : bb159;
+    $desugar$38 = %247;
+    %249 = $desugar$38 is error
+    %249 ? bb158 : bb159;
   }
   bb158 {
     PushScopeFrame 0
@@ -793,13 +795,13 @@ main() -> nil|error{
     return;
   }
   bb159 {
-    %248 = ConstantLoad typedesc
-    %249 = fromAvro(bytesSchema,$desugar$38,%248) -> bb160;
+    %250 = ConstantLoad typedesc
+    %251 = fromAvro(bytesSchema,$desugar$38,%250) -> bb160;
   }
   bb160 {
-    $desugar$39 = %249;
-    %251 = $desugar$39 is error
-    %251 ? bb161 : bb162;
+    $desugar$39 = %251;
+    %253 = $desugar$39 is error
+    %253 ? bb161 : bb162;
   }
   bb161 {
     PushScopeFrame 0
@@ -809,23 +811,20 @@ main() -> nil|error{
   }
   bb162 {
     blob = $desugar$39;
-    %254 = ConstantLoad 2
-    %253 = blob[%254];
-    %255 = %253;
-    %256 = println(%255) -> bb163;
+    %256 = ConstantLoad 2
+    %255 = blob[%256];
+    %257 = %255;
+    %258 = println(%257) -> bb163;
   }
   bb163 {
-    %257 = ConstantLoad 300
-    %258 = ConstantLoad 1
-    %259 = unknown %258;
-    %260 = ConstantLoad 2
-    %261 = newArray [anydata...][%260]{%257, %259}
-    %262 = toAvro(bytesSchema,%261) -> bb164;
+    %259 = ConstantLoad 5
+    %260 = %259;
+    %261 = toAvro(floatSchema,%260) -> bb164;
   }
   bb164 {
-    $desugar$40 = %262;
-    %264 = $desugar$40 is error
-    %264 ? bb165 : bb166;
+    $desugar$40 = %261;
+    %263 = $desugar$40 is error
+    %263 ? bb165 : bb166;
   }
   bb165 {
     PushScopeFrame 0
@@ -834,13 +833,13 @@ main() -> nil|error{
     return;
   }
   bb166 {
-    %265 = ConstantLoad typedesc
-    %266 = fromAvro(bytesSchema,$desugar$40,%265) -> bb167;
+    %264 = ConstantLoad typedesc
+    %265 = fromAvro(floatSchema,$desugar$40,%264) -> bb167;
   }
   bb167 {
-    $desugar$41 = %266;
-    %268 = $desugar$41 is error
-    %268 ? bb168 : bb169;
+    $desugar$41 = %265;
+    %267 = $desugar$41 is error
+    %267 ? bb168 : bb169;
   }
   bb168 {
     PushScopeFrame 0
@@ -849,279 +848,235 @@ main() -> nil|error{
     return;
   }
   bb169 {
-    wrappedBytes = $desugar$41;
-    %271 = ConstantLoad 0
-    %270 = wrappedBytes[%271];
-    %272 = %270;
-    %273 = println(%272) -> bb170;
+    widened = $desugar$41;
+    %269 = widened;
+    %270 = println(%269) -> bb170;
   }
   bb170 {
-    %275 = ConstantLoad 1
-    %274 = wrappedBytes[%275];
-    %276 = %274;
-    %277 = println(%276) -> bb171;
+    %271 = ConstantLoad 7
+    %272 = %271;
+    %273 = toAvro(doubleSchema,%272) -> bb171;
   }
   bb171 {
-    %278 = ConstantLoad 5
-    %279 = %278;
-    %280 = toAvro(floatSchema,%279) -> bb172;
+    $desugar$42 = %273;
+    %275 = $desugar$42 is error
+    %275 ? bb172 : bb173;
   }
   bb172 {
-    $desugar$42 = %280;
-    %282 = $desugar$42 is error
-    %282 ? bb173 : bb174;
-  }
-  bb173 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$42);
     PopScopeFrame
     return;
   }
+  bb173 {
+    %276 = ConstantLoad typedesc
+    %277 = fromAvro(doubleSchema,$desugar$42,%276) -> bb174;
+  }
   bb174 {
-    %283 = ConstantLoad typedesc
-    %284 = fromAvro(floatSchema,$desugar$42,%283) -> bb175;
+    $desugar$43 = %277;
+    %279 = $desugar$43 is error
+    %279 ? bb175 : bb176;
   }
   bb175 {
-    $desugar$43 = %284;
-    %286 = $desugar$43 is error
-    %286 ? bb176 : bb177;
-  }
-  bb176 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$43);
     PopScopeFrame
     return;
   }
+  bb176 {
+    promoted = $desugar$43;
+    %281 = promoted;
+    %282 = println(%281) -> bb177;
+  }
   bb177 {
-    widened = $desugar$43;
-    %288 = widened;
-    %289 = println(%288) -> bb178;
+    %283 = ConstantLoad 3.9
+    %284 = %283;
+    %285 = toAvro(intSchema,%284) -> bb178;
   }
   bb178 {
-    %290 = ConstantLoad 7
-    %291 = %290;
-    %292 = toAvro(doubleSchema,%291) -> bb179;
+    %286 = %285 is error
+    %287 = %286;
+    %288 = println(%287) -> bb179;
   }
   bb179 {
-    $desugar$44 = %292;
-    %294 = $desugar$44 is error
-    %294 ? bb180 : bb181;
+    %289 = ConstantLoad 3.9
+    %290 = %289;
+    %291 = toAvro(longSchema,%290) -> bb180;
   }
   bb180 {
+    %292 = %291 is error
+    %293 = %292;
+    %294 = println(%293) -> bb181;
+  }
+  bb181 {
+    %295 = ConstantLoad 5
+    %296 = %295;
+    %297 = toAvro(strSchema,%296) -> bb182;
+  }
+  bb182 {
+    $desugar$44 = %297;
+    %299 = $desugar$44 is error
+    %299 ? bb183 : bb184;
+  }
+  bb183 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$44);
     PopScopeFrame
     return;
   }
-  bb181 {
-    %295 = ConstantLoad typedesc
-    %296 = fromAvro(doubleSchema,$desugar$44,%295) -> bb182;
+  bb184 {
+    %300 = ConstantLoad typedesc
+    %301 = fromAvro(strSchema,$desugar$44,%300) -> bb185;
   }
-  bb182 {
-    $desugar$45 = %296;
-    %298 = $desugar$45 is error
-    %298 ? bb183 : bb184;
+  bb185 {
+    $desugar$45 = %301;
+    %303 = $desugar$45 is error
+    %303 ? bb186 : bb187;
   }
-  bb183 {
+  bb186 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$45);
     PopScopeFrame
     return;
   }
-  bb184 {
-    promoted = $desugar$45;
-    %300 = promoted;
-    %301 = println(%300) -> bb185;
-  }
-  bb185 {
-    %302 = ConstantLoad 3.9
-    %303 = %302;
-    %304 = toAvro(intSchema,%303) -> bb186;
-  }
-  bb186 {
-    %305 = %304 is error
-    %306 = %305;
-    %307 = println(%306) -> bb187;
-  }
   bb187 {
-    %308 = ConstantLoad 3.9
-    %309 = %308;
-    %310 = toAvro(longSchema,%309) -> bb188;
+    %304 = println($desugar$45) -> bb188;
   }
   bb188 {
-    %311 = %310 is error
-    %312 = %311;
-    %313 = println(%312) -> bb189;
+    %305 = ConstantLoad true
+    %306 = %305;
+    %307 = toAvro(strSchema,%306) -> bb189;
   }
   bb189 {
-    %314 = ConstantLoad 5
-    %315 = %314;
-    %316 = toAvro(strSchema,%315) -> bb190;
+    $desugar$46 = %307;
+    %309 = $desugar$46 is error
+    %309 ? bb190 : bb191;
   }
   bb190 {
-    $desugar$46 = %316;
-    %318 = $desugar$46 is error
-    %318 ? bb191 : bb192;
-  }
-  bb191 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$46);
     PopScopeFrame
     return;
   }
+  bb191 {
+    %310 = ConstantLoad typedesc
+    %311 = fromAvro(strSchema,$desugar$46,%310) -> bb192;
+  }
   bb192 {
-    %319 = ConstantLoad typedesc
-    %320 = fromAvro(strSchema,$desugar$46,%319) -> bb193;
+    $desugar$47 = %311;
+    %313 = $desugar$47 is error
+    %313 ? bb193 : bb194;
   }
   bb193 {
-    $desugar$47 = %320;
-    %322 = $desugar$47 is error
-    %322 ? bb194 : bb195;
-  }
-  bb194 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$47);
     PopScopeFrame
     return;
   }
+  bb194 {
+    %314 = println($desugar$47) -> bb195;
+  }
   bb195 {
-    %323 = println($desugar$47) -> bb196;
+    %315 = ConstantLoad a
+    %316 = ConstantLoad 1
+    %317 = newMap {| anydata... |}{%315=%316}
+    %318 = toAvro(strSchema,%317) -> bb196;
   }
   bb196 {
-    %324 = ConstantLoad true
-    %325 = %324;
-    %326 = toAvro(strSchema,%325) -> bb197;
+    $desugar$48 = %318;
+    %320 = $desugar$48 is error
+    %320 ? bb197 : bb198;
   }
   bb197 {
-    $desugar$48 = %326;
-    %328 = $desugar$48 is error
-    %328 ? bb198 : bb199;
-  }
-  bb198 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$48);
     PopScopeFrame
     return;
   }
+  bb198 {
+    %321 = ConstantLoad typedesc
+    %322 = fromAvro(strSchema,$desugar$48,%321) -> bb199;
+  }
   bb199 {
-    %329 = ConstantLoad typedesc
-    %330 = fromAvro(strSchema,$desugar$48,%329) -> bb200;
+    $desugar$49 = %322;
+    %324 = $desugar$49 is error
+    %324 ? bb200 : bb201;
   }
   bb200 {
-    $desugar$49 = %330;
-    %332 = $desugar$49 is error
-    %332 ? bb201 : bb202;
-  }
-  bb201 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$49);
     PopScopeFrame
     return;
   }
+  bb201 {
+    %325 = println($desugar$49) -> bb202;
+  }
   bb202 {
-    %333 = println($desugar$49) -> bb203;
+    %326 = newObject ballerina/avro:Schema
+    %327 = ConstantLoad {"type": "long", "logicalType": "timestamp-millis"}
+    %328 = init(%326,%327) -> bb203;
   }
   bb203 {
-    %334 = ConstantLoad a
-    %335 = ConstantLoad 1
-    %336 = newMap {| anydata... |}{%334=%335}
-    %337 = toAvro(strSchema,%336) -> bb204;
+    %330 = %328 is nil
+    %330 ? bb204 : bb205;
   }
   bb204 {
-    $desugar$50 = %337;
-    %339 = $desugar$50 is error
-    %339 ? bb205 : bb206;
+    %329 = %326;
+    GOTO bb206;
   }
   bb205 {
+    %329 = %328;
+    GOTO bb206;
+  }
+  bb206 {
+    $desugar$50 = %329;
+    %332 = $desugar$50 is error
+    %332 ? bb207 : bb208;
+  }
+  bb207 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$50);
     PopScopeFrame
     return;
   }
-  bb206 {
-    %340 = ConstantLoad typedesc
-    %341 = fromAvro(strSchema,$desugar$50,%340) -> bb207;
-  }
-  bb207 {
-    $desugar$51 = %341;
-    %343 = $desugar$51 is error
-    %343 ? bb208 : bb209;
-  }
   bb208 {
+    tsSchema = $desugar$50;
+    %334 = ConstantLoad 1234567890
+    %335 = %334;
+    %336 = toAvro(tsSchema,%335) -> bb209;
+  }
+  bb209 {
+    $desugar$51 = %336;
+    %338 = $desugar$51 is error
+    %338 ? bb210 : bb211;
+  }
+  bb210 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$51);
     PopScopeFrame
     return;
   }
-  bb209 {
-    %344 = println($desugar$51) -> bb210;
-  }
-  bb210 {
-    %345 = newObject ballerina/avro:Schema
-    %346 = ConstantLoad {"type": "long", "logicalType": "timestamp-millis"}
-    %347 = init(%345,%346) -> bb211;
-  }
   bb211 {
-    %349 = %347 is nil
-    %349 ? bb212 : bb213;
+    %339 = ConstantLoad typedesc
+    %340 = fromAvro(tsSchema,$desugar$51,%339) -> bb212;
   }
   bb212 {
-    %348 = %345;
-    GOTO bb214;
+    $desugar$52 = %340;
+    %342 = $desugar$52 is error
+    %342 ? bb213 : bb214;
   }
   bb213 {
-    %348 = %347;
-    GOTO bb214;
-  }
-  bb214 {
-    $desugar$52 = %348;
-    %351 = $desugar$52 is error
-    %351 ? bb215 : bb216;
-  }
-  bb215 {
     PushScopeFrame 0
     (1, %0) = (1, $desugar$52);
     PopScopeFrame
     return;
   }
-  bb216 {
-    tsSchema = $desugar$52;
-    %353 = ConstantLoad 1234567890
-    %354 = %353;
-    %355 = toAvro(tsSchema,%354) -> bb217;
+  bb214 {
+    millis = $desugar$52;
+    %344 = millis;
+    %345 = println(%344) -> bb215;
   }
-  bb217 {
-    $desugar$53 = %355;
-    %357 = $desugar$53 is error
-    %357 ? bb218 : bb219;
-  }
-  bb218 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$53);
-    PopScopeFrame
-    return;
-  }
-  bb219 {
-    %358 = ConstantLoad typedesc
-    %359 = fromAvro(tsSchema,$desugar$53,%358) -> bb220;
-  }
-  bb220 {
-    $desugar$54 = %359;
-    %361 = $desugar$54 is error
-    %361 ? bb221 : bb222;
-  }
-  bb221 {
-    PushScopeFrame 0
-    (1, %0) = (1, $desugar$54);
-    PopScopeFrame
-    return;
-  }
-  bb222 {
-    millis = $desugar$54;
-    %363 = millis;
-    %364 = println(%363) -> bb223;
-  }
-  bb223 {
+  bb215 {
     return;
   }
 }

@@ -49,8 +49,8 @@ func LookupFunction(env *extern.Env, org, module, name string) (any, bool) {
 	if fn := reg.GetBIRFunction(key); fn != nil {
 		return NewBIRHandle(fn), true
 	}
-	if ef := reg.GetNativeFunction(key); ef != nil {
-		return newNativeHandle(ef.Impl, reg.GetFunctionDescriptor(key)), true
+	if handle := nativeHandleFor(reg, key); handle != nil {
+		return handle, true
 	}
 	return nil, false
 }

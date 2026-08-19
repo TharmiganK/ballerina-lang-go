@@ -61,6 +61,16 @@ func newNativeHandle(fn extern.NativeFunc, descriptor *bir.BIRFunction) *Invokab
 	)
 }
 
+// nativeHandleFor returns a handle for the extern function registered under
+// lookupKey, or nil when the registry has no native implementation for it.
+func nativeHandleFor(reg *modules.Registry, lookupKey string) *InvokableHandle {
+	externFn := reg.GetNativeFunction(lookupKey)
+	if externFn == nil {
+		return nil
+	}
+	return newNativeHandle(externFn.Impl, reg.GetFunctionDescriptor(lookupKey))
+}
+
 func NewFunctionValueHandle(env *extern.Env, fnValue *values.Function) (*InvokableHandle, error) {
 	reg := env.Registry.(*modules.Registry)
 	lookupKey := fnValue.LookupKey
@@ -70,8 +80,8 @@ func NewFunctionValueHandle(env *extern.Env, fnValue *values.Function) (*Invokab
 	if fn := reg.GetBIRFunction(lookupKey); fn != nil {
 		return newBIRHandle(fn, parentFrameFromFunctionValue(fnValue)), nil
 	}
-	if externFn := reg.GetNativeFunction(lookupKey); externFn != nil {
-		return newNativeHandle(externFn.Impl, reg.GetFunctionDescriptor(lookupKey)), nil
+	if handle := nativeHandleFor(reg, lookupKey); handle != nil {
+		return handle, nil
 	}
 	return nil, fmt.Errorf("function not found: %s", lookupKey)
 }

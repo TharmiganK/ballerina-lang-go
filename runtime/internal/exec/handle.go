@@ -113,8 +113,15 @@ func newInvokableHandle(
 	return &InvokableHandle{invoke: invoke, descriptor: descriptor, firstParam: firstParam}
 }
 
+// hasMaterializedSignature reports whether fn carries a signature that can be
+// described. Native dependently typed functions do not, since their signature
+// is only known at each call site, and they carry no locals or return variable.
+func hasMaterializedSignature(fn *bir.BIRFunction) bool {
+	return fn.ReturnVariable != nil
+}
+
 func describeFunctionSignature(fn *bir.BIRFunction, firstParam int) (extern.FunctionSignature, bool) {
-	if firstParam > len(fn.RequiredParams) || fn.ReturnVariable == nil {
+	if firstParam > len(fn.RequiredParams) || !hasMaterializedSignature(fn) {
 		return extern.FunctionSignature{}, false
 	}
 	paramLocalOffset := fn.ParamLocalVarOffset()
@@ -144,7 +151,7 @@ func describeFunctionSignature(fn *bir.BIRFunction, firstParam int) (extern.Func
 }
 
 func describeFunctionMetadata(ctx *extern.Context, fn *bir.BIRFunction, firstParam int) (extern.FunctionMetadata, bool) {
-	if firstParam > len(fn.RequiredParams) || fn.ReturnVariable == nil {
+	if firstParam > len(fn.RequiredParams) || !hasMaterializedSignature(fn) {
 		return extern.FunctionMetadata{}, false
 	}
 	params := make([]extern.ParameterMetadata, len(fn.RequiredParams)-firstParam)

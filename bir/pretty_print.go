@@ -93,20 +93,23 @@ func (p *PrettyPrinter) Print(tyCtx semtypes.Context, node BIRPackage) string {
 	return p.sb.String()
 }
 
-func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
-	p.write(function.Name.Value())
-	p.write("(")
+// printFunctionParams prints the parameter list of function. Native dependently
+// typed functions carry no local variables because their signature is only known
+// at each call site, so there is nothing to print for them.
+func (p *PrettyPrinter) printFunctionParams(function BIRFunction) {
 	paramStart := function.ParamLocalVarOffset()
+	if len(function.LocalVars) <= paramStart {
+		return
+	}
 	for i, v := range function.LocalVars[paramStart:] {
-		if i < len(function.RequiredParams) {
-			if i > 0 {
-				p.write(",")
-			}
-			p.printAnnotations(function.RequiredParams[i].Annotations)
-			p.write(p.PrintSemType(v.Type))
-		} else {
+		if i >= len(function.RequiredParams) {
 			break
 		}
+		if i > 0 {
+			p.write(",")
+		}
+		p.printAnnotations(function.RequiredParams[i].Annotations)
+		p.write(p.PrintSemType(v.Type))
 	}
 	if function.RestParams != nil {
 		variableIndex := paramStart + len(function.RequiredParams)
@@ -117,6 +120,12 @@ func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 		p.write(p.PrintSemType(function.LocalVars[variableIndex].Type))
 		p.write("...")
 	}
+}
+
+func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
+	p.write(function.Name.Value())
+	p.write("(")
+	p.printFunctionParams(function)
 	p.write(")")
 	if function.ReturnVariable != nil && !semtypes.IsZero(function.ReturnVariable.Type) {
 		p.write(" -> ")

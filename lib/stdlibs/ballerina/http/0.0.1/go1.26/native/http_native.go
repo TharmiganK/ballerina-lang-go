@@ -1771,6 +1771,7 @@ func buildResponse(tc semtypes.Context, statusCode int, respHeaders map[string][
 		},
 		responseMethodKeys(),
 		nil,
+		nil,
 	)
 }
 

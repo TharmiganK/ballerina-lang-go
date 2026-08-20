@@ -401,11 +401,16 @@ func GenBir(ctx *compilerctx.CompilerContext, ast *ast.BLangPackage) *bir.BIRPac
 		birPkg.InitFunction = transformFunction(genCtx, ast.InitFunction)
 	}
 	for _, function := range ast.Functions {
+		var birFunc *bir.BIRFunction
+		if function.IsNative() {
+			birFunc = transformNativeFunction(newFunctionRoot(genCtx, nil), function, nil)
+		} else {
+			birFunc = transformFunction(genCtx, function)
+		}
+		birPkg.Functions = append(birPkg.Functions, *birFunc)
 		if function.IsNative() {
 			continue
 		}
-		birFunc := transformFunction(genCtx, function)
-		birPkg.Functions = append(birPkg.Functions, *birFunc)
 		switch birFunc.Name.Value() {
 		case "main":
 			birPkg.MainFunction = birFunc
@@ -449,6 +454,40 @@ func newFunctionRoot(ctx *packageContext, definedIn context) *funcBlock {
 }
 
 func transformFunctionInner(root *funcBlock, astFunc *ast.BLangFunction, selfSymbolRef *model.SymbolRef) *bir.BIRFunction {
+	birFunc := transformFunctionSignature(root, astFunc, selfSymbolRef)
+	switch body := astFunc.Body.(type) {
+	case *ast.BLangBlockFunctionBody:
+		handleBlockFunctionBody(root, body)
+	case *ast.BLangExprFunctionBody:
+		handleExprFunctionBody(root, body)
+	default:
+		panic("unexpected function body type")
+	}
+	for _, bbPtr := range root.fn.bbs {
+		birFunc.BasicBlocks = append(birFunc.BasicBlocks, *bbPtr)
+	}
+	setFunctionLocals(root, birFunc)
+	birFunc.ErrorTable = root.fn.errorEntries
+	return birFunc
+}
+
+func transformNativeFunction(root *funcBlock, astFunc *ast.BLangFunction, selfSymbolRef *model.SymbolRef) *bir.BIRFunction {
+	if _, ok := root.fn.pkgCtx.CompilerContext.GetSymbol(astFunc.Symbol()).(model.DependentlyTypedFunctionSymbol); ok {
+		name := model.Name(astFunc.GetName().GetValue())
+		return &bir.BIRFunction{
+			BIRNodeBase:       bir.BIRNodeBase{Pos: root.fn.loc(astFunc.GetPosition())},
+			Name:              name,
+			OriginalName:      name,
+			Flags:             astFunc.Flags(),
+			FunctionLookupKey: buildFunctionLookupKeyFromSymbol(root.fn.pkgCtx, astFunc.Symbol()),
+		}
+	}
+	birFunc := transformFunctionSignature(root, astFunc, selfSymbolRef)
+	setFunctionLocals(root, birFunc)
+	return birFunc
+}
+
+func transformFunctionSignature(root *funcBlock, astFunc *ast.BLangFunction, selfSymbolRef *model.SymbolRef) *bir.BIRFunction {
 	symRef := astFunc.Symbol()
 	funcName := model.Name(astFunc.GetName().GetValue())
 	birFunc := &bir.BIRFunction{}
@@ -468,34 +507,30 @@ func transformFunctionInner(root *funcBlock, astFunc *ast.BLangFunction, selfSym
 	for i, param := range astFunc.RequiredParams {
 		root.addLocalVar(model.Name(param.GetName().GetValue()), ctx.CompilerContext.SymbolType(param.Symbol()), param.Symbol())
 		requiredParams[i] = bir.BIRParameter{
-			Name:  model.Name(param.GetName().GetValue()),
-			Flags: param.Flags(),
+			Name:        model.Name(param.GetName().GetValue()),
+			Flags:       param.Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(param.Symbol()),
 		}
 	}
 	if astFunc.RestParam != nil {
 		restParam := astFunc.RestParam
 		ty := ctx.CompilerContext.SymbolType(restParam.Symbol())
 		root.addLocalVar(model.Name(restParam.GetName().GetValue()), ty, restParam.Symbol())
-		birFunc.RestParams = &bir.BIRParameter{Name: model.Name(restParam.GetName().GetValue())}
+		birFunc.RestParams = &bir.BIRParameter{
+			Name:        model.Name(restParam.GetName().GetValue()),
+			Flags:       restParam.Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(restParam.Symbol()),
+		}
 	}
 	birFunc.RequiredParams = requiredParams
-	switch body := astFunc.Body.(type) {
-	case *ast.BLangBlockFunctionBody:
-		handleBlockFunctionBody(root, body)
-	case *ast.BLangExprFunctionBody:
-		handleExprFunctionBody(root, body)
-	default:
-		panic("unexpected function body type")
-	}
-	for _, bbPtr := range root.fn.bbs {
-		birFunc.BasicBlocks = append(birFunc.BasicBlocks, *bbPtr)
-	}
+	return birFunc
+}
+
+func setFunctionLocals(root *funcBlock, birFunc *bir.BIRFunction) {
 	for _, varPtr := range root.localVars {
 		birFunc.LocalVars = append(birFunc.LocalVars, *varPtr)
 	}
-	birFunc.ErrorTable = root.fn.errorEntries
 	birFunc.ReturnVariable = root.fn.retVarDcl
-	return birFunc
 }
 
 func handleBlockFunctionBody(ctx context, ast *ast.BLangBlockFunctionBody) {
@@ -1836,6 +1871,7 @@ func transformClassDefinition(ctx *packageContext, class *ast.BLangClassDefiniti
 		return buildFunctionLookupKeyFromSymbol(ctx, rm.Symbol())
 	}
 	birClassDef := transformClassBody(ctx, class.Scope(), classLookupKey, model.Name(className), class.Fields, class.InitFunction, class.Methods, class.ResourceMethods, methodLookupKey, resourceLookupKey, class.GetPosition())
+	birClassDef.Annotations = ctx.CompilerContext.SymbolAnnotationValues(class.Symbol())
 	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
 }
 
@@ -1852,6 +1888,7 @@ func transformService(ctx *packageContext, svc *ast.BLangService, idx int, birPk
 		return buildLookupKey(pkg, className+"."+sym.Name())
 	}
 	birClassDef := transformClassBody(ctx, svc.Scope(), classLookupKey, model.Name(className), svc.Fields, svc.InitFunction, svc.Methods, svc.ResourceMethods, methodLookupKey, resourceLookupKey, svc.GetPosition())
+	birClassDef.Annotations = ctx.CompilerContext.SymbolAnnotationValues(svc.Symbol())
 	birPkg.ClassDefs = append(birPkg.ClassDefs, *birClassDef)
 }
 
@@ -1874,10 +1911,11 @@ func transformClassBody(
 	}
 
 	birClassDef := &bir.BIRClassDef{
-		Name:      className,
-		LookupKey: classLookupKey,
-		VTable:    make(map[string]*bir.BIRFunction),
-		RTable:    make(map[string][]bir.BIRResourceMethod),
+		Name:        className,
+		LookupKey:   classLookupKey,
+		Annotations: values.NewAnnotationValues(),
+		VTable:      make(map[string]*bir.BIRFunction),
+		RTable:      make(map[string][]bir.BIRResourceMethod),
 	}
 
 	for _, field := range fields {
@@ -1895,17 +1933,11 @@ func transformClassBody(
 		lookupKey := methodLookupKey(methodName, method.Symbol())
 		var fn *bir.BIRFunction
 		if method.IsNative() {
-			fn = &bir.BIRFunction{
-				Name:              model.Name(method.GetName().GetValue()),
-				OriginalName:      model.Name(method.GetName().GetValue()),
-				Flags:             method.Flags(),
-				FunctionLookupKey: lookupKey,
-			}
-			fn.Pos = birLoc(ctx.CompilerContext.DiagnosticEnv(), method.GetPosition())
+			fn = transformNativeFunction(newFunctionRoot(ctx, nil), method, &selfRef)
 		} else {
 			fn = transformFunctionInner(newFunctionRoot(ctx, nil), method, &selfRef)
-			fn.FunctionLookupKey = lookupKey
 		}
+		fn.FunctionLookupKey = lookupKey
 		birClassDef.VTable[methodName] = fn
 	}
 
@@ -1913,17 +1945,11 @@ func transformClassBody(
 		lookupKey := resourceLookupKey(rm)
 		var fn *bir.BIRFunction
 		if rm.IsNative() {
-			fn = &bir.BIRFunction{
-				Name:              model.Name(ctx.CompilerContext.SymbolName(rm.Symbol())),
-				OriginalName:      model.Name(rm.GetName().GetValue()),
-				Flags:             rm.Flags(),
-				FunctionLookupKey: lookupKey,
-			}
-			fn.Pos = birLoc(ctx.CompilerContext.DiagnosticEnv(), rm.GetPosition())
+			fn = transformNativeResourceMethod(newFunctionRoot(ctx, nil), rm, &selfRef)
 		} else {
 			fn = transformResourceMethodInner(newFunctionRoot(ctx, nil), rm, &selfRef)
-			fn.FunctionLookupKey = lookupKey
 		}
+		fn.FunctionLookupKey = lookupKey
 		methodName := rm.GetName().GetValue()
 		entry := buildResourceMethodEntry(ctx, rm, fn)
 		birClassDef.RTable[methodName] = append(birClassDef.RTable[methodName], entry)
@@ -1952,6 +1978,40 @@ func buildResourceMethodEntry(ctx *packageContext, rm *ast.BLangResourceMethod, 
 }
 
 func transformResourceMethodInner(root *funcBlock, rm *ast.BLangResourceMethod, selfSymbolRef *model.SymbolRef) *bir.BIRFunction {
+	birFunc := transformResourceMethodSignature(root, rm, selfSymbolRef)
+	switch body := rm.Body.(type) {
+	case *ast.BLangBlockFunctionBody:
+		handleBlockFunctionBody(root, body)
+	case *ast.BLangExprFunctionBody:
+		handleExprFunctionBody(root, body)
+	default:
+		panic("unexpected function body type")
+	}
+	for _, bbPtr := range root.fn.bbs {
+		birFunc.BasicBlocks = append(birFunc.BasicBlocks, *bbPtr)
+	}
+	setFunctionLocals(root, birFunc)
+	birFunc.ErrorTable = root.fn.errorEntries
+	return birFunc
+}
+
+func transformNativeResourceMethod(root *funcBlock, rm *ast.BLangResourceMethod, selfSymbolRef *model.SymbolRef) *bir.BIRFunction {
+	if _, ok := root.fn.pkgCtx.CompilerContext.GetSymbol(rm.Symbol()).(model.DependentlyTypedFunctionSymbol); ok {
+		name := model.Name(root.fn.pkgCtx.CompilerContext.SymbolName(rm.Symbol()))
+		return &bir.BIRFunction{
+			BIRNodeBase:       bir.BIRNodeBase{Pos: root.fn.loc(rm.GetPosition())},
+			Name:              name,
+			OriginalName:      model.Name(rm.GetName().GetValue()),
+			Flags:             rm.Flags(),
+			FunctionLookupKey: buildFunctionLookupKeyFromSymbol(root.fn.pkgCtx, rm.Symbol()),
+		}
+	}
+	birFunc := transformResourceMethodSignature(root, rm, selfSymbolRef)
+	setFunctionLocals(root, birFunc)
+	return birFunc
+}
+
+func transformResourceMethodSignature(root *funcBlock, rm *ast.BLangResourceMethod, selfSymbolRef *model.SymbolRef) *bir.BIRFunction {
 	symRef := rm.Symbol()
 	ctx := root.fn.pkgCtx
 	funcName := model.Name(ctx.CompilerContext.SymbolName(symRef))
@@ -1979,39 +2039,31 @@ func transformResourceMethodInner(root *funcBlock, rm *ast.BLangResourceMethod, 
 			continue
 		}
 		root.addLocalVar(model.Name(name), ctx.CompilerContext.SymbolType(ref), ref)
-		requiredParams = append(requiredParams, bir.BIRParameter{Name: model.Name(name)})
+		requiredParams = append(requiredParams, bir.BIRParameter{
+			Name:        model.Name(name),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(ref),
+		})
 	}
 	for i := range rm.RequiredParams {
 		param := &rm.RequiredParams[i]
 		root.addLocalVar(model.Name(param.GetName().GetValue()), ctx.CompilerContext.SymbolType(param.Symbol()), param.Symbol())
 		requiredParams = append(requiredParams, bir.BIRParameter{
-			Name:  model.Name(param.GetName().GetValue()),
-			Flags: param.Flags(),
+			Name:        model.Name(param.GetName().GetValue()),
+			Flags:       param.Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(param.Symbol()),
 		})
 	}
 	if rm.RestParam != nil {
 		restParam := rm.RestParam
 		ty := ctx.CompilerContext.SymbolType(restParam.Symbol())
 		root.addLocalVar(model.Name(restParam.GetName().GetValue()), ty, restParam.Symbol())
-		birFunc.RestParams = &bir.BIRParameter{Name: model.Name(restParam.GetName().GetValue())}
+		birFunc.RestParams = &bir.BIRParameter{
+			Name:        model.Name(restParam.GetName().GetValue()),
+			Flags:       restParam.Flags(),
+			Annotations: ctx.CompilerContext.SymbolAnnotationValues(restParam.Symbol()),
+		}
 	}
 	birFunc.RequiredParams = requiredParams
-	switch body := rm.Body.(type) {
-	case *ast.BLangBlockFunctionBody:
-		handleBlockFunctionBody(root, body)
-	case *ast.BLangExprFunctionBody:
-		handleExprFunctionBody(root, body)
-	default:
-		panic("unexpected function body type")
-	}
-	for _, bbPtr := range root.fn.bbs {
-		birFunc.BasicBlocks = append(birFunc.BasicBlocks, *bbPtr)
-	}
-	for _, varPtr := range root.localVars {
-		birFunc.LocalVars = append(birFunc.LocalVars, *varPtr)
-	}
-	birFunc.ErrorTable = root.fn.errorEntries
-	birFunc.ReturnVariable = root.fn.retVarDcl
 	return birFunc
 }
 

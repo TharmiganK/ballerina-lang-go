@@ -327,6 +327,141 @@ func TestListenerDispatch(t *testing.T) {
 	runExtern(t, projectCase("listener-dispatch-v"), testharness.NewTestPal(), externs)
 }
 
+func TestAnnotationRuntimeMetadata(t *testing.T) {
+	const org, module = "testorg", "annotationruntime"
+	serviceKey := model.AnnotationKey(model.PackageIdentifier{
+		Organization: org,
+		Package:      module + ".meta",
+		Version:      "0.1.0",
+	}, "serviceMeta")
+	parameterKey := model.AnnotationKey(model.PackageIdentifier{
+		Organization: org,
+		Package:      module + ".meta",
+		Version:      "0.1.0",
+	}, "parameterMeta")
+	markerKey := model.AnnotationKey(model.PackageIdentifier{
+		Organization: org,
+		Package:      module + ".meta",
+		Version:      "0.1.0",
+	}, "marker")
+
+	attachedService := func(receiver *values.Object) (*values.Object, error) {
+		svc, ok := receiver.Get("svc")
+		if !ok {
+			return nil, fmt.Errorf("listener has no attached service")
+		}
+		return svc.(*values.Object), nil
+	}
+	annotationName := func(value values.AnnotationValue) (string, error) {
+		mapping, ok := value.(*values.Map)
+		if !ok {
+			return "", fmt.Errorf("annotation value has type %T", value)
+		}
+		name, ok := mapping.Get("name")
+		if !ok {
+			return "", fmt.Errorf("annotation value has no name")
+		}
+		return name.(string), nil
+	}
+
+	externs := []testharness.ExternRegistration{
+		{Org: org, Module: module + ".lst", FuncName: "Listener.inspect",
+			Impl: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+				listener := args[0].(*values.Object)
+				methodHandle, ok := ctx.LookupObjectMethod(listener, "inspect")
+				if !ok {
+					return nil, fmt.Errorf("method 'inspect' not found")
+				}
+				methodSignature, ok := ctx.MethodSignature(methodHandle)
+				if !ok || len(methodSignature.Params) != 0 {
+					return nil, fmt.Errorf("unexpected native method signature: %#v", methodSignature)
+				}
+				methodMetadata, ok := ctx.MethodMetadata(methodHandle)
+				if !ok || len(methodMetadata.Params) != 0 {
+					return nil, fmt.Errorf("unexpected native method metadata: %#v", methodMetadata)
+				}
+
+				functionHandle, ok := ctx.LookupFunction(org, module, "parameterName")
+				if !ok {
+					return nil, fmt.Errorf("function 'parameterName' not found")
+				}
+				functionSignature, ok := ctx.FunctionSignature(functionHandle)
+				if !ok || len(functionSignature.Params) != 0 ||
+					!semtypes.IsSubtype(ctx.TypeCtx(), functionSignature.ReturnType, semtypes.String) {
+					return nil, fmt.Errorf("unexpected function signature: %#v", functionSignature)
+				}
+				functionMetadata, ok := ctx.FunctionMetadata(functionHandle)
+				if !ok || len(functionMetadata.Params) != 0 {
+					return nil, fmt.Errorf("unexpected function metadata: %#v", functionMetadata)
+				}
+
+				svc, err := attachedService(listener)
+				if err != nil {
+					return nil, err
+				}
+				annotations, ok := ctx.ObjectAnnotations(svc)
+				if !ok {
+					return nil, fmt.Errorf("service annotations are unavailable")
+				}
+				serviceName, err := annotationName(annotations[serviceKey])
+				if err != nil {
+					return nil, err
+				}
+
+				handle, ok := ctx.LookupResourceMethod(svc, "get", []values.BalValue{"items"})
+				if !ok {
+					return nil, fmt.Errorf("resource method 'get items' not found")
+				}
+				signature, ok := ctx.MethodSignature(handle)
+				if !ok || len(signature.Params) != 2 || signature.RestParam == nil {
+					return nil, fmt.Errorf("unexpected resource signature: %#v", signature)
+				}
+				metadata, ok := ctx.MethodMetadata(handle)
+				if !ok || len(metadata.Params) != 2 || metadata.RestParam == nil {
+					return nil, fmt.Errorf("unexpected resource metadata: %#v", metadata)
+				}
+				countName, err := annotationName(metadata.Params[0].Annotations[parameterKey])
+				if err != nil {
+					return nil, err
+				}
+				headerName, err := annotationName(metadata.Params[1].Annotations[parameterKey])
+				if err != nil {
+					return nil, err
+				}
+				if signature.Params[0].Name != "count" || !semtypes.IsSubtype(ctx.TypeCtx(), signature.Params[0].Type, semtypes.Int) {
+					return nil, fmt.Errorf("unexpected count descriptor")
+				}
+				if signature.Params[1].Name != "header" || !semtypes.IsSubtype(ctx.TypeCtx(), signature.Params[1].Type, semtypes.String) {
+					return nil, fmt.Errorf("unexpected header descriptor")
+				}
+				if !semtypes.IsSubtype(ctx.TypeCtx(), signature.ReturnType, semtypes.Int) {
+					return nil, fmt.Errorf("unexpected return type")
+				}
+				if signature.RestParam.Name != "extras" || metadata.RestParam.Annotations[markerKey] != true {
+					return nil, fmt.Errorf("unexpected rest descriptor")
+				}
+
+				for _, line := range []string{serviceName, countName, headerName, "rest-marker"} {
+					_, _ = ctx.Env.Platform.IO.Stdout([]byte(line + "\n"))
+				}
+				return nil, nil
+			}},
+		{Org: org, Module: module + ".lst", FuncName: "Listener.invokeWithoutArgs",
+			Impl: func(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+				svc, err := attachedService(args[0].(*values.Object))
+				if err != nil {
+					return nil, err
+				}
+				handle, ok := ctx.LookupResourceMethod(svc, "get", []values.BalValue{"items"})
+				if !ok {
+					return nil, fmt.Errorf("resource method 'get items' not found")
+				}
+				return ctx.InvokeMethod(handle, nil)
+			}},
+	}
+	runExtern(t, projectCase("annotation-runtime-v"), testharness.NewTestPal(), externs)
+}
+
 func TestStartMethod(t *testing.T) {
 	externs := []testharness.ExternRegistration{
 		{

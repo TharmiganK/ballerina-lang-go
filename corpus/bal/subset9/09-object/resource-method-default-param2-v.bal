@@ -14,8 +14,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-type Info record {|
-    string label;
-|};
+import ballerina/io;
 
-const annotation Info info on type; // @error
+client class Store {
+    resource function get price(int id = 10) returns int|error {
+        return id;
+    }
+
+    resource function get total(int price, int tax = price / 10) returns int|error {
+        return price + tax;
+    }
+}
+
+public function main() returns error? {
+    Store store = new;
+    int defaultPrice = check store->/price.get();
+    int defaultTax = check store->/total.get(40);
+    int explicitTax = check store->/total.get(40, 5);
+    io:println(defaultPrice); // @output 10
+    io:println(defaultTax); // @output 44
+    io:println(explicitTax); // @output 45
+}

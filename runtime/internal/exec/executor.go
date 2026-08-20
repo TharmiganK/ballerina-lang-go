@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/ballerina-nutcracker/ballerina/bir"
-	"github.com/ballerina-nutcracker/ballerina/model"
 	"github.com/ballerina-nutcracker/ballerina/runtime/extern"
 	runtimeframe "github.com/ballerina-nutcracker/ballerina/runtime/internal/frame"
 	"github.com/ballerina-nutcracker/ballerina/semtypes"
@@ -75,19 +74,22 @@ func createFunctionFrame(ctx *extern.Context, birFunc *bir.BIRFunction, args []v
 func initLocalsForFunction(ctx *extern.Context, birFunc *bir.BIRFunction, args []values.BalValue, frame *Frame) {
 	frame.SetLocal(0, nil)
 	localVars := &birFunc.LocalVars
-	argOffset := 0
-	if birFunc.Flags.Has(model.FlagAttached) {
-		frame.SetLocal(1, args[0])
-		argOffset = 1
-	}
+	paramLocalOffset := birFunc.ParamLocalVarOffset()
+	argOffset := paramLocalOffset - 1
 	requiredCount := len(birFunc.RequiredParams)
+	if len(args) < requiredCount+argOffset {
+		panic(values.NewErrorWithMessage("not enough arguments"))
+	}
+	if argOffset != 0 {
+		frame.SetLocal(1, args[0])
+	}
 	for i := range requiredCount {
-		frame.SetLocal(i+1+argOffset, args[i+argOffset])
+		frame.SetLocal(i+paramLocalOffset, args[i+argOffset])
 	}
 
 	if birFunc.RestParams != nil {
 		restArgs := args[requiredCount+argOffset:]
-		restParamIdx := requiredCount + 1 + argOffset
+		restParamIdx := requiredCount + paramLocalOffset
 		restParamType := (*localVars)[restParamIdx].GetType()
 		atomic := semtypes.ToListAtomicType(ctx.TypeEnv(), restParamType)
 		if atomic == nil {

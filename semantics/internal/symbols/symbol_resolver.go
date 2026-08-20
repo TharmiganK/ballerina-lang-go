@@ -114,6 +114,7 @@ type (
 		prevPos        map[string]prevPos
 		prevAnnotPos   map[string]prevPos
 		defaultCounter int
+		serviceCounter int
 		moduleNodes    moduleAstNodeHolder
 	}
 
@@ -331,6 +332,12 @@ func (ms *compilationUnitSymbolResolver) TypeContext() semtypes.Context {
 func (ms *moduleSymbolResolver) nextDefaultSymbolName() string {
 	name := fmt.Sprintf("$default$%d", ms.defaultCounter)
 	ms.defaultCounter++
+	return name
+}
+
+func (ms *moduleSymbolResolver) nextServiceSymbolName() string {
+	name := fmt.Sprintf("$service$%d", ms.serviceCounter)
+	ms.serviceCounter++
 	return name
 }
 
@@ -1877,6 +1884,15 @@ func resolveServiceDefinition(ms *compilationUnitSymbolResolver, svc *ast.BLangS
 	allocateServiceResourceMethodSymbols(svcResolver, svc.ResourceMethods)
 
 	finishResolveClassDefinition(ms, svcResolver, svc.Fields, svc.Methods, svc.ResourceMethods, svc.InitFunction, nil, svcResolver.scope, serviceMethodSymbolName, resourceMethodsAreNetworkClass)
+
+	serviceSymbolName := ms.moduleResolver.nextServiceSymbolName()
+	serviceSymbol := model.NewTypeSymbol(serviceSymbolName, false, svc.GetPosition())
+	svcResolver.AddSymbol(serviceSymbolName, &serviceSymbol)
+	serviceSymbolRef, _, _ := svcResolver.GetSymbol(serviceSymbolName)
+	svc.SetSymbol(serviceSymbolRef)
+	for i := range svc.AnnAttachments {
+		ast.Walk(svcResolver, &svc.AnnAttachments[i])
+	}
 }
 
 func resolveClassDefinition(ms *compilationUnitSymbolResolver, classDef *ast.BLangClassDefinition) {

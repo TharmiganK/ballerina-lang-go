@@ -1193,6 +1193,9 @@ func (bs *blockSymbolResolver) Visit(node ast.BLangNode) ast.Visitor {
 		return nil
 	case *ast.BLangXMLNS:
 		processBlockXMLNS(bs, n)
+		if uriExpr := n.GetNamespaceURI(); uriExpr != nil {
+			ast.Walk(bs, uriExpr)
+		}
 		return nil
 	case *ast.BLangFunction:
 		// This happens because we visit from the top in [resolveFunction]

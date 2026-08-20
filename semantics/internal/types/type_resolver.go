@@ -1075,6 +1075,11 @@ func (t *packageTypeResolver) resolveTopLevelTypes(pkg *ast.BLangPackage) {
 	for i := range pkg.GlobalVars {
 		resolveGlobalVarType(t, pkg.GlobalVars[i])
 	}
+	for i := range pkg.XmlnsList {
+		if !resolveXMLNS(t, nil, pkg.XmlnsList[i]) {
+			return
+		}
+	}
 	if !resolvePackageConstants(t, pkg) {
 		return
 	}
@@ -1114,10 +1119,6 @@ func (t *packageTypeResolver) resolveTopLevelTypes(pkg *ast.BLangPackage) {
 		}
 		svc.SetDeterminedType(semtypes.Never)
 	}
-	for i := range pkg.XmlnsList {
-		resolveXMLNS(t, nil, pkg.XmlnsList[i])
-	}
-
 	t.drainDeferredEmptinessChecks()
 }
 
@@ -1750,7 +1751,9 @@ func resolveStatementInner(t typeResolver, chain *binding, stmt ast.StatementNod
 		}
 		return statementEffect{binding: nil, nonCompletion: true}, true
 	case *ast.BLangXMLNS:
-		resolveXMLNS(t, chain, s)
+		if !resolveXMLNS(t, chain, s) {
+			return defaultStmtEffect(chain), false
+		}
 		return defaultStmtEffect(chain), true
 	default:
 		t.internalError(fmt.Sprintf("unhandled statement type: %T", stmt), stmt.GetPosition())
@@ -1758,14 +1761,55 @@ func resolveStatementInner(t typeResolver, chain *binding, stmt ast.StatementNod
 	}
 }
 
-func resolveXMLNS(t typeResolver, chain *binding, decl *ast.BLangXMLNS) {
+func resolveXMLNS(t typeResolver, chain *binding, decl *ast.BLangXMLNS) bool {
 	decl.SetDeterminedType(semtypes.Never)
-	if uriExpr := decl.GetNamespaceURI(); uriExpr != nil {
-		resolveActionOrExpression(t, chain, uriExpr, semtypes.String)
+	uriExpr := decl.GetNamespaceURI()
+	if uriExpr == nil {
+		t.internalError("xmlns declaration missing URI", decl.GetPosition())
+		return false
 	}
+	uriTy, _, ok := resolveActionOrExpression(t, chain, uriExpr, semtypes.String)
+	if !ok {
+		return false
+	}
+	if !semtypes.IsSubtype(t.typeContext(), uriTy, semtypes.String) {
+		t.semanticError("xmlns URI must be a string", uriExpr.GetPosition())
+		return false
+	}
+	isConstant := true
+	common.ValidateConstantExpr(t.compilerContext(), uriExpr, func(expr ast.BLangExpression) {
+		// Report only the first non-constant subexpression to avoid duplicate diagnostics.
+		if isConstant {
+			t.semanticError("expression is not a constant expression", expr.GetPosition())
+		}
+		isConstant = false
+	})
+	if !isConstant {
+		return false
+	}
+	value, err := evaluateConstantExpression(t, uriExpr)
+	if err != nil {
+		t.semanticError("expression is not a constant expression", uriExpr.GetPosition())
+		return false
+	}
+	uri, ok := value.(string)
+	if !ok {
+		t.semanticError("xmlns URI must be a string", uriExpr.GetPosition())
+		return false
+	}
+	if uri == "" {
+		t.semanticError("XML namespace URI cannot be empty", decl.GetPosition())
+		return false
+	}
+	if err := t.compilerContext().SetXMLNamespaceURI(decl.Symbol(), uri); err != nil {
+		t.internalError(err.Error(), decl.GetPosition())
+		return false
+	}
+	t.setSymbolType(decl.Symbol(), semtypes.String)
 	if prefix := decl.GetPrefix(); prefix != nil {
 		prefix.SetDeterminedType(semtypes.Never)
 	}
+	return true
 }
 
 func resolveOnFailClause(t typeResolver, chain *binding, clause *ast.BLangOnFailClause) {

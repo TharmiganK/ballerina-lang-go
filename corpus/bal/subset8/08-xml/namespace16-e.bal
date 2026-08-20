@@ -14,19 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import ballerina/io;
+const string FIRST = SECOND; // @error
+const string SECOND = FIRST;
 
-const string SCHEME = "https:";
-const string URI = SCHEME + "foo/" + "bar";
-
-xmlns URI as bar;
-
-xml elem = xml `<bar:f><bar:x></bar:x></bar:f>`;
-
-public function main() {
-    io:println(elem); // @output <bar:f xmlns:bar="https:foo/bar"><bar:x/></bar:f>
-
-    xmlns URI as local;
-    xml localElem = xml `<local:f/>`;
-    io:println(localElem); // @output <local:f xmlns:local="https:foo/bar"/>
-}
+xmlns FIRST as cyclic;

@@ -169,6 +169,10 @@ func (c *CompilerContext) SetSymbolType(symbol model.SymbolRef, ty semtypes.SemT
 	c.GetSymbol(symbol).SetType(ty)
 }
 
+func (c *CompilerContext) SetXMLNamespaceURI(symbol model.SymbolRef, uri string) error {
+	return model.SetXMLNamespaceURI(c.GetSymbol(symbol), uri)
+}
+
 func (c *CompilerContext) SetSymbolAnnotationValue(symbol model.SymbolRef, key string, value values.AnnotationValue) {
 	c.env.SetSymbolAnnotationValue(symbol, key, value)
 }

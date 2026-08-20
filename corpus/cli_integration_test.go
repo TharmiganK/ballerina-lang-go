@@ -17,6 +17,7 @@
 package corpus
 
 import (
+	"archive/zip"
 	"bytes"
 	"debug/elf"
 	"debug/macho"
@@ -34,6 +35,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ballerina-nutcracker/ballerina/projects"
 	"github.com/ballerina-nutcracker/ballerina/test_util"
 )
 
@@ -900,6 +902,923 @@ func TestBalPackFromWorkspaceMemberDirectory(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "Created ") || !strings.Contains(stdout, ".bala") {
 		t.Fatalf("expected a 'Created ... .bala' line, got stdout:\n%s", stdout)
+	}
+}
+
+// =============================================================================
+// bal push corpus tests
+// =============================================================================
+//
+// TestBalPush* exercises `bal push` end-to-end through the coverage-aware CLI
+// harness, mirroring (and replacing) the in-process cli/cmd/push_test.go
+// suite so subprocess coverage flows into the cli/cmd profile the same way
+// TestBalPackCorpus/TestBalBuildCorpus already do for pack/build. Each test
+// gets its own isolated BAL_ENV (a fresh t.TempDir()) since push writes into
+// <BAL_ENV>/repositories/local/bala/..., unlike the shared cliIntegrationBalEnv
+// build/pack use read-only.
+
+func TestBalPushExplicitPath(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml":           []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml":      []byte("[package]\norg = \"testorg\"\nname = \"myproject\"\nversion = \"0.1.0\"\n"),
+		"Dependencies.toml":   []byte("[ballerina]\ndependencies-toml-version = \"2\"\n"),
+		"main.bal":            []byte("public function main() {}\n"),
+		"modules/sub/sub.bal": []byte("public function sub() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "testorg-myproject-any-0.1.0.bala", entries)
+
+	stdout, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err != nil {
+		t.Fatalf("push failed: %v\nstderr: %s", err, stderr)
+	}
+
+	destDir := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"testorg", "myproject", "0.1.0", "any")
+
+	if !strings.Contains(stdout, "Pushed ") ||
+		!strings.Contains(stdout, balaPath) ||
+		!strings.Contains(stdout, destDir) {
+		t.Errorf("expected stdout to announce push of %s to %s, got: %s",
+			balaPath, destDir, stdout)
+	}
+
+	for name, want := range entries {
+		got, err := os.ReadFile(filepath.Join(destDir, filepath.FromSlash(name)))
+		if err != nil {
+			t.Errorf("expected extracted entry %s: %v", name, err)
+			continue
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("entry %s: contents differ\nwant: %q\ngot:  %q",
+				name, want, got)
+		}
+	}
+
+	manifestBytes, err := os.ReadFile(filepath.Join(destDir, projects.BallerinaTomlFile))
+	if err != nil {
+		t.Fatalf("expected %s extracted: %v", projects.BallerinaTomlFile, err)
+	}
+	for _, want := range []string{
+		`org = "testorg"`,
+		`name = "myproject"`,
+		`version = "0.1.0"`,
+	} {
+		if !strings.Contains(string(manifestBytes), want) {
+			t.Errorf("expected manifest to contain %q, got: %s", want, manifestBytes)
+		}
+	}
+}
+
+// Filename intentionally disagrees with the manifest; destination must
+// follow the manifest, not the filename.
+func TestBalPushArbitraryFilename(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"mockorg\"\nname = \"testpkg\"\nversion = \"1.0.0\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "foo-bar-any-9.9.9.zip", entries)
+
+	stdout, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err != nil {
+		t.Fatalf("push with non-.bala extension failed: %v\nstderr: %s", err, stderr)
+	}
+
+	manifestDest := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"mockorg", "testpkg", "1.0.0", "any")
+	if _, err := os.Stat(manifestDest); err != nil {
+		t.Fatalf("expected destination at manifest path %s, stat err: %v",
+			manifestDest, err)
+	}
+	if !strings.Contains(stdout, manifestDest) {
+		t.Errorf("expected stdout to mention manifest-derived destination %s, got: %s",
+			manifestDest, stdout)
+	}
+
+	filenameDest := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"foo", "bar", "9.9.9", "any")
+	if _, err := os.Stat(filenameDest); !os.IsNotExist(err) {
+		t.Errorf("expected filename-derived destination %s absent, stat err: %v",
+			filenameDest, err)
+	}
+
+	for name := range entries {
+		if _, err := os.Stat(filepath.Join(manifestDest, name)); err != nil {
+			t.Errorf("expected entry %s extracted: %v", name, err)
+		}
+	}
+}
+
+func TestBalPushAutoDiscovery(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	projectDir := t.TempDir()
+	balaDir := filepath.Join(projectDir, projects.TargetDir, "bala")
+	if err := os.MkdirAll(balaDir, 0o755); err != nil {
+		t.Fatalf("mkdir target/bala: %v", err)
+	}
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"acme\"\nname = \"widgets\"\nversion = \"1.2.3\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := filepath.Join(balaDir, "acme-widgets-any-1.2.3.bala")
+	writePushBalaFile(t, balaPath, entries)
+
+	stdout, stderr, err := executePushCLI(t, projectDir, balaEnv, "--repository", "local")
+	if err != nil {
+		t.Fatalf("push failed: %v\nstderr: %s", err, stderr)
+	}
+
+	destDir := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"acme", "widgets", "1.2.3", "any")
+	if !strings.Contains(stdout, destDir) {
+		t.Errorf("expected stdout to mention destination %s, got: %s",
+			destDir, stdout)
+	}
+
+	for name := range entries {
+		if _, err := os.Stat(filepath.Join(destDir, name)); err != nil {
+			t.Errorf("expected entry %s extracted: %v", name, err)
+		}
+	}
+}
+
+func TestBalPushOverwrite(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	destDir := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"acme", "widgets", "0.1.0", "any")
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		t.Fatalf("seed destination: %v", err)
+	}
+	junkPath := filepath.Join(destDir, "stale.txt")
+	if err := os.WriteFile(junkPath, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"acme\"\nname = \"widgets\"\nversion = \"0.1.0\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "acme-widgets-any-0.1.0.bala", entries)
+
+	if _, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local"); err != nil {
+		t.Fatalf("push failed: %v\nstderr: %s", err, stderr)
+	}
+
+	if _, err := os.Stat(junkPath); !os.IsNotExist(err) {
+		t.Errorf("expected stale file removed, stat err: %v", err)
+	}
+	for name := range entries {
+		if _, err := os.Stat(filepath.Join(destDir, name)); err != nil {
+			t.Errorf("expected entry %s extracted: %v", name, err)
+		}
+	}
+}
+
+func TestBalPushMultipleBalas(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	projectDir := t.TempDir()
+	balaDir := filepath.Join(projectDir, projects.TargetDir, "bala")
+	if err := os.MkdirAll(balaDir, 0o755); err != nil {
+		t.Fatalf("mkdir target/bala: %v", err)
+	}
+	for _, name := range []string{
+		"acme-widgets-any-0.1.0.bala",
+		"acme-widgets-any-0.2.0.bala",
+	} {
+		writePushBalaFile(t, filepath.Join(balaDir, name), map[string][]byte{
+			"Bala.toml": []byte("[build]\nplatform = \"any\"\n"),
+		})
+	}
+
+	_, stderr, err := executePushCLI(t, projectDir, balaEnv, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected ambiguity error for multiple bala files, got success")
+	}
+	if !strings.Contains(stderr, "multiple") {
+		t.Errorf("expected 'multiple' in stderr, got: %s", stderr)
+	}
+}
+
+func TestBalPushNoBalaInTarget(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+	projectDir := t.TempDir()
+
+	_, stderr, err := executePushCLI(t, projectDir, balaEnv, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected error when no bala is present, got success")
+	}
+	if !strings.Contains(stderr, "no .bala") &&
+		!strings.Contains(stderr, ".bala file found") {
+		t.Errorf("expected 'no .bala' error, got stderr: %s", stderr)
+	}
+}
+
+// target/bala exists but is empty, unlike TestBalPushNoBalaInTarget where
+// target/bala itself is missing.
+func TestBalPushEmptyTargetBalaDir(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+	projectDir := t.TempDir()
+	balaDir := filepath.Join(projectDir, projects.TargetDir, "bala")
+	if err := os.MkdirAll(balaDir, 0o755); err != nil {
+		t.Fatalf("mkdir target/bala: %v", err)
+	}
+
+	_, stderr, err := executePushCLI(t, projectDir, balaEnv, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected error when target/bala is empty, got success")
+	}
+	if !strings.Contains(stderr, "no .bala file found under") {
+		t.Errorf("expected 'no .bala file found under' error, got stderr: %s", stderr)
+	}
+}
+
+func TestBalPushDirectoryAsBalaPath(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	dir := t.TempDir()
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, dir, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected directory-rejection error, got success")
+	}
+	if !strings.Contains(stderr, "push requires a bala file; got directory") {
+		t.Errorf("expected directory-rejection error, got: %s", stderr)
+	}
+}
+
+func TestBalPushExplicitPathDoesNotExist(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	missing := filepath.Join(t.TempDir(), "does-not-exist.bala")
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, missing, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected error for a nonexistent explicit path, got success")
+	}
+	if !strings.Contains(stderr, "invalid bala path") {
+		t.Errorf("expected 'invalid bala path' error, got: %s", stderr)
+	}
+}
+
+func TestBalPushAutoDiscoverySkipsDirectory(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	projectDir := t.TempDir()
+	balaDir := filepath.Join(projectDir, projects.TargetDir, "bala")
+	if err := os.MkdirAll(filepath.Join(balaDir, "staging"), 0o755); err != nil {
+		t.Fatalf("mkdir target/bala/staging: %v", err)
+	}
+	writePushBalaFile(t, filepath.Join(balaDir, "acme-widgets-any-0.1.0.bala"),
+		validPushBalaEntries())
+
+	_, stderr, err := executePushCLI(t, projectDir, balaEnv, "--repository", "local")
+	if err != nil {
+		t.Fatalf("expected push to succeed, got error: %v\nstderr: %s", err, stderr)
+	}
+	dest := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"acme", "widgets", "1.2.3", "any")
+	if _, err := os.Stat(dest); err != nil {
+		t.Fatalf("destination not created at %s: %v", dest, err)
+	}
+}
+
+// bal pack never emits explicit directory entries, but a third-party tool
+// might; guards the IsDir branch in extractZipEntry.
+func TestBalPushZipWithDirectoryEntry(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	tmp := t.TempDir()
+	balaPath := filepath.Join(tmp, "mockorg-foo-any-1.0.0.bala")
+	writePushBalaFileWithDirEntries(t, balaPath, []pushBalaEntry{
+		{"Bala.toml", []byte("[build]\nplatform = \"any\"\n")},
+		{"Ballerina.toml", []byte("[package]\norg = \"mockorg\"\nname = \"foo\"\nversion = \"1.0.0\"\n")},
+		{"modules/", nil},
+		{"modules/sub/lib.bal", []byte("public function libfn() {}\n")},
+	})
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err != nil {
+		t.Fatalf("expected push to succeed, got error: %v\nstderr: %s", err, stderr)
+	}
+
+	dest := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"mockorg", "foo", "1.0.0", "any")
+	if info, err := os.Stat(filepath.Join(dest, "modules")); err != nil || !info.IsDir() {
+		t.Errorf("expected modules/ directory at destination, stat err: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "modules", "sub", "lib.bal")); err != nil {
+		t.Errorf("expected modules/sub/lib.bal at destination, stat err: %v", err)
+	}
+}
+
+// Entries are written in a fixed order so the malicious one is encountered first.
+func TestBalPushZipSlip(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	tmp := t.TempDir()
+	balaPath := filepath.Join(tmp, "evil-pkg-any-0.1.0.bala")
+	writePushOrderedBalaFile(t, balaPath, []pushBalaEntry{
+		{"../evil", []byte("pwned")},
+		{"Bala.toml", []byte("[build]\nplatform = \"any\"\n")},
+		{"Ballerina.toml", []byte("[package]\norg = \"evil\"\nname = \"pkg\"\nversion = \"0.1.0\"\n")},
+	})
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected zip-slip rejection, got success")
+	}
+	if !strings.Contains(stderr, "zip-slip") &&
+		!strings.Contains(stderr, "escapes destination") {
+		t.Errorf("expected zip-slip error in stderr, got: %s", stderr)
+	}
+
+	destDir := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"evil", "pkg", "0.1.0", "any")
+	escaped := filepath.Join(filepath.Dir(destDir), "evil")
+	if _, err := os.Stat(escaped); !os.IsNotExist(err) {
+		t.Errorf("expected zip-slip target absent, stat err: %v", err)
+	}
+}
+
+// A literal backslash is a separate zip-slip guard from the "../" check
+// TestBalPushZipSlip exercises.
+func TestBalPushZipSlipBackslash(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	tmp := t.TempDir()
+	balaPath := filepath.Join(tmp, "evil-pkg-any-0.1.0.bala")
+	writePushOrderedBalaFile(t, balaPath, []pushBalaEntry{
+		{`..\evil`, []byte("pwned")},
+		{"Bala.toml", []byte("[build]\nplatform = \"any\"\n")},
+		{"Ballerina.toml", []byte("[package]\norg = \"evil\"\nname = \"pkg\"\nversion = \"0.1.0\"\n")},
+	})
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected zip-slip rejection, got success")
+	}
+	if !strings.Contains(stderr, "zip-slip") {
+		t.Errorf("expected zip-slip error in stderr, got: %s", stderr)
+	}
+
+	// destParent (.../evil/pkg/0.1.0) is created before extraction starts;
+	// only destDir itself (the "any" platform leaf) must stay absent.
+	destDir := filepath.Join(balaEnv, "repositories", "local", "bala",
+		"evil", "pkg", "0.1.0", "any")
+	if _, err := os.Stat(destDir); !os.IsNotExist(err) {
+		t.Errorf("expected destination %s absent, stat err: %v", destDir, err)
+	}
+}
+
+func TestBalPushDestinationParentIsFile(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	// destDir's parent (.../acme/widgets/1.2.3) collides with a regular file,
+	// so os.MkdirAll can't create it.
+	destParent := filepath.Join(balaEnv, "repositories", "local", "bala", "acme", "widgets", "1.2.3")
+	if err := os.MkdirAll(filepath.Dir(destParent), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(destParent), err)
+	}
+	if err := os.WriteFile(destParent, []byte("blocking file"), 0o644); err != nil {
+		t.Fatalf("write %s: %v", destParent, err)
+	}
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"acme\"\nname = \"widgets\"\nversion = \"1.2.3\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "acme-widgets-any-1.2.3.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected error when destination parent collides with a file, got success")
+	}
+	if !strings.Contains(stderr, "create destination parent") {
+		t.Errorf("expected 'create destination parent' error, got: %s", stderr)
+	}
+}
+
+func TestBalPushNotAZipArchive(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	dir := t.TempDir()
+	balaPath := filepath.Join(dir, "mockorg-foo-any-1.0.0.bala")
+	if err := os.WriteFile(balaPath, []byte("not a zip archive"), 0o644); err != nil {
+		t.Fatalf("write %s: %v", balaPath, err)
+	}
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected error for a non-zip bala file, got success")
+	}
+	if !strings.Contains(stderr, "open bala archive") {
+		t.Errorf("expected 'open bala archive' error, got: %s", stderr)
+	}
+}
+
+func TestBalPushMissingBallerinaToml(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml": []byte("[build]\nplatform = \"any\"\n"),
+		"main.bal":  []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected missing-manifest error, got success")
+	}
+	if !strings.Contains(stderr, "missing Ballerina.toml") {
+		t.Errorf("expected missing-manifest error, got: %s", stderr)
+	}
+
+	// Identity must be read before any destination is created.
+	repoRoot := filepath.Join(balaEnv, "repositories", "local", "bala")
+	if entries, err := os.ReadDir(repoRoot); err == nil && len(entries) != 0 {
+		t.Errorf("expected repo root untouched, found entries: %v", entries)
+	}
+}
+
+func TestBalPushMissingBalaToml(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Ballerina.toml": []byte("[package]\norg = \"mockorg\"\nname = \"foo\"\nversion = \"1.0.0\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected missing-Bala.toml error, got success")
+	}
+	if !strings.Contains(stderr, "missing Bala.toml") {
+		t.Errorf("expected missing-Bala.toml error, got: %s", stderr)
+	}
+
+	repoRoot := filepath.Join(balaEnv, "repositories", "local", "bala")
+	if entries, err := os.ReadDir(repoRoot); err == nil && len(entries) != 0 {
+		t.Errorf("expected repo root untouched, found entries: %v", entries)
+	}
+}
+
+func TestBalPushMalformedBallerinaToml(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("this is = = not = valid toml ["),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected parse error, got success")
+	}
+	if !strings.Contains(stderr, "parse") && !strings.Contains(stderr, "Ballerina.toml") {
+		t.Errorf("expected parse error referencing Ballerina.toml, got: %s", stderr)
+	}
+}
+
+func TestBalPushMissingOrgField(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\nname = \"foo\"\nversion = \"1.0.0\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected missing-field error, got success")
+	}
+	if !strings.Contains(stderr, "missing required field org") {
+		t.Errorf("expected missing-org-field error, got: %s", stderr)
+	}
+}
+
+func TestBalPushMissingNameField(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"mockorg\"\nversion = \"1.0.0\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected missing-name-field error, got success")
+	}
+	if !strings.Contains(stderr, "missing required field name") {
+		t.Errorf("expected missing-name-field error, got: %s", stderr)
+	}
+}
+
+func TestBalPushMissingVersionField(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"mockorg\"\nname = \"foo\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected missing-version-field error, got success")
+	}
+	if !strings.Contains(stderr, "missing required field version") {
+		t.Errorf("expected missing-version-field error, got: %s", stderr)
+	}
+}
+
+func TestBalPushMalformedBalaToml(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		// Unterminated table header → parser fails.
+		"Bala.toml":      []byte("[build\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"mockorg\"\nname = \"foo\"\nversion = \"1.0.0\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected parse error, got success")
+	}
+	if !strings.Contains(stderr, "parse") || !strings.Contains(stderr, "Bala.toml") {
+		t.Errorf("expected parse error referencing Bala.toml, got: %s", stderr)
+	}
+}
+
+func TestBalPushMissingPlatformField(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaEnv := t.TempDir()
+
+	entries := map[string][]byte{
+		"Bala.toml":      []byte("[build]\nschema_version = \"4\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"mockorg\"\nname = \"foo\"\nversion = \"1.0.0\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+	balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+	if err == nil {
+		t.Fatal("expected missing-platform-field error, got success")
+	}
+	if !strings.Contains(stderr, "missing required field platform") {
+		t.Errorf("expected missing-platform-field error, got: %s", stderr)
+	}
+}
+
+// Manifest fields flow straight into filepath.Join(...) for the destination
+// and into os.RemoveAll before extraction even starts, so "." / ".." /
+// embedded separators must be rejected rather than trusted.
+func TestBalPushMaliciousManifestFields(t *testing.T) {
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	tests := []struct {
+		name             string
+		org, pkg, ver    string
+		platform         string
+		wantErrSubstring string
+	}{
+		{"org traversal", "../../../../tmp", "foo", "1.0.0", "any", `invalid org "../../../../tmp"`},
+		{"name traversal", "mockorg", "..", "1.0.0", "any", `invalid name ".."`},
+		{"version separator", "mockorg", "foo", "1.0/0", "any", `invalid version "1.0/0"`},
+		{"platform separator", "mockorg", "foo", "1.0.0", "any/../evil", `invalid platform "any/../evil"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			balaEnv := t.TempDir()
+
+			entries := map[string][]byte{
+				"Bala.toml": []byte("[build]\nplatform = \"" + tt.platform + "\"\n"),
+				"Ballerina.toml": []byte("[package]\norg = \"" + tt.org + "\"\nname = \"" +
+					tt.pkg + "\"\nversion = \"" + tt.ver + "\"\n"),
+				"main.bal": []byte("public function main() {}\n"),
+			}
+			balaPath := writePushBalaFixture(t, "mockorg-foo-any-1.0.0.bala", entries)
+
+			_, stderr, err := executePushCLI(t, t.TempDir(), balaEnv, balaPath, "--repository", "local")
+			if err == nil {
+				t.Fatal("expected rejection, got success")
+			}
+			if !strings.Contains(stderr, tt.wantErrSubstring) {
+				t.Errorf("expected %q in stderr, got: %s", tt.wantErrSubstring, stderr)
+			}
+
+			repoRoot := filepath.Join(balaEnv, "repositories", "local", "bala")
+			if entries, err := os.ReadDir(repoRoot); err == nil && len(entries) != 0 {
+				t.Errorf("expected repo root untouched, found entries: %v", entries)
+			}
+		})
+	}
+}
+
+func TestBalPushMissingRepositoryFlag(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaPath := writePushBalaFixture(t, "acme-widgets-any-1.2.3.bala", validPushBalaEntries())
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), "", balaPath)
+	if err == nil {
+		t.Fatal("expected error when --repository is omitted, got success")
+	}
+	if !strings.Contains(stderr, `required flag(s) "repository" not set`) {
+		t.Errorf("expected required-flag error, got stderr: %s", stderr)
+	}
+}
+
+func TestBalPushUnsupportedRepositoryValue(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	balaPath := writePushBalaFixture(t, "acme-widgets-any-1.2.3.bala", validPushBalaEntries())
+
+	_, stderr, err := executePushCLI(t, t.TempDir(), "", balaPath, "--repository", "central")
+	if err == nil {
+		t.Fatal("expected error for --repository=central, got success")
+	}
+	if !strings.Contains(stderr, `unsupported --repository value "central"`) {
+		t.Errorf("expected unsupported-value error, got stderr: %s", stderr)
+	}
+}
+
+func TestBalPushHelp(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "js" || runtime.GOARCH == "wasm" {
+		t.Skip("skipping CLI integration test on WASM (js/wasm)")
+	}
+	stdout, stderr, err := executePushCLI(t, t.TempDir(), "", "--help")
+	if err != nil {
+		t.Fatalf("--help returned error: %v\nstderr: %s", err, stderr)
+	}
+	if !strings.Contains(stdout, "Push a Ballerina archive") {
+		t.Errorf("expected push help text, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "only 'local' is supported in this") {
+		t.Errorf("expected current-scope note in help, got: %s", stdout)
+	}
+}
+
+// runPushCLI runs `bal push <args...>` as a subprocess in dir, with BAL_ENV
+// set to balaEnv (skipped if balaEnv is ""). Each push test gets its own
+// balaEnv, unlike build/pack's shared cliIntegrationBalEnv, since push writes
+// into <BAL_ENV>/repositories/local/bala/...
+func runPushCLI(t *testing.T, dir, balaEnv string, args ...string) (stdout, stderr string, exitCode int) {
+	t.Helper()
+	balBin, _, coverDir := integrationTestBalCLI(t, false)
+	env := os.Environ()
+	if balaEnv != "" {
+		env = append(env, "BAL_ENV="+balaEnv)
+	}
+	if coverDir != "" {
+		commandCoverDir := t.TempDir()
+		env = append(env, "GOCOVERDIR="+commandCoverDir)
+		defer mergeCLICoverageDir(t, commandCoverDir, coverDir)
+	}
+	return runNativeCLICommandWithEnv(t, balBin, dir, append([]string{"push"}, args...), env)
+}
+
+func executePushCLI(t *testing.T, dir, balaEnv string, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
+	stdout, stderr, exitCode := runPushCLI(t, dir, balaEnv, args...)
+	if exitCode != 0 {
+		err = fmt.Errorf("push exited with code %d", exitCode)
+	}
+	return stdout, stderr, err
+}
+
+func validPushBalaEntries() map[string][]byte {
+	return map[string][]byte{
+		"Bala.toml":      []byte("[build]\nplatform = \"any\"\n"),
+		"Ballerina.toml": []byte("[package]\norg = \"acme\"\nname = \"widgets\"\nversion = \"1.2.3\"\n"),
+		"main.bal":       []byte("public function main() {}\n"),
+	}
+}
+
+func writePushBalaFixture(t *testing.T, filename string, entries map[string][]byte) string {
+	t.Helper()
+	dir := t.TempDir()
+	balaPath := filepath.Join(dir, filename)
+	writePushBalaFile(t, balaPath, entries)
+	return balaPath
+}
+
+// pushBalaEntry preserves order, unlike a map, for tests where entry order matters.
+type pushBalaEntry struct {
+	name    string
+	content []byte
+}
+
+func writePushOrderedBalaFile(t *testing.T, balaPath string, entries []pushBalaEntry) {
+	t.Helper()
+	out, err := os.Create(balaPath)
+	if err != nil {
+		t.Fatalf("create %s: %v", balaPath, err)
+	}
+	zw := zip.NewWriter(out)
+	for _, e := range entries {
+		w, err := zw.Create(e.name)
+		if err != nil {
+			_ = zw.Close()
+			_ = out.Close()
+			t.Fatalf("create zip entry %s: %v", e.name, err)
+		}
+		if _, err := io.Copy(w, bytes.NewReader(e.content)); err != nil {
+			_ = zw.Close()
+			_ = out.Close()
+			t.Fatalf("write zip entry %s: %v", e.name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		_ = out.Close()
+		t.Fatalf("close zip writer: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("close %s: %v", balaPath, err)
+	}
+}
+
+// Entries whose name ends with "/" are written as explicit directory entries.
+func writePushBalaFileWithDirEntries(t *testing.T, balaPath string, entries []pushBalaEntry) {
+	t.Helper()
+	out, err := os.Create(balaPath)
+	if err != nil {
+		t.Fatalf("create %s: %v", balaPath, err)
+	}
+	zw := zip.NewWriter(out)
+	for _, e := range entries {
+		isDir := strings.HasSuffix(e.name, "/")
+		h := &zip.FileHeader{Name: e.name, Method: zip.Deflate}
+		if isDir {
+			h.Method = zip.Store
+			h.SetMode(0o755 | os.ModeDir)
+		}
+		w, err := zw.CreateHeader(h)
+		if err != nil {
+			_ = zw.Close()
+			_ = out.Close()
+			t.Fatalf("create zip entry %s: %v", e.name, err)
+		}
+		if !isDir {
+			if _, err := io.Copy(w, bytes.NewReader(e.content)); err != nil {
+				_ = zw.Close()
+				_ = out.Close()
+				t.Fatalf("write zip entry %s: %v", e.name, err)
+			}
+		}
+	}
+	if err := zw.Close(); err != nil {
+		_ = out.Close()
+		t.Fatalf("close zip writer: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("close %s: %v", balaPath, err)
+	}
+}
+
+func writePushBalaFile(t *testing.T, balaPath string, entries map[string][]byte) {
+	t.Helper()
+	out, err := os.Create(balaPath)
+	if err != nil {
+		t.Fatalf("create %s: %v", balaPath, err)
+	}
+	zw := zip.NewWriter(out)
+	for name, content := range entries {
+		w, err := zw.Create(name)
+		if err != nil {
+			_ = zw.Close()
+			_ = out.Close()
+			t.Fatalf("create zip entry %s: %v", name, err)
+		}
+		if _, err := io.Copy(w, bytes.NewReader(content)); err != nil {
+			_ = zw.Close()
+			_ = out.Close()
+			t.Fatalf("write zip entry %s: %v", name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		_ = out.Close()
+		t.Fatalf("close zip writer: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("close %s: %v", balaPath, err)
 	}
 }
 

@@ -42,59 +42,35 @@
         (variable $desugar$0 (expr
           (invocation $default$0 ()))))
       (var-def
-        (variable $desugar$1 (expr
-          (client-resource-access get expr:
-            (simple-var-ref store) name:price
-            (simple-var-ref $desugar$0)))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$1))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$1))) ())
-      (var-def
         (variable defaultPrice (type
           (value-type int)) (expr
-          (simple-var-ref $desugar$1))))
+          (checked-expr
+            (client-resource-access get expr:
+              (simple-var-ref store) name:price
+              (simple-var-ref $desugar$0))))))
       (var-def
-        (variable $desugar$2 (expr
+        (variable $desugar$1 (expr
           (literal 40))))
       (var-def
-        (variable $desugar$3 (expr
+        (variable $desugar$2 (expr
           (invocation $default$1 (
-            (simple-var-ref $desugar$2))))))
-      (var-def
-        (variable $desugar$4 (expr
-          (client-resource-access get expr:
-            (simple-var-ref store) name:total
-            (simple-var-ref $desugar$2)
-            (simple-var-ref $desugar$3)))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$4))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$4))) ())
+            (simple-var-ref $desugar$1))))))
       (var-def
         (variable defaultTax (type
           (value-type int)) (expr
-          (simple-var-ref $desugar$4))))
-      (var-def
-        (variable $desugar$5 (expr
-          (client-resource-access get expr:
-            (simple-var-ref store) name:total
-            (literal 40)
-            (literal 5)))))
-      (if
-        (type-test-expr is
-          (simple-var-ref $desugar$5))
-        (block-stmt
-          (return
-            (simple-var-ref $desugar$5))) ())
+          (checked-expr
+            (client-resource-access get expr:
+              (simple-var-ref store) name:total
+              (simple-var-ref $desugar$1)
+              (simple-var-ref $desugar$2))))))
       (var-def
         (variable explicitTax (type
           (value-type int)) (expr
-          (simple-var-ref $desugar$5))))
+          (checked-expr
+            (client-resource-access get expr:
+              (simple-var-ref store) name:total
+              (literal 40)
+              (literal 5))))))
       (expression-stmt
         (invocation io println (
           (simple-var-ref defaultPrice))))
@@ -109,7 +85,8 @@
       (return
         (literal 10))))
   (function $default$1 (
-    (variable price)) ()
+    (variable price (type
+      (value-type )))) ()
     (block-function-body
       (return
         (binary-expr /

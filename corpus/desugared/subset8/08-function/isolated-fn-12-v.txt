@@ -43,7 +43,8 @@
             (simple-var-ref $desugar$0)
             (simple-var-ref $desugar$1))))))))
   (function $default$1 (
-    (variable base)) ()
+    (variable base (type
+      (value-type )))) ()
     (block-function-body
       (return
         (lambda

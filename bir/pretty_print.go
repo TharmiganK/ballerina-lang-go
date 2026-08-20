@@ -167,7 +167,7 @@ func (p *PrettyPrinter) printAnnotations(annotations values.AnnotationValues) {
 }
 
 func (p *PrettyPrinter) PrintBasicBlock(basicBlock BIRBasicBlock) {
-	p.writeLine(basicBlock.Id.Value() + " {")
+	p.writeLine(basicBlock.ID.Value() + " {")
 	p.increaseIndent()
 	for _, instruction := range basicBlock.Instructions {
 		p.writeLine(p.PrintInstruction(instruction))
@@ -326,11 +326,11 @@ func (p *PrettyPrinter) PrintNewError(e *NewError) string {
 
 func (p *PrettyPrinter) PrintFieldAccess(access *FieldAccess) string {
 	switch access.Kind {
-	case INSTRUCTION_KIND_MAP_STORE, INSTRUCTION_KIND_ARRAY_STORE, INSTRUCTION_KIND_OBJECT_STORE:
+	case InstructionKindMapStore, InstructionKindArrayStore, InstructionKindObjectStore:
 		return fmt.Sprintf("%s[%s] = %s;", p.PrintOperand(*access.LhsOp), p.PrintOperand(*access.KeyOp), p.PrintOperand(*access.RhsOp))
-	case INSTRUCTION_KIND_MAP_LOAD, INSTRUCTION_KIND_ARRAY_LOAD, INSTRUCTION_KIND_OBJECT_LOAD:
+	case InstructionKindMapLoad, InstructionKindArrayLoad, InstructionKindObjectLoad:
 		return fmt.Sprintf("%s = %s[%s];", p.PrintOperand(*access.LhsOp), p.PrintOperand(*access.RhsOp), p.PrintOperand(*access.KeyOp))
-	case INSTRUCTION_KIND_ARRAY_FILLING_LOAD, INSTRUCTION_KIND_MAP_FILLING_LOAD:
+	case InstructionKindArrayFillingLoad, InstructionKindMapFillingLoad:
 		return fmt.Sprintf("%s = %s[%s] (fill);", p.PrintOperand(*access.LhsOp), p.PrintOperand(*access.RhsOp), p.PrintOperand(*access.KeyOp))
 	default:
 		panic(fmt.Sprintf("unknown field access kind: %d", access.Kind))
@@ -428,19 +428,19 @@ func (p *PrettyPrinter) PrintPanic(pa *Panic) string {
 }
 
 func (p *PrettyPrinter) PrintLockStart(l *LockStart) string {
-	return fmt.Sprintf("lock-start %q GOTO %s;", l.LockKey, l.ThenBB.Id.Value())
+	return fmt.Sprintf("lock-start %q GOTO %s;", l.LockKey, l.ThenBB.ID.Value())
 }
 
 func (p *PrettyPrinter) PrintLockEnd(l *LockEnd) string {
-	return fmt.Sprintf("lock-end %q GOTO %s;", l.LockKey, l.ThenBB.Id.Value())
+	return fmt.Sprintf("lock-end %q GOTO %s;", l.LockKey, l.ThenBB.ID.Value())
 }
 
 func (p *PrettyPrinter) PrintBranch(b *Branch) string {
-	return fmt.Sprintf("%s ? %s : %s;", p.PrintOperand(*b.Op), b.TrueBB.Id.Value(), b.FalseBB.Id.Value())
+	return fmt.Sprintf("%s ? %s : %s;", p.PrintOperand(*b.Op), b.TrueBB.ID.Value(), b.FalseBB.ID.Value())
 }
 
 func (p *PrettyPrinter) PrintGoto(g *Goto) string {
-	return fmt.Sprintf("GOTO %s;", g.ThenBB.Id.Value())
+	return fmt.Sprintf("GOTO %s;", g.ThenBB.ID.Value())
 }
 
 func (p *PrettyPrinter) PrintResourceFunctionCall(call *ResourceFunctionCall) string {
@@ -458,7 +458,7 @@ func (p *PrettyPrinter) PrintResourceFunctionCall(call *ResourceFunctionCall) st
 		}
 		args.WriteString(p.PrintOperand(arg))
 	}
-	return fmt.Sprintf("%s = %s->[%s].%s(%s) -> %s;", p.PrintOperand(*call.LhsOp), p.PrintOperand(call.Receiver), segs.String(), call.MethodName, args.String(), call.ThenBB.Id.Value())
+	return fmt.Sprintf("%s = %s->[%s].%s(%s) -> %s;", p.PrintOperand(*call.LhsOp), p.PrintOperand(call.Receiver), segs.String(), call.MethodName, args.String(), call.ThenBB.ID.Value())
 }
 
 func (p *PrettyPrinter) PrintCall(call *Call) string {
@@ -469,7 +469,7 @@ func (p *PrettyPrinter) PrintCall(call *Call) string {
 		}
 		args.WriteString(p.PrintOperand(arg))
 	}
-	return fmt.Sprintf("%s = %s(%s) -> %s;", p.PrintOperand(*call.LhsOp), call.Name.Value(), args.String(), call.ThenBB.Id.Value())
+	return fmt.Sprintf("%s = %s(%s) -> %s;", p.PrintOperand(*call.LhsOp), call.Name.Value(), args.String(), call.ThenBB.ID.Value())
 }
 
 func (p *PrettyPrinter) PrintOperand(operand BIROperand) string {
@@ -510,37 +510,37 @@ func (p *PrettyPrinter) PrintBinaryOp(op *BinaryOp) string {
 
 func (p *PrettyPrinter) PrintInstructionKind(kind InstructionKind) string {
 	switch kind {
-	case INSTRUCTION_KIND_ADD:
+	case InstructionKindAdd:
 		return "+"
-	case INSTRUCTION_KIND_SUB:
+	case InstructionKindSub:
 		return "-"
-	case INSTRUCTION_KIND_MUL:
+	case InstructionKindMul:
 		return "*"
-	case INSTRUCTION_KIND_DIV:
+	case InstructionKindDiv:
 		return "/"
-	case INSTRUCTION_KIND_MOD:
+	case InstructionKindMod:
 		return "%"
-	case INSTRUCTION_KIND_AND:
+	case InstructionKindAnd:
 		return "&&"
-	case INSTRUCTION_KIND_OR:
+	case InstructionKindOr:
 		return "||"
-	case INSTRUCTION_KIND_LESS_THAN:
+	case InstructionKindLessThan:
 		return "<"
-	case INSTRUCTION_KIND_LESS_EQUAL:
+	case InstructionKindLessEqual:
 		return "<="
-	case INSTRUCTION_KIND_GREATER_THAN:
+	case InstructionKindGreaterThan:
 		return ">"
-	case INSTRUCTION_KIND_GREATER_EQUAL:
+	case InstructionKindGreaterEqual:
 		return ">="
-	case INSTRUCTION_KIND_EQUAL:
+	case InstructionKindEqual:
 		return "=="
-	case INSTRUCTION_KIND_NOT_EQUAL:
+	case InstructionKindNotEqual:
 		return "!="
-	case INSTRUCTION_KIND_NOT:
+	case InstructionKindNot:
 		return "!"
-	case INSTRUCTION_KIND_BITWISE_COMPLEMENT:
+	case InstructionKindBitwiseComplement:
 		return "~"
-	case INSTRUCTION_KIND_ANNOT_ACCESS:
+	case InstructionKindAnnotAccess:
 		return ".@"
 	}
 	return "unknown"

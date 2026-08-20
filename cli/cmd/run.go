@@ -116,9 +116,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		Build()
 
 	if err := profiler.Start(); err != nil {
-		profErr := fmt.Errorf("failed to start profiler: %w", err)
-		printError(profErr, "", false)
-		return profErr
+		// Profiler setup, not a run-usage mistake, so no USAGE block.
+		return fmt.Errorf("failed to start profiler: %w", err)
 	}
 	defer func() { _ = profiler.Stop() }()
 
@@ -140,9 +139,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		if runOpts.logFile != "" {
 			logWriter, err = os.Create(runOpts.logFile)
 			if err != nil {
-				cmdErr := fmt.Errorf("error creating log file %s: %w", runOpts.logFile, err)
-				printError(cmdErr, "", false)
-				return cmdErr
+				// A bad --log-file path, not a run-usage mistake, so no USAGE block.
+				return fmt.Errorf("error creating log file %s: %w", runOpts.logFile, err)
 			}
 			defer func() { _ = logWriter.Close() }()
 			debugcommon.InitDebug(flags, logWriter)
@@ -159,8 +157,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 
 	info, err := os.Stat(path)
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 
 	baseDir := path
@@ -174,8 +171,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	// Detect if path is inside a workspace - if so, load the workspace instead
 	absBaseDir, err := filepath.Abs(baseDir)
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 	workspaceRoot := findWorkspaceRoot(absBaseDir)
 
@@ -189,8 +185,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 
 	ballerinaEnvPath, err := getBallerinaEnvPath()
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 	ballerinaEnvFs := os.DirFS(ballerinaEnvPath)
 
@@ -199,8 +194,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		BuildOptions:   &buildOpts,
 	})
 	if err != nil {
-		printRunError(err)
-		return err
+		return runError("%w", err)
 	}
 
 	// Check for loading errors
@@ -208,6 +202,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	if diagResult.HasErrors() {
 		// Given we don't have sources at this point it is okay to pass an empty diagnostic env
 		printDiagnostics(fsys, os.Stderr, diagResult, !isTerminal(), diagnostics.NewDiagnosticEnv())
+		// Not a run-usage mistake, so no USAGE block, but cobra should still
+		// print "ballerina: project loading contains errors" as a summary.
 		return fmt.Errorf("project loading contains errors")
 	}
 
@@ -217,24 +213,18 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	if project.Kind() == projects.ProjectKindWorkspace {
 		workspace, ok := project.(*projects.WorkspaceProject)
 		if !ok {
-			err := fmt.Errorf("internal error: expected WorkspaceProject")
-			printRunError(err)
-			return err
+			return runError("internal error: expected WorkspaceProject")
 		}
 
 		// If user specified the workspace root itself, they can't run the workspace directly
 		if workspaceRoot == "" || absBaseDir == workspaceRoot {
-			err := fmt.Errorf("cannot run a workspace project directly. Use 'bal run <package-path>' to run a specific package within the workspace")
-			printRunError(err)
-			return err
+			return runError("cannot run a workspace project directly. Use 'bal run <package-path>' to run a specific package within the workspace")
 		}
 
 		// Find the BuildProject matching the user's path
 		buildProject := findBuildProjectByPath(workspace, workspaceRoot, absBaseDir)
 		if buildProject == nil {
-			err := fmt.Errorf("no package found at path %s within workspace %s", absBaseDir, workspaceRoot)
-			printRunError(err)
-			return err
+			return runError("no package found at path %s within workspace %s", absBaseDir, workspaceRoot)
 		}
 		project = buildProject
 	}
@@ -244,8 +234,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	// Skipped when already running as a native interpreter (BAL_NATIVE=1).
 	if !nativeexec.InNativeMode() {
 		if err := execWithNativeRunner(pkg, project, absBaseDir); err != nil {
-			printRunError(err)
-			return err
+			return runError("%w", err)
 		}
 	}
 
@@ -258,6 +247,8 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 		printDiagnostics(fsys, os.Stderr, compilationDiags, !isTerminal(), compilation.DiagnosticEnv())
 	}
 	if compilationDiags.HasErrors() {
+		// Not a run-usage mistake, so no USAGE block, but cobra should still
+		// print "ballerina: compilation contains errors" as a summary.
 		return fmt.Errorf("compilation contains errors")
 	}
 
@@ -266,9 +257,7 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	birPkgs := backend.BIRPackages()
 
 	if len(birPkgs) == 0 {
-		err := fmt.Errorf("BIR generation failed: no BIR package produced")
-		printError(err, "", false)
-		return err
+		return fmt.Errorf("BIR generation failed: no BIR package produced")
 	}
 
 	if runOpts.statsOneline {
@@ -301,7 +290,12 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	var initErr error
 	for _, birPkg := range birPkgs {
 		if err := rt.Init(*birPkg); err != nil {
-			printRuntimeError(err)
+			// Runtime errors carry their own multi-line stack-trace-like
+			// format; cobra's "ballerina:" prefix and run's USAGE block
+			// would look out of place against the rest of the trace. Print
+			// verbatim and silence cobra's default error print.
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), err)
+			cmd.SilenceErrors = true
 			initErr = err
 			break
 		}
@@ -312,13 +306,15 @@ func runBallerina(cmd *cobra.Command, args []string) error {
 	}
 	exitCode := <-rt.ExitStatus
 	if exitCode != 0 {
+		// The executed program's own exit code, not a run-usage mistake, so
+		// this must stay a bare error — no USAGE block.
 		return fmt.Errorf("exit: %d", exitCode)
 	}
 	return nil
 }
 
-func printRunError(err error) {
-	printError(err, "run [<source-file.bal> | <package-dir> | .]", false)
+func runError(format string, args ...any) error {
+	return usageError("run [<source-file.bal> | <package-dir> | .]", format, args...)
 }
 
 func getBallerinaEnvPath() (string, error) {

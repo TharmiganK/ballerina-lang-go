@@ -181,6 +181,7 @@ type (
 	}
 	BLangXMLNS struct {
 		bLangNodeBase
+		symbol       model.SymbolRef
 		namespaceURI BLangExpression
 		prefix       *BLangIdentifier
 	}
@@ -360,6 +361,14 @@ func (b *bLangNodeBase) SetPosition(pos diagnostics.Location) {
 	b.pos = pos
 }
 
+func (n *BLangXMLNS) Symbol() model.SymbolRef {
+	return n.symbol
+}
+
+func (n *BLangXMLNS) SetSymbol(symbolRef model.SymbolRef) {
+	n.symbol = symbolRef
+}
+
 func (n *classDefnBase) Symbol() model.SymbolRef {
 	return n.symbol
 }
@@ -442,6 +451,7 @@ func (n *BLangAnnotationAttachment) SetSymbol(symbolRef model.SymbolRef) {
 var (
 	_ BNodeWithSymbol   = &BLangAnnotation{}
 	_ BNodeWithSymbol   = &BLangAnnotationAttachment{}
+	_ BNodeWithSymbol   = &BLangXMLNS{}
 	_ NodeWithScope     = &BLangClassDefinition{}
 	_ FunctionBodyNode  = &BLangExternFunctionBody{}
 	_ FunctionSignature = &BLangFunction{}

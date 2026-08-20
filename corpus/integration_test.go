@@ -85,8 +85,6 @@ var (
 		// panic or a compile-time `fatal[...]` bailout, so it does not satisfy
 		// the future-test contract yet. Tracked separately.
 		"subset8/08-future/fieldlvalue1-fp.bal",
-		// https://github.com/ballerina-nutcracker/ballerina/issues/417
-		"subset8/08-xml/namespace12-v.bal",
 		// https://github.com/ballerina-nutcracker/ballerina/issues/533
 		"subset9/09-template-expr/template-query-xml-sequence-fv.bal",
 		// https://github.com/ballerina-nutcracker/ballerina/issues/538

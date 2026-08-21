@@ -93,31 +93,39 @@ func (p *PrettyPrinter) Print(tyCtx semtypes.Context, node BIRPackage) string {
 	return p.sb.String()
 }
 
-func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
-	p.write(function.Name.Value())
-	p.write("(")
-	paramStart := 1
-	if function.Flags.Has(model.FlagAttached) {
-		paramStart = 2
+// printFunctionParams prints the parameter list of function. Native dependently
+// typed functions carry no local variables because their signature is only known
+// at each call site, so there is nothing to print for them.
+func (p *PrettyPrinter) printFunctionParams(function BIRFunction) {
+	paramStart := function.ParamLocalVarOffset()
+	if len(function.LocalVars) <= paramStart {
+		return
 	}
 	for i, v := range function.LocalVars[paramStart:] {
-		if i < len(function.RequiredParams) {
-			if i > 0 {
-				p.write(",")
-			}
-			p.write(p.PrintSemType(v.Type))
-		} else {
+		if i >= len(function.RequiredParams) {
 			break
 		}
+		if i > 0 {
+			p.write(",")
+		}
+		p.printAnnotations(function.RequiredParams[i].Annotations)
+		p.write(p.PrintSemType(v.Type))
 	}
 	if function.RestParams != nil {
 		variableIndex := paramStart + len(function.RequiredParams)
 		if variableIndex != paramStart {
 			p.write(",")
 		}
+		p.printAnnotations(function.RestParams.Annotations)
 		p.write(p.PrintSemType(function.LocalVars[variableIndex].Type))
 		p.write("...")
 	}
+}
+
+func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
+	p.write(function.Name.Value())
+	p.write("(")
+	p.printFunctionParams(function)
 	p.write(")")
 	if function.ReturnVariable != nil && !semtypes.IsZero(function.ReturnVariable.Type) {
 		p.write(" -> ")
@@ -141,6 +149,21 @@ func (p *PrettyPrinter) PrintFunction(function BIRFunction) {
 	p.decreaseIndent()
 	p.writeIndent()
 	p.write("}")
+}
+
+func (p *PrettyPrinter) printAnnotations(annotations values.AnnotationValues) {
+	keys := make([]string, 0, len(annotations))
+	for key := range annotations {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		p.write("@")
+		p.write(key)
+		p.write("(")
+		p.write(formatConstantValue(annotations[key]))
+		p.write(") ")
+	}
 }
 
 func (p *PrettyPrinter) PrintBasicBlock(basicBlock BIRBasicBlock) {
@@ -331,6 +354,7 @@ func (p *PrettyPrinter) PrintStreamClose(n *StreamClose) string {
 }
 
 func (p *PrettyPrinter) PrintClassDef(classDef BIRClassDef) {
+	p.printAnnotations(classDef.Annotations)
 	p.write("class ")
 	p.write(classDef.Name.Value())
 	p.write(" {\n")
@@ -469,6 +493,9 @@ func formatConstantValue(v any) string {
 	switch v.(type) {
 	case *values.List, *values.Map, *values.Error, *values.Function, *values.Object, *values.TypeDesc:
 		return values.String(v, map[uintptr]bool{})
+	}
+	if ref, ok := v.(*values.RuntimeAnnotationValueRef); ok {
+		return fmt.Sprintf("runtime-ref(%s/%s:%s)", ref.Organization, ref.Module, ref.GlobalName)
 	}
 	return fmt.Sprintf("%v", v)
 }

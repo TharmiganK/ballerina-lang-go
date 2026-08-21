@@ -944,13 +944,11 @@ func resolveInvokableSignature(t typeResolver, fn common.FunctionDecl, fnSym mod
 				return semtypes.SemType{}, nil, semtypes.SemType{}, semtypes.SemType{}, false
 			}
 		}
-		setOtherNodesAsNever(param)
 		paramTypes[i] = param.GetDeterminedType()
 	}
 	restTy := semtypes.Never
 	if restParam := fn.GetRestParam(); restParam != nil {
 		resolveSimpleVariableInner(t, nil, restParam, depth+1)
-		setOtherNodesAsNever(restParam)
 		elementType := restParam.GetDeterminedType()
 		restTy = elementType
 		listDefn := semtypes.NewListDefinition()
@@ -969,7 +967,6 @@ func resolveInvokableSignature(t typeResolver, fn common.FunctionDecl, fnSym mod
 		if !ok {
 			return semtypes.SemType{}, nil, semtypes.SemType{}, semtypes.SemType{}, false
 		}
-		setOtherNodesAsNever(retTd)
 	} else {
 		returnTy = semtypes.Nil
 	}
@@ -1075,6 +1072,11 @@ func (t *packageTypeResolver) resolveTopLevelTypes(pkg *ast.BLangPackage) {
 	for i := range pkg.GlobalVars {
 		resolveGlobalVarType(t, pkg.GlobalVars[i])
 	}
+	for i := range pkg.XmlnsList {
+		if !resolveXMLNS(t, nil, pkg.XmlnsList[i]) {
+			return
+		}
+	}
 	if !resolvePackageConstants(t, pkg) {
 		return
 	}
@@ -1082,6 +1084,16 @@ func (t *packageTypeResolver) resolveTopLevelTypes(pkg *ast.BLangPackage) {
 	// have been folded even though the annotated type/function nodes were
 	// resolved earlier in the top-level pass.
 	resolveTopLevelAnnotationAttachments(t, pkg)
+	for i := range pkg.Functions {
+		finalizeInvokableSignatureNodes(pkg.Functions[i])
+	}
+	if pkg.InitFunction != nil {
+		finalizeInvokableSignatureNodes(pkg.InitFunction)
+	}
+	for i := range pkg.ClassDefinitions {
+		classDef := pkg.ClassDefinitions[i]
+		finalizeClassBodySignatureNodes(classDef.InitFunction, classDef.Methods, classDef.ResourceMethods)
+	}
 	for i := range pkg.Imports {
 		setOtherNodesAsNever(pkg.Imports[i])
 	}
@@ -1112,12 +1124,9 @@ func (t *packageTypeResolver) resolveTopLevelTypes(pkg *ast.BLangPackage) {
 		if !resolveServiceAttachedExpressions(t, svc) || !resolveServiceType(t, svc, 0, attachPointBound) {
 			continue
 		}
+		finalizeClassBodySignatureNodes(svc.InitFunction, svc.Methods, svc.ResourceMethods)
 		svc.SetDeterminedType(semtypes.Never)
 	}
-	for i := range pkg.XmlnsList {
-		resolveXMLNS(t, nil, pkg.XmlnsList[i])
-	}
-
 	t.drainDeferredEmptinessChecks()
 }
 
@@ -1163,10 +1172,6 @@ func resolveAnnotationDeclaration(t typeResolver, annotation *ast.BLangAnnotatio
 			t.semanticError("annotation type must be a subtype of true|map<Cloneable>|map<Cloneable>[]", typeDesc.GetPosition())
 			return false
 		}
-		if annotation.IsConst() && !semtypes.IsSubtype(t.typeContext(), ty, semtypes.ValReadonly) {
-			t.semanticError("const annotation type must be readonly", typeDesc.GetPosition())
-			return false
-		}
 	} else {
 		ty = semtypes.BooleanConst(true)
 	}
@@ -1207,18 +1212,12 @@ func resolveTopLevelAnnotationAttachments(t typeResolver, pkg *ast.BLangPackage)
 			classPoint = ast.PointService
 		}
 		resolveAnnotationAttachments(t, classDef, classPoint, classDef.Symbol())
-		for j := range classDef.Fields {
-			resolveAnnotationAttachments(t, classDef.Fields[j], ast.PointObjectField, model.SymbolRef{})
-		}
-		if classDef.InitFunction != nil {
-			resolveFunctionAnnotationAttachments(t, classDef.InitFunction, true)
-		}
-		for _, method := range classDef.Methods {
-			resolveFunctionAnnotationAttachments(t, method, true)
-		}
-		for _, method := range classDef.ResourceMethods {
-			resolveInvokableAnnotationAttachments(t, method, ast.PointObjectMethod)
-		}
+		resolveClassBodyAnnotationAttachments(t, classDef.Fields, classDef.InitFunction, classDef.Methods, classDef.ResourceMethods)
+	}
+	for i := range pkg.Services {
+		svc := pkg.Services[i]
+		resolveAnnotationAttachments(t, svc, ast.PointService, svc.Symbol())
+		resolveClassBodyAnnotationAttachments(t, svc.Fields, svc.InitFunction, svc.Methods, svc.ResourceMethods)
 	}
 	for i := range pkg.Functions {
 		resolveFunctionAnnotationAttachments(t, pkg.Functions[i], false)
@@ -1237,6 +1236,52 @@ func resolveTopLevelAnnotationAttachments(t typeResolver, pkg *ast.BLangPackage)
 		globals = append(globals, pkg.GlobalVars[initialGlobalCount:]...)
 		globals = append(globals, pkg.GlobalVars[:initialGlobalCount]...)
 		pkg.GlobalVars = globals
+	}
+}
+
+func resolveClassBodyAnnotationAttachments(t typeResolver, fields []*ast.BLangVariable, initFn *ast.BLangFunction,
+	methods map[string]*ast.BLangFunction, resourceMethods []*ast.BLangResourceMethod,
+) {
+	for _, field := range fields {
+		resolveAnnotationAttachments(t, field, ast.PointObjectField, model.SymbolRef{})
+	}
+	if initFn != nil {
+		resolveFunctionAnnotationAttachments(t, initFn, true)
+	}
+	for _, method := range common.MethodsInResolutionOrder(methods) {
+		resolveFunctionAnnotationAttachments(t, method.Method, true)
+	}
+	for _, method := range resourceMethods {
+		resolveInvokableAnnotationAttachments(t, method, ast.PointObjectMethod)
+	}
+}
+
+func finalizeClassBodySignatureNodes(
+	initFn *ast.BLangFunction,
+	methods map[string]*ast.BLangFunction,
+	resourceMethods []*ast.BLangResourceMethod,
+) {
+	if initFn != nil {
+		finalizeInvokableSignatureNodes(initFn)
+	}
+	for _, method := range methods {
+		finalizeInvokableSignatureNodes(method)
+	}
+	for _, method := range resourceMethods {
+		finalizeInvokableSignatureNodes(method)
+	}
+}
+
+func finalizeInvokableSignatureNodes(fn ast.InvokableNode) {
+	parameters := fn.GetParameters()
+	for i := range parameters {
+		setOtherNodesAsNever(&parameters[i])
+	}
+	if restParam := fn.GetRestParam(); restParam != nil {
+		setOtherNodesAsNever(restParam)
+	}
+	if ret := fn.GetReturnTypeDescriptor(); ret != nil {
+		setOtherNodesAsNever(ret)
 	}
 }
 
@@ -1260,10 +1305,10 @@ func resolveInvokableAnnotationAttachments(
 	resolveAnnotationAttachments(t, fn, point, model.SymbolRef{})
 	parameters := fn.GetParameters()
 	for i := range parameters {
-		resolveAnnotationAttachments(t, &parameters[i], ast.PointParameter, model.SymbolRef{})
+		resolveAnnotationAttachments(t, &parameters[i], ast.PointParameter, parameters[i].Symbol())
 	}
 	if restParam := fn.GetRestParam(); restParam != nil {
-		resolveAnnotationAttachments(t, restParam, ast.PointParameter, model.SymbolRef{})
+		resolveAnnotationAttachments(t, restParam, ast.PointParameter, restParam.Symbol())
 	}
 	if ret := fn.GetReturnTypeDescriptor(); ret != nil {
 		resolveAnnotationAttachments(t, ret, ast.PointReturn, model.SymbolRef{})
@@ -1274,7 +1319,7 @@ func resolveAnnotationAttachments(
 	t typeResolver,
 	node ast.AnnotatableNode,
 	point ast.Point,
-	typeSymbol model.SymbolRef,
+	ownerSymbol model.SymbolRef,
 ) {
 	seen := make(map[string]bool)
 	repeatedValues := make(map[string]*repeatedAnnotationValue)
@@ -1345,8 +1390,8 @@ func resolveAnnotationAttachments(
 		if !runtimeValue {
 			ann.AnnotationValue = value
 		}
-		storedOnType := typeSymbol != (model.SymbolRef{}) && sym.IsRuntimeVisibleAt(pointKey)
-		if repeated && storedOnType {
+		storeValue := ownerSymbol != (model.SymbolRef{}) && sym.IsRuntimeVisibleAt(pointKey)
+		if repeated && storeValue {
 			group := repeatedValues[key]
 			if group == nil {
 				group = &repeatedAnnotationValue{listType: expectedType}
@@ -1359,13 +1404,13 @@ func resolveAnnotationAttachments(
 			continue
 		}
 		if runtimeValue {
-			if storedOnType {
-				setTypeAnnotationValue(t, typeSymbol, key, createRuntimeAnnotationGlobal(t, ann.Expr))
+			if storeValue {
+				setSymbolAnnotationValue(t, ownerSymbol, key, createRuntimeAnnotationGlobal(t, ann.Expr))
 			}
 			continue
 		}
-		if storedOnType {
-			setTypeAnnotationValue(t, typeSymbol, key, value)
+		if storeValue {
+			setSymbolAnnotationValue(t, ownerSymbol, key, value)
 		}
 	}
 
@@ -1383,12 +1428,12 @@ func resolveAnnotationAttachments(
 			}
 			expr.SetPosition(group.expressions[0].GetPosition())
 			expr.SetDeterminedType(group.listType)
-			setTypeAnnotationValue(t, typeSymbol, key, createRuntimeAnnotationGlobal(t, expr))
+			setSymbolAnnotationValue(t, ownerSymbol, key, createRuntimeAnnotationGlobal(t, expr))
 			continue
 		}
 		restFiller, _ := values.FillerFactoryFor(t.typeContext(), atomic.Rest())
 		value := values.NewList(group.listType, atomic, true, restFiller, len(group.values), group.values)
-		setTypeAnnotationValue(t, typeSymbol, key, value)
+		setSymbolAnnotationValue(t, ownerSymbol, key, value)
 	}
 }
 
@@ -1483,7 +1528,7 @@ func createRuntimeAnnotationGlobal(t typeResolver, expr ast.BLangExpression) *va
 	}
 }
 
-func setTypeAnnotationValue(t typeResolver, symbol model.SymbolRef, key string, value values.AnnotationValue) {
+func setSymbolAnnotationValue(t typeResolver, symbol model.SymbolRef, key string, value values.AnnotationValue) {
 	t.compilerContext().SetSymbolAnnotationValue(symbol, key, value)
 }
 
@@ -1750,7 +1795,9 @@ func resolveStatementInner(t typeResolver, chain *binding, stmt ast.StatementNod
 		}
 		return statementEffect{binding: nil, nonCompletion: true}, true
 	case *ast.BLangXMLNS:
-		resolveXMLNS(t, chain, s)
+		if !resolveXMLNS(t, chain, s) {
+			return defaultStmtEffect(chain), false
+		}
 		return defaultStmtEffect(chain), true
 	default:
 		t.internalError(fmt.Sprintf("unhandled statement type: %T", stmt), stmt.GetPosition())
@@ -1758,14 +1805,55 @@ func resolveStatementInner(t typeResolver, chain *binding, stmt ast.StatementNod
 	}
 }
 
-func resolveXMLNS(t typeResolver, chain *binding, decl *ast.BLangXMLNS) {
+func resolveXMLNS(t typeResolver, chain *binding, decl *ast.BLangXMLNS) bool {
 	decl.SetDeterminedType(semtypes.Never)
-	if uriExpr := decl.GetNamespaceURI(); uriExpr != nil {
-		resolveActionOrExpression(t, chain, uriExpr, semtypes.String)
+	uriExpr := decl.GetNamespaceURI()
+	if uriExpr == nil {
+		t.internalError("xmlns declaration missing URI", decl.GetPosition())
+		return false
 	}
+	uriTy, _, ok := resolveActionOrExpression(t, chain, uriExpr, semtypes.String)
+	if !ok {
+		return false
+	}
+	if !semtypes.IsSubtype(t.typeContext(), uriTy, semtypes.String) {
+		t.semanticError("xmlns URI must be a string", uriExpr.GetPosition())
+		return false
+	}
+	isConstant := true
+	common.ValidateConstantExpr(t.compilerContext(), uriExpr, func(expr ast.BLangExpression) {
+		// Report only the first non-constant subexpression to avoid duplicate diagnostics.
+		if isConstant {
+			t.semanticError("expression is not a constant expression", expr.GetPosition())
+		}
+		isConstant = false
+	})
+	if !isConstant {
+		return false
+	}
+	value, err := evaluateConstantExpression(t, uriExpr)
+	if err != nil {
+		t.semanticError("expression is not a constant expression", uriExpr.GetPosition())
+		return false
+	}
+	uri, ok := value.(string)
+	if !ok {
+		t.semanticError("xmlns URI must be a string", uriExpr.GetPosition())
+		return false
+	}
+	if uri == "" {
+		t.semanticError("XML namespace URI cannot be empty", decl.GetPosition())
+		return false
+	}
+	if err := t.compilerContext().SetXMLNamespaceURI(decl.Symbol(), uri); err != nil {
+		t.internalError(err.Error(), decl.GetPosition())
+		return false
+	}
+	t.setSymbolType(decl.Symbol(), semtypes.String)
 	if prefix := decl.GetPrefix(); prefix != nil {
 		prefix.SetDeterminedType(semtypes.Never)
 	}
+	return true
 }
 
 func resolveOnFailClause(t typeResolver, chain *binding, clause *ast.BLangOnFailClause) {
@@ -1948,7 +2036,6 @@ func resolveDependentlyTypedFunctionSignature(t typeResolver, fn *ast.BLangFunct
 		t.internalError("failed to build return type op for dependently-typed function", fn.GetPosition())
 		return semtypes.SemType{}, false
 	}
-	setOtherNodesAsNever(retTd)
 	sym.SetParamTypes(paramTypes)
 	sym.SetReturnType(retOp)
 	if !finalizeResolvedFunctionSignature(t, fn) {
@@ -2729,6 +2816,7 @@ func resolveServiceType(t typeResolver, svc *ast.BLangService, depth int, attach
 	typeData.Type = serviceTy
 	svc.SetTypeData(typeData)
 	svc.ObjectBodyType = objectBodyTy
+	t.setSymbolType(svc.Symbol(), objectBodyTy)
 	if selfRef, ok := svc.Scope().GetSymbol("self"); ok {
 		t.setSymbolType(selfRef, objectBodyTy)
 	}

@@ -456,7 +456,6 @@ func Run(t testing.TB, tc test_util.TestCase, pal TestPal, externs []ExternRegis
 	if len(birPkgs) == 0 {
 		t.Fatalf("compilation succeeded but produced no BIR packages for %s", tc.Name)
 	}
-
 	rt := runtime.NewRuntime(pal.Platform(), tyEnv)
 	for _, e := range externs {
 		runtime.RegisterExternFunction(rt, e.Org, e.Module, e.FuncName, e.Impl)

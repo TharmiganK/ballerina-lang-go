@@ -1260,6 +1260,15 @@ func XMLNamespaceURI(symbol Symbol) (string, error) {
 	return xmlns.URI(), nil
 }
 
+func SetXMLNamespaceURI(symbol Symbol, uri string) error {
+	xmlns, ok := symbol.(*XMLNSSymbol)
+	if !ok {
+		return errors.New("expected XML namespace symbol")
+	}
+	xmlns.uri = uri
+	return nil
+}
+
 func XMLNamespaceDeclKey(symbol Symbol) (string, error) {
 	xmlns, ok := symbol.(*XMLNSSymbol)
 	if !ok {

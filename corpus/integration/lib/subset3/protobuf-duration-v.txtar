@@ -1,0 +1,7 @@
+-- stdout --
+12.5
+type.googleapis.com/google.protobuf.Duration
+12.5
+12.123456789
+0
+-- stderr --

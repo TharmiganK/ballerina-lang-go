@@ -1,0 +1,11 @@
+-- stdout --
+two
+type.googleapis.com/google.protobuf.Struct
+1.0
+two
+true
+1.0
+4
+two
+
+-- stderr --

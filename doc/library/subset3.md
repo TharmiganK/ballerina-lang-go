@@ -3,9 +3,11 @@
 Subset 3 extends the released [subset 2](subset2.md) with the `avro` module —
 Avro binary serialization and deserialization driven by an Avro schema string —
 plus stream-based file read/write additions and byte channels in the `io`
-module, building on the language's new `stream` type, and with client-side
+module, building on the language's new `stream` type, with client-side
 response data binding, XML payloads, and `anydata` resource returns for the
-`http` module.
+`http` module, and the new `ballerina/protobuf` package, providing the protobuf
+well-known types (`Any`, `Struct`, `Timestamp`, `Duration`, `Empty`, and the
+scalar wrapper types) used by generated gRPC client/service code.
 
 ## [avro](https://github.com/ballerina-platform/module-ballerina-avro/blob/master/docs/spec/spec.md)
 
@@ -47,7 +49,6 @@ Records, enums, tuples, singletons, `map<T>`, `T[]`, `json`, `map<json>`,
 `anydata` and nilable forms of all of these are accepted as targets, along with
 numeric widening from `int` to `float` and `decimal`. A `readonly &`
 intersection of any of these is accepted too and binds to a frozen value.
-
 ## [io](https://github.com/ballerina-platform/module-ballerina-io/blob/master/docs/spec/spec.md)
 
 Subset 2 covered console printing and whole-file I/O (string, lines, bytes,
@@ -206,3 +207,17 @@ resource function get album() returns xml {
     return xml `<album><title>Kind of Blue</title></album>`;
 }
 ```
+
+## [protobuf](https://github.com/ballerina-platform/module-ballerina-protobuf/blob/master/docs/spec/spec.md)
+
+`ballerina/protobuf` provides the type declarations for the protobuf well-known types used by generated gRPC client/service code, plus packing and unpacking values into `protobuf.types.any:Any` for the well-known types. The separate `.proto`-to-Ballerina code generator that produces gRPC client/service stubs and `@protobuf:Descriptor`-annotated message records is not part of this package and is out of scope.
+
+| Feature | Notes |
+|---|---|
+| `protobuf:Error`, `protobuf:MessageDescriptor`, `protobuf:Descriptor` annotation | Declared for interface parity; the annotation is not read by any code path, since arbitrary-record `pack`/`unpack` (the only consumer) is not implemented |
+| `protobuf.types.any:pack(message)` | Supported for `int`, `float`, `string`, `boolean`, `byte[]`, `()`, `time:Utc`, `time:Seconds`, and `map<anydata>`. An arbitrary `record {}` value is packed as `google.protobuf.Struct` rather than resolved via its own descriptor — see the package README |
+| `protobuf.types.any:unpack(anyValue, targetTypeOfAny = <>)` | Supported for the same well-known types, using the interpreter's inferred-typedesc-parameter support; a mismatched target raises `protobuf.types.any:TypeMismatchError` |
+| `protobuf.types.any:Any`, `ContextAny`, `ContextAnyStream` | Supported |
+| `protobuf.types.duration`, `protobuf.types.empty`, `protobuf.types.struct`, `protobuf.types.timestamp`, `protobuf.types.wrappers` context record types | Supported |
+
+Not covered in this subset: arbitrary user-defined message record (de)serialization via the `@protobuf:Descriptor` annotation, and the `.proto`-to-Ballerina code generator (`ballerina/grpc` and its tooling are not ported).

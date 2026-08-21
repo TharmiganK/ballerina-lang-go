@@ -19,10 +19,11 @@ in each package's support table (Supported + Partially Supported + Not Yet Suppo
 | [log](log/0.0.1/go1.26/README.md)                 | 7 | 2 | 15 | 29% |
 | [math.vector](math.vector/0.0.1/go1.26/README.md) | 5 | 0 | 0 | 100% |
 | [os](os/0.0.1/go1.26/README.md)                   | 11 | 1 | 0 | 92% |
+| [protobuf](protobuf/0.0.1/go1.26/README.md)       | 11 | 2 | 0 | 85% |
 | [random](random/0.0.1/go1.26/README.md)           | 3 | 1 | 1 | 60% |
 | [time](time/0.0.1/go1.26/README.md)               | 31 | 1 | 0 | 97% |
 | [url](url/0.0.1/go1.26/README.md)                 | 3 | 0 | 1 | 75% |
-| **Total**                                         | **150** | **16** | **64** | **65%** |
+| **Total**                                         | **161** | **18** | **64** | **66%** |
 
 ## Notable Behavioural Changes
 
@@ -72,6 +73,12 @@ tables instead.
 ### os
 
 - **Environment mutations are process-wide.** jBallerina uses per-strand env maps for isolation; the Go-native version calls `os.Setenv` / `os.Unsetenv` directly, mutating the process-wide environment. This is safe for single-threaded Ballerina programs but not for concurrent strand execution.
+
+### protobuf
+
+- **`types.any:Error` does not chain from the package's root error type.** jBallerina declares `protobuf.types.any:Error` as `distinct protobuf:Error`, so code catching the root `protobuf:Error` type also catches `protobuf.types.any` errors; the Go-native version declares `types.any:Error` as a standalone `distinct error` instead, because a module cannot currently import its own package's default/root module by name (tracked at https://github.com/ballerina-nutcracker/ballerina/issues/777) — catching `protobuf:Error` will not also catch this module's errors.
+- **Arbitrary message records pack as `Struct`, not their own descriptor.** jBallerina resolves an arbitrary `record {}` value passed to `pack`/`unpack` through its `@protobuf:Descriptor` annotation, serializing it against its own registered message schema; the Go-native version cannot distinguish a `record {}` value from a genuine `map<anydata>` value with an `is` check — any record whose field types are all `anydata` structurally satisfies `map<anydata>` too — so such values are always packed as `google.protobuf.Struct` instead. This only matters once a `.proto`-to-Ballerina code generator exists to produce `@Descriptor`-annotated records, which is out of scope for this port.
+- **`map<anydata>` keys from an unpacked Struct are sorted alphabetically.** jBallerina's field order for a deserialized `Struct` reflects Java's map implementation; the Go-native version sorts keys alphabetically instead, since Go's map type does not preserve insertion or wire order.
 
 ### random
 

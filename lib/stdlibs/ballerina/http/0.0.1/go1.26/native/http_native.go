@@ -66,18 +66,28 @@ var hopByHopHeaders = map[string]struct{}{
 	"upgrade":             {},
 }
 
+// hopByHopSkipSet builds the set of lowercase header names to omit when
+// forwarding headers downstream: the fixed hopByHopHeaders set, plus any
+// header the Connection value itself nominates, per RFC 7230 §6.1.
+func hopByHopSkipSet(connectionValues []string) map[string]struct{} {
+	skip := make(map[string]struct{}, len(hopByHopHeaders))
+	for k := range hopByHopHeaders {
+		skip[k] = struct{}{}
+	}
+	for _, f := range connectionValues {
+		for _, tok := range strings.Split(f, ",") {
+			skip[strings.ToLower(strings.TrimSpace(tok))] = struct{}{}
+		}
+	}
+	return skip
+}
+
 // removeHopByHopHeaders deletes hop-by-hop entries from h in place.
 // It also honours the Connection header's own token list per RFC 7230 §6.1.
 func removeHopByHopHeaders(h map[string][]string) {
-	if connVals, ok := h["connection"]; ok {
-		for _, f := range connVals {
-			for _, tok := range strings.Split(f, ",") {
-				delete(h, strings.ToLower(strings.TrimSpace(tok)))
-			}
-		}
-	}
+	skip := hopByHopSkipSet(h["connection"])
 	for k := range h {
-		if _, skip := hopByHopHeaders[strings.ToLower(k)]; skip {
+		if _, ok := skip[strings.ToLower(k)]; ok {
 			delete(h, k)
 		}
 	}
@@ -1806,6 +1816,24 @@ func buildResponse(tc semtypes.Context, statusCode int, respHeaders map[string][
 func responseHeaders(self *values.Object) *values.Map {
 	h, _ := self.Get("$headers")
 	return h.(*values.Map)
+}
+
+// headerListValues returns the string values stored under name in hdrs, or nil
+// if the header is absent.
+func headerListValues(hdrs *values.Map, name string) []string {
+	val, ok := hdrs.Get(name)
+	if !ok {
+		return nil
+	}
+	list, ok := val.(*values.List)
+	if !ok {
+		return nil
+	}
+	out := make([]string, list.Len())
+	for i := range list.Len() {
+		out[i], _ = list.Get(i).(string)
+	}
+	return out
 }
 
 // toJSONBytes serializes a Ballerina value to JSON bytes.

@@ -680,11 +680,13 @@ func writeResponseObject(w http.ResponseWriter, resp *values.Object, holder *res
 
 	// Forwarding hop-by-hop headers (e.g. Transfer-Encoding, Connection) from a
 	// backend response to the downstream client violates RFC 7230 §6.1 and can
-	// cause framing errors in HTTP/1.1 keep-alive connections.
+	// cause framing errors in HTTP/1.1 keep-alive connections. Headers the
+	// response's own Connection value nominates are hop-by-hop too.
 	if hdrsVal, ok := resp.Get("$headers"); ok {
 		if hdrs, ok := hdrsVal.(*values.Map); ok {
+			skip := hopByHopSkipSet(headerListValues(hdrs, "connection"))
 			for _, k := range hdrs.Keys() {
-				if _, skip := hopByHopHeaders[strings.ToLower(k)]; skip {
+				if _, ok := skip[strings.ToLower(k)]; ok {
 					continue
 				}
 				val, _ := hdrs.Get(k)

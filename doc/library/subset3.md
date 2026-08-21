@@ -164,7 +164,7 @@ The builder is selected from the response `Content-Type`, matching jBallerina's 
 | `application/octet-stream` | `byte[]` and `byte[]?` |
 | `application/x-www-form-urlencoded` | `map<string>`, `string`, and their nilable forms; repeated keys keep the last value |
 | `application/xml`, `text/xml`, and `+xml` / `.xml` / `-xml` suffixes | `xml` and `xml?`, any union admitting `xml`, and narrower subtypes such as `xml:Element` when the parsed value inhabits them |
-| absent or unrecognised | `string`, `byte[]`, and their nilable forms are read directly; every other target is parsed as JSON |
+| absent or unrecognised | `string`, `xml`, `byte[]`, and their nilable forms are read directly (in that order); every other target is parsed as JSON |
 
 A target that does not fit the response media type returns an `error` — for example a record target for a `text/plain` response. JSON conversion uses the same routine as `lang.value:fromJsonWithType`.
 

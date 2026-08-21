@@ -1,6 +1,51 @@
 # Supported ballerina library features
 
-Subset 3 extends the released [subset 2](subset2.md) with stream-based file read/write additions and byte channels in the `io` module, building on the language's new `stream` type, and with client-side response data binding for the `http` module.
+Subset 3 extends the released [subset 2](subset2.md) with the `avro` module —
+Avro binary serialization and deserialization driven by an Avro schema string —
+plus stream-based file read/write additions and byte channels in the `io`
+module, building on the language's new `stream` type, and with client-side
+response data binding for the `http` module.
+
+## [avro](https://github.com/ballerina-platform/module-ballerina-avro/blob/master/docs/spec/spec.md)
+
+Types: `avro:Schema` (class), `avro:Error`.
+
+| Method | Notes |
+|---|---|
+| `new avro:Schema(schema)` | Parse an Avro schema definition string; returns `avro:Error?`. Named types, namespaces, name references and recursive schemas are supported. An unparseable schema returns an error rather than panicking |
+| `Schema.toAvro(data)` | Serialize `anydata` into the Avro binary encoding; returns `byte[]\|avro:Error` |
+| `Schema.fromAvro(data, targetType?)` | Deserialize `byte[]` into the type inferred from the call site, or the explicitly named `targetType`; returns `targetType\|avro:Error` |
+
+### Avro-to-Ballerina type mapping
+
+Every mapping the module specification defines is supported in both directions.
+
+| Avro type | Ballerina type | Notes |
+|---|---|---|
+| `null` | `()` | Encodes to zero bytes |
+| `boolean` | `boolean` | |
+| `int`, `long` | `int` | Writing to an `int` schema narrows the Ballerina `int` value to 32 bits with wrapping, matching jBallerina; a `float` is rejected rather than truncated |
+| `float`, `double` | `float` | Both also accept an `int`; `double` also accepts a `decimal` |
+| `bytes`, `fixed` | `byte[]` | A `fixed` value must carry exactly the declared size |
+| `string` | `string` | A value of any other type is stringified, matching jBallerina |
+| `record` | `record` | Field order follows the schema; fields the schema does not declare are ignored |
+| `enum` | `enum` | Also decodes to a plain `string` |
+| `array` | array | Including arrays of records and nested arrays |
+| `map` | `map` | Including maps of records, arrays, and nested maps |
+| `union` | the corresponding union | The first branch matching the value's natural Avro type wins; a widening pass follows if none does |
+
+### Target-type binding
+
+`fromAvro` infers `targetType` from the contextually expected type, so
+`Person p = check schema.fromAvro(data);` binds the decoded payload to `Person`.
+Without a contextually expected type the compiler reports `cannot infer typedesc
+argument for parameter 'targetType'` — pass `targetType = Person` explicitly in
+that case.
+
+Records, enums, tuples, singletons, `map<T>`, `T[]`, `json`, `map<json>`,
+`anydata` and nilable forms of all of these are accepted as targets, along with
+numeric widening from `int` to `float` and `decimal`. A `readonly &`
+intersection of any of these is accepted too and binds to a frozen value.
 
 ## [io](https://github.com/ballerina-platform/module-ballerina-io/blob/master/docs/spec/spec.md)
 

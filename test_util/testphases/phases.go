@@ -93,6 +93,7 @@ var builtinStdlibs = []stdlibEntry{
 	{"ballerina", "time", "0.0.1", "go1.26"},
 	{"ballerina", "url", "0.0.1", "go1.26"},
 	{"ballerina", "crypto", "0.0.1", "go1.26"},
+	{"ballerina", "avro", "0.0.1", "go1.26"},
 }
 
 // loadBuiltinPublicSymbols compiles the embedded standard-library packages into

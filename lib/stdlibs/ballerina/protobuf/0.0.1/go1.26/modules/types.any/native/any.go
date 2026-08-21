@@ -107,6 +107,10 @@ func registerModuleExtern(_ *extern.Context, _ []values.BalValue) (values.BalVal
 // in this module, so the error satisfies `is`-checks against that type. Native code
 // cannot construct a distinct-typed value directly, since the distinct identity lives
 // in the module's own compiled semtype environment.
+//
+// TODO: remove this indirection (and the newAnyError/newTypeMismatchError .bal helpers
+// it calls) once the runtime exposes an API for native code to construct a value of a
+// specific distinct error type directly, without calling back into Ballerina.
 func callModuleErrorConstructor(ctx *extern.Context, funcName, message string) (values.BalValue, error) {
 	handle, ok := ctx.LookupFunction(orgName, moduleName, funcName)
 	if !ok {

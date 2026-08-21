@@ -114,6 +114,12 @@ isolated function typeUrlSuffix(ValueType message) returns string {
 
 isolated function serializeToHex(ValueType message, string typeUrlSuffix) returns string|Error = external;
 
+// TODO: newAnyError and newTypeMismatchError below exist only because native code has no way
+// to construct a value of a specific distinct error type directly — it must call back into a
+// Ballerina-level constructor to get the real distinct identity. Remove both once the runtime
+// gains an API for native code to build a distinct-typed error directly (see the matching TODO
+// on callModuleErrorConstructor in native/any.go).
+
 # Constructs an `Error` carrying the module's real distinct-error identity.
 # Called from native code so errors satisfy `is Error`.
 isolated function newAnyError(string message) returns Error {

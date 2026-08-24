@@ -214,7 +214,7 @@ resource function get album() returns xml {
 
 | Feature | Notes |
 |---|---|
-| `protobuf:Error`, `protobuf:MessageDescriptor`, `protobuf:Descriptor` annotation | Declared for interface parity; the annotation is not read by any code path, since arbitrary-record `pack`/`unpack` (the only consumer) is not implemented |
+| `protobuf:Error`, `protobuf:MessageDescriptor`, `protobuf:Descriptor` annotation | Declared for interface parity; no code path reads an attached annotation value. Descriptor-based serialization of a user-defined message record is unsupported — an arbitrary `record {}` value passed to `pack`/`unpack` is still handled, via the `google.protobuf.Struct` fallback described below, rather than resolved through its own descriptor |
 | `protobuf.types.any:pack(message)` | Supported for `int`, `float`, `string`, `boolean`, `byte[]`, `()`, `time:Utc`, `time:Seconds`, and `map<anydata>`. An arbitrary `record {}` value is packed as `google.protobuf.Struct` rather than resolved via its own descriptor — see the package README |
 | `protobuf.types.any:unpack(anyValue, targetTypeOfAny = <>)` | Supported for the same well-known types, using the interpreter's inferred-typedesc-parameter support; a mismatched target raises `protobuf.types.any:TypeMismatchError` |
 | `protobuf.types.any:Any`, `ContextAny`, `ContextAnyStream` | Supported |

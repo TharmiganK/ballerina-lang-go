@@ -68,10 +68,6 @@ func testASTGeneration(t *testing.T, testCase test_util.TestCase) {
 		return
 	}
 
-	if !testCase.KeepsStageGoldens() {
-		return
-	}
-
 	prettyPrinter := ast.PrettyPrinter{}
 	actualAST := prettyPrinter.Print(result.CompilationUnit)
 
@@ -137,7 +133,7 @@ var walkTraversalSkipList = []string{}
 func TestWalkTraversal(t *testing.T) {
 	flag.Parse()
 
-	testPairs := test_util.GetValidAndPanicTests(t, test_util.AST)
+	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.AST), test_util.GetLibValidAndPanicTests(t)...)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {

@@ -44,7 +44,7 @@ var desugarSkipList = []string{}
 func TestDesugar(t *testing.T) {
 	flag.Parse()
 
-	testPairs := test_util.GetValidAndPanicTests(t, test_util.Desugar)
+	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.Desugar), test_util.GetLibValidAndPanicTests(t)...)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {
@@ -120,7 +120,7 @@ func testDesugar(t *testing.T, testCase test_util.TestCase) {
 	visitor := &walkTestVisitor{t: t, cx: cx}
 	ast.Walk(visitor, result.CompilationUnit)
 
-	if !testCase.KeepsStageGoldens() {
+	if !testCase.HasStageGolden() {
 		return
 	}
 

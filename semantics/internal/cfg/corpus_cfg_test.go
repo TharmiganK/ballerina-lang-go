@@ -34,7 +34,7 @@ var updateCFG = flag.Bool("update", false, "update expected CFG text files")
 func TestCFGGeneration(t *testing.T) {
 	flag.Parse()
 
-	testPairs := test_util.GetValidAndPanicTests(t, test_util.CFG)
+	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.CFG), test_util.GetLibValidAndPanicTests(t)...)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {
@@ -79,7 +79,7 @@ func testCFGGeneration(t *testing.T, testPair test_util.TestCase) {
 			testPair.InputPath, err.FuncRef, err.BlockID, err.BackedgeParent, err.Parents)
 	}
 
-	if !testPair.KeepsStageGoldens() {
+	if !testPair.HasStageGolden() {
 		return
 	}
 

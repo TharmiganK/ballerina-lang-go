@@ -30,7 +30,7 @@ import (
 func TestSemanticAnalysis(t *testing.T) {
 	flag.Parse()
 
-	testPairs := test_util.GetValidAndPanicTests(t, test_util.AST)
+	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.AST), test_util.GetLibValidAndPanicTests(t)...)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {
@@ -138,7 +138,7 @@ var semanticAnalysisErrorSkipList = []string{}
 func TestSemanticAnalysisErrors(t *testing.T) {
 	flag.Parse()
 
-	testPairs := test_util.GetErrorTests(t, test_util.AST)
+	testPairs := append(test_util.GetErrorTests(t, test_util.AST), test_util.GetLibErrorTests(t)...)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {

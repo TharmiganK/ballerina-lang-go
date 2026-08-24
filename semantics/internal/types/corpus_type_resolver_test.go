@@ -31,7 +31,7 @@ import (
 func TestTypeResolver(t *testing.T) {
 	flag.Parse()
 
-	testPairs := test_util.GetValidAndPanicTests(t, test_util.AST)
+	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.AST), test_util.GetLibValidAndPanicTests(t)...)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {

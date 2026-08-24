@@ -98,6 +98,10 @@ func testBIRGeneration(t *testing.T, testPair test_util.TestCase) {
 
 	verifyBIRPositions(t, result.BIRPackage, testPair.InputPath)
 
+	if !testPair.KeepsStageGoldens() {
+		return
+	}
+
 	// Pretty print BIR output
 	prettyPrinter := bir.PrettyPrinter{}
 	actualBIR := prettyPrinter.Print(semtypes.ContextFrom(env.GetTypeEnv()), *result.BIRPackage)

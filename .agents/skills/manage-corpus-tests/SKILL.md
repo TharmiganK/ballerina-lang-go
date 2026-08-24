@@ -34,6 +34,7 @@ When a unit test is justified, say *why it is unreachable from Ballerina* in a c
 + In order to update golden files used for tests, run the tests with `--update` flag.
   + example: `go test ./corpus --update`
   + golden stage files for a `.bal` are produced by several packages — regenerate across `./ast/... ./semantics/... ./desugar/... ./bir/... ./corpus/` to cover ast/cfg/desugared/bir/integration goldens.
+  + `test_util.StageGoldenRules` (`test_util/stages.go`) decides which tests keep per-stage goldens. `corpus/bal/library/` is runtime-only by default; `TestStageGoldenFilesMatchRules` names the files to regenerate or delete when rules and tree disagree.
 + You will get test failures for any file that got updated.
 + Then use git diff on all updated golden files to confirm changes match with the expectations
 + **Watch for unrelated drift.** `--update` may rewrite goldens for files you never touched (some stages have non-deterministic ordering, e.g. const/record-field iteration). After updating, `git status` and revert any change outside the files you added/edited (`git checkout <path>`) so the changeset stays scoped to your work.

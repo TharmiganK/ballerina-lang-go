@@ -67,6 +67,11 @@ func testASTGeneration(t *testing.T, testCase test_util.TestCase) {
 		t.Errorf("pipeline failed for %s: %v", testCase.InputPath, err)
 		return
 	}
+
+	if !testCase.KeepsStageGoldens() {
+		return
+	}
+
 	prettyPrinter := ast.PrettyPrinter{}
 	actualAST := prettyPrinter.Print(result.CompilationUnit)
 

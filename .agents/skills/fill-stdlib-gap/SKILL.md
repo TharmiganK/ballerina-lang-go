@@ -129,6 +129,8 @@ go test ./corpus -update
 ```
 Review `git diff corpus/` before committing, and revert any unrelated golden drift `-update` introduces (some stages have non-deterministic ordering).
 
+By default a library test only writes `corpus/integration/library/**.txtar`. A code-modifying library opted in via `test_util.StageGoldenRules` (see `add-stdlib-support`) also writes per-stage goldens; outside that opt-in, a diff under `corpus/ast/library/` or `corpus/bir/library/` means something is misconfigured.
+
 ### Documentation
 
 Update the README row via the **`stdlib-readme-format`** skill:

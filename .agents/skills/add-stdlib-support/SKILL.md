@@ -191,7 +191,15 @@ Each `library/subset<N>` is a released library-support milestone, documented in 
 - An **existing** subset (e.g. `subset2`) — the new module joins that release milestone, alongside `corpus/bal/library/subset2/`'s existing files.
 - A **new** subset (`subset<N+1>`, one past the highest existing `library/subsetN` directory) — create `doc/library/subset<N+1>.md` following `subset2.md`'s intro-paragraph pattern ("Subset N extends the released subset N-1 with …").
 
-Per-stage golden directories (`corpus/ast/library/subset<N>/`, `corpus/bir/...`, etc.) mirror this layout and are regenerated automatically via `-update` — they follow whichever subset directory the `.bal` files live in.
+Library tests are **runtime-only by default** — validated end-to-end against `corpus/integration/library/subset<N>/*.txtar`, with no per-stage goldens under `corpus/ast/`, `corpus/bir/`, `corpus/cfg/` or `corpus/desugared/`. Those goldens hold only the test file's own compilation unit, so they add nothing for a library.
+
+A library shipping a **code modifier** is the exception: it rewrites the user's AST, so its goldens do carry signal. Opt it in with a rule in `test_util.StageGoldenRules` (`test_util/stages.go`):
+
+```go
+{Prefix: "library/subset<N>/<name>-", Goldens: true},
+```
+
+`TestStageGoldenFilesMatchRules` then names the files to regenerate or delete.
 
 After the tests pass, add (or extend) the `## [<name>](<jBallerina spec URL>)` section in that subset's `doc/library/subset<N>.md`, documenting the surface actually exercised by these corpus tests — follow the existing heading + `Function | Notes` table (or bullet list) style in `subset1.md`/`subset2.md`. This is a separate, lighter-weight doc from the per-package `README.md` (Step 9) — both need updating.
 

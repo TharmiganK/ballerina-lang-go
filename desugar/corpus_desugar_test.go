@@ -117,6 +117,13 @@ func testDesugar(t *testing.T, testCase test_util.TestCase) {
 		return
 	}
 
+	visitor := &walkTestVisitor{t: t, cx: cx}
+	ast.Walk(visitor, result.CompilationUnit)
+
+	if !testCase.KeepsStageGoldens() {
+		return
+	}
+
 	// Serialize AST after desugaring
 	prettyPrinter := ast.PrettyPrinter{Fallback: prettyPrintFallback}
 	actualAST := prettyPrinter.Print(result.Package)
@@ -143,9 +150,6 @@ func testDesugar(t *testing.T, testCase test_util.TestCase) {
 			testCase.InputPath, testCase.ExpectedPath, getDiff(expectedAST, actualAST))
 		return
 	}
-
-	visitor := &walkTestVisitor{t: t, cx: cx}
-	ast.Walk(visitor, result.CompilationUnit)
 
 	t.Logf("Desugar completed successfully for %s", testCase.InputPath)
 }

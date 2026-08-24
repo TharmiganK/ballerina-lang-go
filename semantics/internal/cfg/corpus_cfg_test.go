@@ -79,6 +79,10 @@ func testCFGGeneration(t *testing.T, testPair test_util.TestCase) {
 			testPair.InputPath, err.FuncRef, err.BlockID, err.BackedgeParent, err.Parents)
 	}
 
+	if !testPair.KeepsStageGoldens() {
+		return
+	}
+
 	// Pretty print CFG output
 	prettyPrinter := cfg.NewCFGPrettyPrinter(cx)
 	actualCFG := prettyPrinter.Print(graph)

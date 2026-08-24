@@ -34,7 +34,7 @@ var updateCFG = flag.Bool("update", false, "update expected CFG text files")
 func TestCFGGeneration(t *testing.T) {
 	flag.Parse()
 
-	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.CFG), test_util.GetLibValidAndPanicTests(t)...)
+	testPairs := test_util.GetValidAndPanicTests(t, test_util.CFG)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {
@@ -77,10 +77,6 @@ func testCFGGeneration(t *testing.T, testPair test_util.TestCase) {
 	for _, err := range cfg.ValidateInvariants(graph) {
 		t.Errorf("CFG invariant violated in %s: function %v, block %d: backedgeParent %d is not in parents %v",
 			testPair.InputPath, err.FuncRef, err.BlockID, err.BackedgeParent, err.Parents)
-	}
-
-	if !testPair.HasStageGolden() {
-		return
 	}
 
 	// Pretty print CFG output

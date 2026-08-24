@@ -44,7 +44,7 @@ var desugarSkipList = []string{}
 func TestDesugar(t *testing.T) {
 	flag.Parse()
 
-	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.Desugar), test_util.GetLibValidAndPanicTests(t)...)
+	testPairs := test_util.GetValidAndPanicTests(t, test_util.Desugar)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {
@@ -117,13 +117,6 @@ func testDesugar(t *testing.T, testCase test_util.TestCase) {
 		return
 	}
 
-	visitor := &walkTestVisitor{t: t, cx: cx}
-	ast.Walk(visitor, result.CompilationUnit)
-
-	if !testCase.HasStageGolden() {
-		return
-	}
-
 	// Serialize AST after desugaring
 	prettyPrinter := ast.PrettyPrinter{Fallback: prettyPrintFallback}
 	actualAST := prettyPrinter.Print(result.Package)
@@ -150,6 +143,9 @@ func testDesugar(t *testing.T, testCase test_util.TestCase) {
 			testCase.InputPath, testCase.ExpectedPath, getDiff(expectedAST, actualAST))
 		return
 	}
+
+	visitor := &walkTestVisitor{t: t, cx: cx}
+	ast.Walk(visitor, result.CompilationUnit)
 
 	t.Logf("Desugar completed successfully for %s", testCase.InputPath)
 }

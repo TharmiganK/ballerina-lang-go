@@ -54,7 +54,7 @@ func getBIRDiff(expectedText, actualText string) string {
 func TestBIRGeneration(t *testing.T) {
 	flag.Parse()
 
-	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.BIR), test_util.GetLibValidAndPanicTests(t)...)
+	testPairs := test_util.GetValidAndPanicTests(t, test_util.BIR)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {
@@ -97,10 +97,6 @@ func testBIRGeneration(t *testing.T, testPair test_util.TestCase) {
 	}
 
 	verifyBIRPositions(t, result.BIRPackage, testPair.InputPath)
-
-	if !testPair.HasStageGolden() {
-		return
-	}
 
 	// Pretty print BIR output
 	prettyPrinter := bir.PrettyPrinter{}

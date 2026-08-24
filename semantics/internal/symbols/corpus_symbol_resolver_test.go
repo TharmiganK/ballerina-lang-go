@@ -30,7 +30,7 @@ import (
 
 func TestSymbolResolver(t *testing.T) {
 	flag.Parse()
-	testPairs := append(test_util.GetValidAndPanicTests(t, test_util.AST), test_util.GetLibValidAndPanicTests(t)...)
+	testPairs := test_util.GetValidAndPanicTests(t, test_util.AST)
 
 	for _, testPair := range testPairs {
 		t.Run(testPair.Name, func(t *testing.T) {

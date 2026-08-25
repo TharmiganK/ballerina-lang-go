@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module provides APIs to represent the protobuf "well-known" types — `google.protobuf.Any`, `Struct`, `Timestamp`, `Duration`, `Empty`, and the scalar wrapper types (`BoolValue`, `BytesValue`, `FloatValue`, `Int64Value`, `StringValue`) — used by generated gRPC client/service code, plus a `Descriptor` annotation generated code attaches to message record types. The full jBallerina package also supports resolving arbitrary user-defined message records through that annotation (via a separate, unported `.proto`-to-Ballerina code generator). The Go Native Interpreter currently supports packing and unpacking values of the well-known types through `protobuf.types.any:pack`/`unpack`, and all of the plain type declarations across the `protobuf.types.*` submodules.
+This module provides APIs to represent the protobuf "well-known" types — `google.protobuf.Any`, `Struct`, `Timestamp`, `Duration`, `Empty`, and the scalar wrapper types (`BoolValue`, `BytesValue`, `FloatValue`, `Int64Value`, `StringValue`) — used by generated gRPC client/service code, plus a `Descriptor` annotation generated code attaches to message record types. The full jBallerina package also supports resolving arbitrary user-defined message records through that annotation. The Go Native Interpreter currently supports packing and unpacking values of the well-known types through `protobuf.types.any:pack`/`unpack`, and all of the plain type declarations across the `protobuf.types.*` submodules; descriptor-based handling of user-defined message records is not yet implemented.
 
 ## Key Functionalities
 
@@ -39,12 +39,12 @@ Support Levels:
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
 | Base error type | Supported | |
-| Message descriptor annotation | Partially Supported | `MessageDescriptor` and the `Descriptor` annotation are declared for interface parity, but no code path reads an attached annotation value — see the `pack`/`unpack` row below. |
+| Message descriptor annotation | Partially Supported | Declared and attachable, but not yet used for (de)serialization: `pack` receives only the value, which carries no nominal type or annotations, and `typeof` is not implemented yet. |
 | Any value representation | Supported | |
 | Any context record types | Supported | |
-| Packing a value into Any | Supported | Well-known types (scalars, `byte[]`, `()`, `time:Utc`, `time:Seconds`, `map<anydata>`) are fully supported. An arbitrary message record is packed as a `google.protobuf.Struct` rather than resolved via its own descriptor — see Notable Behavioural Changes. |
+| Packing a value into Any | Supported | Well-known types (scalars, `byte[]`, `()`, `time:Utc`, `time:Seconds`, `map<anydata>`) are fully supported, and `record {\|\|}` packs as `google.protobuf.Empty`. Any other message record falls back to `google.protobuf.Struct` — see the message descriptor annotation row. |
 | Unpacking a value from Any | Supported | Well-known types are fully supported, including the inferred-typedesc target parameter. A type that does not match the packed value's type raises `TypeMismatchError`. |
-| Any module error type | Partially Supported | `types.any:Error` is a standalone `distinct error` rather than chaining from the package's root `protobuf:Error` — see Notable Behavioural Changes. |
+| Any module error type | Partially Supported | Standalone `distinct error` rather than `distinct protobuf:Error`, so catching `protobuf:Error` will not catch this module's errors. Pending https://github.com/ballerina-nutcracker/ballerina/issues/777 (a module cannot import its own package's default module). |
 | Type-mismatch error type | Supported | |
 | Duration context record types | Supported | |
 | Empty type and context record type | Supported | |
@@ -54,6 +54,4 @@ Support Levels:
 
 ### Notable Behavioural Changes
 
-- **`types.any:Error` does not chain from the package's root error type.** jBallerina declares `protobuf.types.any:Error` as `distinct protobuf:Error`, so code catching the root `protobuf:Error` type also catches `protobuf.types.any` errors; the Go-native version declares `types.any:Error` as a standalone `distinct error` instead, because a module cannot currently import its own package's default/root module by name (tracked at https://github.com/ballerina-nutcracker/ballerina/issues/777) — catching `protobuf:Error` will not also catch this module's errors.
-- **Arbitrary message records pack as `Struct`, not their own descriptor.** jBallerina resolves an arbitrary `record {}` value passed to `pack`/`unpack` through its `@protobuf:Descriptor` annotation, serializing it against its own registered message schema; the Go-native version cannot distinguish a `record {}` value from a genuine `map<anydata>` value with an `is` check — any record whose field types are all `anydata` structurally satisfies `map<anydata>` too — so such values are always packed as `google.protobuf.Struct` instead. The closed empty record `record {||}` is the exception: it needs no descriptor and stays distinguishable from `map<anydata>`, so it packs as `google.protobuf.Empty`, matching jBallerina. This only matters once a `.proto`-to-Ballerina code generator exists to produce `@Descriptor`-annotated records, which is out of scope for this port.
 - **`map<anydata>` keys from an unpacked Struct are sorted alphabetically.** jBallerina's field order for a deserialized `Struct` reflects Java's map implementation; the Go-native version sorts keys alphabetically instead, since Go's map type does not preserve insertion or wire order.

@@ -5933,6 +5933,53 @@ func resolveIndexBasedAccess(t typeResolver, chain *binding, expr *ast.BLangInde
 	return resultTy, defaultExpressionEffect(chain), true
 }
 
+func isLax(t typeResolver, ty semtypes.SemType) bool {
+	return isLaxInner(t, ty, semtypes.NewSemtypeInterner(), make(map[semtypes.InternHandle]bool))
+}
+
+func isLaxInner(t typeResolver, ty semtypes.SemType, interner *semtypes.SemTypeInterner, seen map[semtypes.InternHandle]bool) bool {
+	tyCtx := t.typeContext()
+	if semtypes.IsSameType(tyCtx, ty, semtypes.CreateJSON(tyCtx)) {
+		return true
+	}
+	if !semtypes.IsSubtype(tyCtx, ty, semtypes.Mapping) {
+		return false
+	}
+	handle := interner.Intern(ty)
+	if seen[handle] {
+		return false
+	}
+	seen[handle] = true
+	defer delete(seen, handle)
+	return semtypes.AllMapConstraintTypesMatch(tyCtx, ty, func(memberTy semtypes.SemType) bool {
+		return isLaxInner(t, memberTy, interner, seen)
+	})
+}
+
+func effectiveLaxType(t typeResolver, expr ast.BLangExpression) (semtypes.SemType, bool) {
+	if groupExpr, ok := expr.(*ast.BLangGroupExpr); ok {
+		return effectiveLaxType(t, groupExpr.Expression)
+	}
+	if fieldAccess, ok := expr.(*ast.BLangFieldBaseAccess); ok && fieldAccess.IsLax() {
+		return fieldAccess.GetDeterminedType(), true
+	}
+	if ty := expr.GetDeterminedType(); isLax(t, ty) {
+		return ty, true
+	}
+	return semtypes.SemType{}, false
+}
+
+func laxFieldMemberType(t typeResolver, expr *ast.BLangFieldBaseAccess) (rawMemberTy semtypes.SemType, memberTy semtypes.SemType, ok bool) {
+	containerTy, ok := effectiveLaxType(t, expr.Expr)
+	if !ok {
+		return semtypes.SemType{}, semtypes.SemType{}, false
+	}
+	mappingTy := semtypes.Intersect(containerTy, semtypes.Mapping)
+	rawMemberTy = semtypes.MappingMemberTypeInner(t.typeContext(), mappingTy, semtypes.StringConst(expr.Field.GetValue()))
+	memberTy = semtypes.Diff(rawMemberTy, semtypes.Undef)
+	return rawMemberTy, memberTy, true
+}
+
 func resolveFieldBaseAccess(t typeResolver, chain *binding, expr *ast.BLangFieldBaseAccess) (semtypes.SemType, expressionEffect, bool) {
 	containerExprTy, _, ok := resolveActionOrExpression(t, chain, expr.Expr, semtypes.SemType{})
 	if !ok {
@@ -5943,6 +5990,25 @@ func resolveFieldBaseAccess(t typeResolver, chain *binding, expr *ast.BLangField
 		return resolveOptionalFieldBaseAccess(t, chain, expr, containerExprTy, key)
 	}
 	tyCtx := t.typeContext()
+	if rawMemberTy, memberTy, lax := laxFieldMemberType(t, expr); lax {
+		if expr.IsLexpr() {
+			t.semanticError("lax field access cannot be used as an lvalue", expr.GetPosition())
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		if !t.ensureNotEmpty(memberTy, func() {
+			t.semanticError("lax field access has an empty member type", expr.GetPosition())
+		}) {
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		resultTy := memberTy
+		if semtypes.ContainsUndef(rawMemberTy) {
+			resultTy = semtypes.Union(resultTy, semtypes.Error)
+		}
+		setExpectedType(expr, resultTy)
+		expr.Field.SetDeterminedType(semtypes.Never)
+		expr.SetLax()
+		return resultTy, defaultExpressionEffect(chain), true
+	}
 
 	var memberTy semtypes.SemType
 	switch {
@@ -5992,25 +6058,40 @@ func resolveOptionalFieldBaseAccess(t typeResolver, chain *binding, expr *ast.BL
 	}
 
 	tyCtx := t.typeContext()
+	laxTy, lax := effectiveLaxType(t, expr.Expr)
+	if lax {
+		T = laxTy
+	}
 	switch {
 	case semtypes.IsSubtype(tyCtx, T, semtypes.XML):
 		t.unimplemented("XML optional attribute access not supported", expr.GetPosition()) // https://github.com/ballerina-nutcracker/ballerina/issues/560
 		return semtypes.SemType{}, expressionEffect{}, false
-	case semtypes.IsSubtype(tyCtx, T, semtypes.Union(semtypes.Mapping, semtypes.Nil)):
+	case lax || semtypes.IsSubtype(tyCtx, T, semtypes.Union(semtypes.Mapping, semtypes.Nil)):
 		Tbar := semtypes.Intersect(T, semtypes.Mapping)
-		if !semtypes.AnyMappingAtomHasFieldByName(tyCtx, Tbar, fieldname) {
-			t.semanticError(fmt.Sprintf("%s is not an individual field descriptor in %s", fieldname, semtypes.ToString(tyCtx, T)), expr.GetPosition())
-			return semtypes.SemType{}, expressionEffect{}, false
-		}
 		K := semtypes.StringConst(fieldname)
 		M := semtypes.MappingMemberTypeInner(tyCtx, Tbar, K)
 		MBar := semtypes.Diff(M, semtypes.Undef)
+		if lax {
+			if !t.ensureNotEmpty(MBar, func() {
+				t.semanticError("lax optional field access has an empty member type", expr.GetPosition())
+			}) {
+				return semtypes.SemType{}, expressionEffect{}, false
+			}
+		} else if !semtypes.AnyMappingAtomHasFieldByName(tyCtx, Tbar, fieldname) {
+			t.semanticError(fmt.Sprintf("%s is not an individual field descriptor in %s", fieldname, semtypes.ToString(tyCtx, T)), expr.GetPosition())
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
 		N := semtypes.Never
 		if semtypes.IsSubtype(tyCtx, semtypes.Nil, T) || semtypes.ContainsUndef(M) {
 			N = semtypes.Nil
 		}
-		// TODO: update for lax case https://github.com/ballerina-nutcracker/ballerina/issues/558
 		E := semtypes.Never
+		if lax {
+			if !semtypes.IsSubtype(tyCtx, T, semtypes.Union(Tbar, semtypes.Nil)) {
+				E = semtypes.Error
+			}
+			expr.SetLax()
+		}
 		resultTy := semtypes.Union(semtypes.Union(MBar, N), E)
 		setExpectedType(expr, resultTy)
 		expr.Field.SetDeterminedType(semtypes.Never)
@@ -7882,6 +7963,7 @@ func init() {
 	}
 	mapOpaqueMonomorphizers = []opaqueFnMonomorphizer{
 		model.OpaqueFnMapRemove: monomorphizeMapRemove,
+		model.OpaqueFnMapGet:    monomorphizeMapGet,
 	}
 	xmlOpaqueMonomorphizers = []opaqueFnMonomorphizer{
 		model.OpaqueFnXMLIterator: monomorphizeXMLIterator,
@@ -7975,7 +8057,7 @@ func opaqueFunctionParams(name string, sig model.TypedFunctionSignature) []model
 		return []model.Param{{Name: "arr"}, {Name: "vals", Flag: model.ParamFlagRestParam}}
 	case "map":
 		return []model.Param{{Name: "arr"}, {Name: "func"}}
-	case "remove":
+	case "remove", "get":
 		return []model.Param{{Name: "m"}, {Name: "k"}}
 	default:
 		return make([]model.Param, len(sig.ParamTypes))
@@ -8150,7 +8232,15 @@ func createXMLIteratorType(t typeResolver, itemTy semtypes.SemType) semtypes.Sem
 	})
 }
 
+func monomorphizeMapGet(t typeResolver, sym *model.OpaqueFunctionSymbol, polymorphicRef model.SymbolRef, chain *binding, args []ast.BLangExpression, _ semtypes.SemType, pos diagnostics.Location) (model.SymbolRef, *binding, bool) {
+	return monomorphizeMapMemberFunction(t, sym, polymorphicRef, chain, args, pos)
+}
+
 func monomorphizeMapRemove(t typeResolver, sym *model.OpaqueFunctionSymbol, polymorphicRef model.SymbolRef, chain *binding, args []ast.BLangExpression, _ semtypes.SemType, pos diagnostics.Location) (model.SymbolRef, *binding, bool) {
+	return monomorphizeMapMemberFunction(t, sym, polymorphicRef, chain, args, pos)
+}
+
+func monomorphizeMapMemberFunction(t typeResolver, sym *model.OpaqueFunctionSymbol, polymorphicRef model.SymbolRef, chain *binding, args []ast.BLangExpression, pos diagnostics.Location) (model.SymbolRef, *binding, bool) {
 	containerExpr, ok := containerArgExpr(args, "m")
 	if !ok {
 		t.semanticError("missing container argument", pos)

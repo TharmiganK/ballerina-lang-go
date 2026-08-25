@@ -89,7 +89,9 @@ public isolated function unpack(Any anyValue, ValueTypeDesc targetTypeOfAny = <>
 # An arbitrary `record {}` message value (as opposed to a genuine `map<anydata>` value) is not
 # distinguishable from `map<anydata>` by an `is` check — any record whose field types are all
 # `anydata` structurally satisfies `map<anydata>` too — so it is packed as a `Struct` rather than
-# resolved via its own registered proto descriptor. See the module README for details.
+# resolved via its own registered proto descriptor. See the module README for details. The one
+# record shape that stays distinguishable is the closed empty record, which needs no descriptor
+# and so keeps jBallerina's `Empty` mapping.
 isolated function typeUrlSuffix(ValueType message) returns string {
     if message is () {
         return "Empty";
@@ -107,6 +109,8 @@ isolated function typeUrlSuffix(ValueType message) returns string {
         return "Timestamp";
     } else if message is time:Seconds {
         return "Duration";
+    } else if message is record {||} {
+        return "Empty";
     } else {
         return "Struct";
     }

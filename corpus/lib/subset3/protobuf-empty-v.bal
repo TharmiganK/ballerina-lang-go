@@ -30,4 +30,15 @@ public function main() returns error? {
     io:println(packedNil.typeUrl); // @output type.googleapis.com/google.protobuf.Empty
     () unpackedNil = check pbany:unpack(packedNil);
     io:println(unpackedNil); // @output
+
+    // A closed empty record needs no proto descriptor, so it keeps the Empty mapping
+    // instead of falling through to the Struct fallback used for other records.
+    pbany:Any packedEmptyRec = check pbany:pack(e);
+    io:println(packedEmptyRec.typeUrl); // @output type.googleapis.com/google.protobuf.Empty
+    io:println(packedEmptyRec.value == ""); // @output true
+
+    // A genuine empty map is still a map, not a closed empty record, so it stays Struct.
+    map<anydata> emptyMap = {};
+    pbany:Any packedEmptyMap = check pbany:pack(emptyMap);
+    io:println(packedEmptyMap.typeUrl); // @output type.googleapis.com/google.protobuf.Struct
 }

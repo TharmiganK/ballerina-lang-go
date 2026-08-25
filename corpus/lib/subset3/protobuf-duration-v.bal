@@ -40,4 +40,22 @@ public function main() returns error? {
     pbany:Any packedZero = check pbany:pack(zero);
     time:Seconds unpackedZero = check pbany:unpack(packedZero);
     io:println(unpackedZero); // @output 0
+
+    // A timestamp-scale value with a fraction just under a whole second needs 19
+    // significant digits, more than float64 carries. The wire bytes are asserted
+    // directly because a round-trip alone still succeeds when the split is wrong:
+    // seconds must stay 1735689599 with nanos 999999999, not 1735689600 with -1,
+    // which google.protobuf.Duration forbids for being oppositely signed.
+    time:Seconds bigSeconds = 1735689599.999999999;
+    pbany:Any packedBig = check pbany:pack(bigSeconds);
+    io:println(packedBig.value); // @output 08FF8AD2BB0610FF93EBDC03
+    time:Seconds unpackedBig = check pbany:unpack(packedBig);
+    io:println(unpackedBig); // @output 1735689599.999999999
+
+    // The same split, truncating toward zero, keeps both parts negative.
+    time:Seconds negBigSeconds = -1735689599.999999999;
+    pbany:Any packedNeg = check pbany:pack(negBigSeconds);
+    io:println(packedNeg.value); // @output 0881F5ADC4F9FFFFFFFF011081EC94A3FCFFFFFFFF01
+    time:Seconds unpackedNeg = check pbany:unpack(packedNeg);
+    io:println(unpackedNeg); // @output -1735689599.999999999
 }

@@ -46,6 +46,9 @@ const (
 // nanosPerSec is 1,000,000,000 as a decimal constant used for ns <-> seconds conversion.
 var nanosPerSec = decimal.FromInt64(1_000_000_000)
 
+// decimalZero is the zero decimal, used for sign tests.
+var decimalZero = decimal.FromInt64(0)
+
 // anyTypes holds the semtypes built once at module init, reused across calls.
 type anyTypes struct {
 	byteArrTy         semtypes.SemType
@@ -143,7 +146,10 @@ func serializeToHexExtern(ctx *extern.Context, args []values.BalValue) (values.B
 	if err != nil {
 		return newAnyError(ctx, "failed to serialize google.protobuf."+suffix+" value: "+err.Error())
 	}
-	return hex.EncodeToString(raw), nil
+	// Upper-case to match jBallerina's Utils.bytesToHex, which always emits upper-case
+	// digits; Any.value is public, so user code can compare it across implementations.
+	// Decoding stays case-insensitive on both sides.
+	return strings.ToUpper(hex.EncodeToString(raw)), nil
 }
 
 func valueToWireMessage(message values.BalValue, suffix string) (proto.Message, error) {
@@ -274,18 +280,38 @@ func wireMessageToValue(ctx *extern.Context, suffix string, raw []byte) (values.
 	}
 }
 
-// decimalToSecNano splits a Ballerina Seconds decimal into whole seconds and nanoseconds,
-// using decimal arithmetic for the fractional part to avoid float64 precision errors.
+// decimalToSecNano splits a Ballerina Seconds decimal into whole seconds and nanoseconds
+// using exact decimal arithmetic throughout. The whole part truncates toward zero, matching
+// jBallerina's BigDecimal.intValue(); routing it through float64 would round instead, and a
+// Unix-timestamp-scale value carrying full nanosecond precision needs 19 significant digits
+// where float64 offers ~15-17. Rounding there pushes the fraction past the second boundary
+// and flips its sign, which google.protobuf.Duration forbids: for durations of a second or
+// more, a non-zero nanos must carry the same sign as seconds.
 func decimalToSecNano(sec *decimal.Decimal) (int64, int32) {
 	if sec == nil {
 		return 0, 0
 	}
-	intSec := int64(sec.Float64())
-	intSecDec := decimal.FromInt64(intSec)
+	intSecDec := truncateTowardZero(sec)
+	intSec, _, _ := intSecDec.Int64()
 	fracDec, _ := sec.Sub(intSecDec)
 	nanosDec, _ := fracDec.Mul(nanosPerSec)
 	nanosInt, _, _ := nanosDec.Int64()
 	return intSec, int32(nanosInt)
+}
+
+// truncateTowardZero discards sec's fractional part, so the result never exceeds sec
+// in magnitude and keeps sec's sign.
+func truncateTowardZero(sec *decimal.Decimal) *decimal.Decimal {
+	var out *decimal.Decimal
+	if sec.Cmp(decimalZero) < 0 {
+		out, _ = sec.Ceiling()
+	} else {
+		out, _ = sec.Floor()
+	}
+	if out == nil {
+		return decimalZero
+	}
+	return out
 }
 
 // secNanoToDecimal combines whole seconds and nanoseconds into a Ballerina Seconds decimal.

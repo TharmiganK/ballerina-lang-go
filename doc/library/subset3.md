@@ -215,7 +215,7 @@ resource function get album() returns xml {
 | Feature | Notes |
 |---|---|
 | `protobuf:Error`, `protobuf:MessageDescriptor`, `protobuf:Descriptor` annotation | Declared for interface parity; no code path reads an attached annotation value. Descriptor-based serialization of a user-defined message record is unsupported — an arbitrary `record {}` value passed to `pack`/`unpack` is still handled, via the `google.protobuf.Struct` fallback described below, rather than resolved through its own descriptor |
-| `protobuf.types.any:pack(message)` | Supported for `int`, `float`, `string`, `boolean`, `byte[]`, `()`, `time:Utc`, `time:Seconds`, and `map<anydata>`. An arbitrary `record {}` value is packed as `google.protobuf.Struct` rather than resolved via its own descriptor — see the package README |
+| `protobuf.types.any:pack(message)` | Supported for `int`, `float`, `string`, `boolean`, `byte[]`, `()`, `time:Utc`, `time:Seconds`, and `map<anydata>`. The closed empty record `record {\|\|}` packs as `google.protobuf.Empty`; any other `record {}` value is packed as `google.protobuf.Struct` rather than resolved via its own descriptor — see the package README |
 | `protobuf.types.any:unpack(anyValue, targetTypeOfAny = <>)` | Supported for the same well-known types, using the interpreter's inferred-typedesc-parameter support; a mismatched target raises `protobuf.types.any:TypeMismatchError` |
 | `protobuf.types.any:Any`, `ContextAny`, `ContextAnyStream` | Supported |
 | `protobuf.types.duration`, `protobuf.types.empty`, `protobuf.types.struct`, `protobuf.types.timestamp`, `protobuf.types.wrappers` context record types | Supported |

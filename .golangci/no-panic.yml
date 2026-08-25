@@ -7,9 +7,13 @@ linters:
     - dupl
     - exhaustive
     - iface
+    - reassign
     - unparam
     - forbidigo
   settings:
+    reassign:
+      patterns:
+        - ".*"
     exhaustive:
       default-signifies-exhaustive: true
     forbidigo:

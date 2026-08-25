@@ -7,8 +7,12 @@ linters:
     - dupl
     - exhaustive
     - iface
+    - reassign
     - unparam
   settings:
+    reassign:
+      patterns:
+        - ".*"
     exhaustive:
       default-signifies-exhaustive: true
     depguard:

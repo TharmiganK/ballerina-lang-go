@@ -294,6 +294,15 @@ type (
 		RhsExpr BLangExpression
 		OpKind  model.OperatorKind
 	}
+
+	// BLangTernaryExpr selects exactly one of ThenExpr and ElseExpr based on Condition.
+	BLangTernaryExpr struct {
+		bLangExpressionBase
+		Condition BLangExpression
+		ThenExpr  BLangExpression
+		ElseExpr  BLangExpression
+	}
+
 	BLangQueryExpr struct {
 		bLangExpressionBase
 		QueryClauseList    []BLangNode
@@ -344,7 +353,7 @@ type (
 	BLangNumericLiteral struct {
 		BLangLiteral
 	}
-	BLangElvisExpr struct {
+	BLangNilConditionalExpr struct {
 		bLangExpressionBase
 		LhsExpr BLangExpression
 		RhsExpr BLangExpression
@@ -562,7 +571,6 @@ var (
 	_ LiteralNode                 = &BLangConstRef{}
 	_ LiteralNode                 = &BLangLiteral{}
 	_ BLangExpression             = &BLangLiteral{}
-	_ ElvisExpressionNode         = &BLangElvisExpr{}
 	_ BLangExpression             = &BLangInvocation{}
 	_ BLangAction                 = &BLangRemoteMethodCallAction{}
 	_ BLangAction                 = &BLangClientResourceAccessAction{}
@@ -590,6 +598,8 @@ var (
 	_ BLangNode       = &BLangLambdaFunction{}
 	_ BLangExpression = &BLangLambdaFunction{}
 	_ BLangNode       = &BLangBinaryExpr{}
+	_ BLangNode       = &BLangTernaryExpr{}
+	_ BLangExpression = &BLangTernaryExpr{}
 	_ BLangNode       = &BLangQueryExpr{}
 	_ BLangNode       = &BLangCheckedExpr{}
 	_ BLangNode       = &BLangCheckPanickedExpr{}
@@ -598,7 +608,8 @@ var (
 	_ BLangNode       = &BLangConstRef{}
 	_ BLangNode       = &BLangLiteral{}
 	_ BLangNode       = &BLangNumericLiteral{}
-	_ BLangNode       = &BLangElvisExpr{}
+	_ BLangNode       = &BLangNilConditionalExpr{}
+	_ BLangExpression = &BLangNilConditionalExpr{}
 	_ BLangNode       = &BLangWorkerReceive{}
 	_ BLangNode       = &BLangInvocation{}
 	_ BLangNode       = &BLangMarkdownDocumentationLine{}
@@ -742,6 +753,32 @@ func (b *BLangBinaryExpr) GetOperatorKind() model.OperatorKind {
 	return b.OpKind
 }
 
+func (b *BLangTernaryExpr) GetCondition() BLangExpression {
+	return b.Condition
+}
+
+func (b *BLangTernaryExpr) GetThenExpression() BLangExpression {
+	return b.ThenExpr
+}
+
+func (b *BLangTernaryExpr) GetElseExpression() BLangExpression {
+	return b.ElseExpr
+}
+
+func NewBLangTernaryExpr(
+	pos diagnostics.Location,
+	condition BLangExpression,
+	thenExpr BLangExpression,
+	elseExpr BLangExpression,
+) *BLangTernaryExpr {
+	return &BLangTernaryExpr{
+		bLangExpressionBase: bLangExpressionBase{bLangNodeBase: bLangNodeBase{pos: pos}},
+		Condition:           condition,
+		ThenExpr:            thenExpr,
+		ElseExpr:            elseExpr,
+	}
+}
+
 func (b *BLangQueryExpr) GetQueryClauses() []Node {
 	result := make([]Node, len(b.QueryClauseList))
 	for i := range b.QueryClauseList {
@@ -832,12 +869,16 @@ func (b *BLangLiteral) SetOriginalValue(originalValue string) {
 	b.OriginalValue = originalValue
 }
 
-func (b *BLangElvisExpr) GetLeftExpression() BLangExpression {
-	return b.LhsExpr
-}
-
-func (b *BLangElvisExpr) GetRightExpression() BLangExpression {
-	return b.RhsExpr
+func NewBLangNilConditionalExpr(
+	pos diagnostics.Location,
+	lhsExpr BLangExpression,
+	rhsExpr BLangExpression,
+) *BLangNilConditionalExpr {
+	return &BLangNilConditionalExpr{
+		bLangExpressionBase: bLangExpressionBase{bLangNodeBase: bLangNodeBase{pos: pos}},
+		LhsExpr:             lhsExpr,
+		RhsExpr:             rhsExpr,
+	}
 }
 
 func (b *BLangMarkdownDocumentationLine) GetText() string {

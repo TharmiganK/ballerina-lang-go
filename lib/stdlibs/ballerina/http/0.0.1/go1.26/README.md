@@ -116,7 +116,7 @@ Support Levels:
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
 | Request object construction | Supported | `new http:Request()` creates an outbound request with `rawPath`, `method`, and `httpVersion` fields. |
-| Request write methods | Supported | `setTextPayload`, `setJsonPayload`, `setXmlPayload`, `setBinaryPayload` (each with optional `contentType`), `setHeader`, `addHeader`, `removeHeader`, `removeAllHeaders`, and `setContentType` populate the request. `setXmlPayload` follows jBallerina's rule of keeping an existing `Content-Type` when no override is passed; the other setters overwrite it with their default. |
+| Request write methods | Supported | `setTextPayload`, `setJsonPayload`, `setXmlPayload`, `setBinaryPayload` (each with optional `contentType`), `setHeader`, `addHeader`, `removeHeader`, `removeAllHeaders`, and `setContentType` populate the request. All four payload setters follow jBallerina's rule of keeping an existing `Content-Type` when no override is passed, falling back to their type-specific default only when none is set. |
 | Request read methods | Supported | `getTextPayload`, `getJsonPayload`, `getXmlPayload`, `getBinaryPayload`, `getHeader`, `getHeaders`, `hasHeader`, `getHeaderNames`, `getContentType`, `getQueryParams`, `getQueryParamValue`, and `getQueryParamValues` read from client-constructed or inbound requests. |
 | Path parameter binding | Not Yet Supported | Automatic extraction of URL path segments into resource function parameters is not implemented. |
 | Query parameter binding | Not Yet Supported | Automatic binding of URL query parameters to resource function parameters is not implemented. |
@@ -136,7 +136,7 @@ Support Levels:
 | Response payload as raw bytes | Supported | `getBinaryPayload()` returns `byte[]\|error`. |
 | Response header inspection | Supported | `hasHeader`, `getHeader`, `getHeaders`, and `getHeaderNames` operate on transport (leading) headers. Trailing header position is accepted at compile time but has no runtime effect. |
 | Response object construction | Supported | `new http:Response()` creates a response with status code 200; initialised via `init()`. |
-| Response write methods | Supported | `setTextPayload`, `setJsonPayload`, `setXmlPayload`, `setBinaryPayload` (each with optional `contentType`), `setHeader`, `addHeader`, `removeHeader`, `removeAllHeaders`, and `setContentType` populate a constructed `Response`. `setXmlPayload` follows jBallerina's rule of keeping an existing `Content-Type` when no override is passed; the other setters overwrite it with their default. Status code is set by direct field assignment (`resp.statusCode = 404`). |
+| Response write methods | Supported | `setTextPayload`, `setJsonPayload`, `setXmlPayload`, `setBinaryPayload` (each with optional `contentType`), `setHeader`, `addHeader`, `removeHeader`, `removeAllHeaders`, and `setContentType` populate a constructed `Response`. All four payload setters follow jBallerina's rule of keeping an existing `Content-Type` when no override is passed, falling back to their type-specific default only when none is set. Status code is set by direct field assignment (`resp.statusCode = 404`). |
 | Streaming response body | Not Yet Supported | `getByteStream()` is not implemented. |
 | Server-Sent Events | Not Yet Supported | `getSseEventStream()` and consuming a `stream<SseEvent, error?>` response are not implemented. |
 

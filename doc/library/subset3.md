@@ -214,7 +214,7 @@ resource function get album() returns xml {
 
 | Feature | Notes |
 |---|---|
-| `protobuf:Error`, `protobuf:MessageDescriptor`, `protobuf:Descriptor` annotation | Declared and attachable, but not yet used for (de)serialization: `pack` receives only the value, which carries no nominal type or annotations, and `typeof` is not implemented yet. An arbitrary `record {}` value passed to `pack`/`unpack` is still handled, via the `google.protobuf.Struct` fallback described below, rather than resolved through its own descriptor |
+| `protobuf:Error`, `protobuf:MessageDescriptor`, `protobuf:Descriptor` annotation | Declared and attachable, but not yet used to resolve a message record. `pack` cannot reach the annotation — it receives only the value, and `typeof` is not implemented yet; `unpack` does receive the annotated typedesc and is not blocked by that. An arbitrary `record {}` value passed to `pack`/`unpack` is still handled, via the `google.protobuf.Struct` fallback described below, rather than resolved through its own descriptor |
 | `protobuf.types.any:pack(message)` | Supported for `int`, `float`, `string`, `boolean`, `byte[]`, `()`, `time:Utc`, `time:Seconds`, and `map<anydata>`. The closed empty record `record {\|\|}` packs as `google.protobuf.Empty`; any other `record {}` value is packed as `google.protobuf.Struct` rather than resolved via its own descriptor — see the package README |
 | `protobuf.types.any:unpack(anyValue, targetTypeOfAny = <>)` | Supported for the same well-known types, using the interpreter's inferred-typedesc-parameter support; a mismatched target raises `protobuf.types.any:TypeMismatchError` |
 | `protobuf.types.any:Any`, `ContextAny`, `ContextAnyStream` | Supported |

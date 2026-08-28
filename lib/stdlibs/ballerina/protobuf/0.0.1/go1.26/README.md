@@ -39,7 +39,7 @@ Support Levels:
 | Feature/API | Support Status | Comments / Limitations |
 |---|---|---|
 | Base error type | Supported | |
-| Message descriptor annotation | Partially Supported | Declared and attachable, but not yet used for (de)serialization: `pack` receives only the value, which carries no nominal type or annotations, and `typeof` is not implemented yet. |
+| Message descriptor annotation | Partially Supported | Declared and attachable. `pack` cannot use it: it receives only the value, which carries no nominal type or annotations, and `typeof` is not implemented yet. `unpack` does receive the annotated typedesc and is not blocked by that, but descriptor handling is deferred until both directions work. |
 | Any value representation | Supported | |
 | Any context record types | Supported | |
 | Packing a value into Any | Supported | Well-known types (scalars, `byte[]`, `()`, `time:Utc`, `time:Seconds`, `map<anydata>`) are fully supported, and `record {\|\|}` packs as `google.protobuf.Empty`. Any other message record falls back to `google.protobuf.Struct` — see the message descriptor annotation row. |

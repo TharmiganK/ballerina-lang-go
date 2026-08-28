@@ -6389,9 +6389,14 @@ func resolveMethodCall(t typeResolver, chain *binding, expr *ast.BLangInvocation
 	case semtypes.IsSubtype(t.typeContext(), recieverTy, semtypes.XML):
 		symbolRef, pkgAlias, ok = resolveLangLibImport(t, "lang.xml", methodSymbol.MethodName(), expr)
 	default:
+		ok = false
+	}
+	// lang.value applies to any value, so it's the fallback module.
+	if !ok {
 		symbolRef, pkgAlias, ok = resolveLangLibImport(t, "lang.value", methodSymbol.MethodName(), expr)
 	}
 	if !ok {
+		t.semanticError("method not found: "+methodSymbol.MethodName(), expr.GetPosition())
 		return semtypes.SemType{}, expressionEffect{}, false
 	}
 	argExprs := make([]ast.BLangExpression, len(expr.ArgExprs)+1)
@@ -6736,6 +6741,10 @@ func resolveLangLibImport(t typeResolver, pkgName string, methodName string, exp
 		t.internalError(fmt.Sprintf("%s symbol space not found", pkgName), expr.GetPosition())
 		return model.SymbolRef{}, ast.BLangIdentifier{}, false
 	}
+	symbolRef, ok := symbolSpace.GetSymbol(methodName)
+	if !ok {
+		return model.SymbolRef{}, ast.BLangIdentifier{}, false
+	}
 	basePos := expr.GetPosition()
 	pkgAlias := ast.BLangIdentifier{Value: pkgName}
 	pkgAlias.SetPosition(basePos)
@@ -6752,11 +6761,6 @@ func resolveLangLibImport(t typeResolver, pkgName string, methodName string, exp
 		}
 		setOtherNodesAsNever(&importNode)
 		t.addImplicitImport(pkgName, importNode)
-	}
-	symbolRef, ok := symbolSpace.GetSymbol(methodName)
-	if !ok {
-		t.semanticError("method not found: "+methodName, expr.GetPosition())
-		return model.SymbolRef{}, ast.BLangIdentifier{}, false
 	}
 	return symbolRef, pkgAlias, true
 }

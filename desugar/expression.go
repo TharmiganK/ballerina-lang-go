@@ -30,11 +30,8 @@ import (
 )
 
 type invocable interface {
-	ast.BLangActionOrExpression
-	ResolvedSymbol() model.SymbolRef
-	Receiver() ast.BLangExpression
+	ast.Invocable
 	SetReceiver(ast.BLangExpression)
-	CallArgs() []ast.BLangExpression
 	SetCallArgs([]ast.BLangExpression)
 }
 
@@ -112,6 +109,28 @@ func walkExpression(cx *functionContext, node ast.BLangActionOrExpression) desug
 		return walkInvocation(cx, expr)
 	case *ast.BLangClientResourceAccessAction:
 		return walkClientResourceAccessAction(cx, expr)
+	case *ast.BLangStartAction:
+		return walkStartAction(cx, expr)
+	case *ast.BLangSingleWaitAction:
+		result := walkExpression(cx, expr.FutureExpr)
+		expr.FutureExpr = result.replacementNode.(ast.BLangExpression)
+		return desugaredNode[ast.BLangActionOrExpression]{initStmts: result.initStmts, replacementNode: expr}
+	case *ast.BLangAlternateWaitAction:
+		var initStmts []ast.StatementNode
+		for i, futureExpr := range expr.FutureExprs {
+			result := walkExpression(cx, futureExpr)
+			initStmts = append(initStmts, result.initStmts...)
+			expr.FutureExprs[i] = result.replacementNode.(ast.BLangExpression)
+		}
+		return desugaredNode[ast.BLangActionOrExpression]{initStmts: initStmts, replacementNode: expr}
+	case *ast.BLangMultipleWaitAction:
+		var initStmts []ast.StatementNode
+		for i, futureExpr := range expr.FutureExprs {
+			result := walkExpression(cx, futureExpr)
+			initStmts = append(initStmts, result.initStmts...)
+			expr.FutureExprs[i] = result.replacementNode.(ast.BLangExpression)
+		}
+		return desugaredNode[ast.BLangActionOrExpression]{initStmts: initStmts, replacementNode: expr}
 	case *ast.BLangWildCardBindingPattern:
 		// Wildcard binding pattern can appear in variable references (e.g., _ = expr)
 		return desugaredNode[ast.BLangActionOrExpression]{replacementNode: expr}
@@ -723,6 +742,15 @@ func walkTemplateExpr(cx *functionContext, expr *ast.BLangTemplateExpr) desugare
 	return desugaredNode[ast.BLangActionOrExpression]{initStmts: initStmts, replacementNode: expr}
 }
 
+func walkStartAction(cx *functionContext, action *ast.BLangStartAction) desugaredNode[ast.BLangActionOrExpression] {
+	callResult := walkExpression(cx, action.Call)
+	action.Call = callResult.replacementNode.(ast.Invocable)
+	return desugaredNode[ast.BLangActionOrExpression]{
+		initStmts:       callResult.initStmts,
+		replacementNode: action,
+	}
+}
+
 func walkClientResourceAccessAction(cx *functionContext, expr *ast.BLangClientResourceAccessAction) desugaredNode[ast.BLangActionOrExpression] {
 	var initStmts []ast.StatementNode
 	if expr.Expr != nil {
@@ -1153,7 +1181,7 @@ func walkTrapExpr(cx *functionContext, expr *ast.BLangTrapExpr) desugaredNode[as
 		// trap region in BIR gen
 		cx.internalError("Init statements will be hoisted outside of trap region")
 	}
-	expr.Expr = result.replacementNode.(ast.BLangExpression)
+	expr.Expr = result.replacementNode
 	return desugaredNode[ast.BLangActionOrExpression]{initStmts: nil, replacementNode: expr}
 }
 

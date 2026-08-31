@@ -3713,6 +3713,14 @@ func resolveExpressionInner(t typeResolver, chain *binding, expr ast.BLangAction
 		return returnedFunction(result, ok, e.RawSymbol)
 	case *ast.BLangClientResourceAccessAction:
 		return resolved(resolveClientResourceAccessAction(t, chain, e, expectedType))
+	case *ast.BLangStartAction:
+		return resolved(resolveStartAction(t, chain, e, expectedType))
+	case *ast.BLangSingleWaitAction:
+		return resolved(resolveSingleWaitAction(t, chain, e))
+	case *ast.BLangAlternateWaitAction:
+		return resolved(resolveAlternateWaitAction(t, chain, e))
+	case *ast.BLangMultipleWaitAction:
+		return resolved(resolveMultipleWaitAction(t, chain, e, expectedType))
 	case *ast.BLangInferredTypedescDefault:
 		return resolved(resolveInferredTypedescDefault(t, chain, e, expectedType))
 	case *ast.BLangDefaultArg:
@@ -4155,6 +4163,100 @@ func associateTypeTestFunctionSignature(t typeResolver, narrowed model.SymbolRef
 		return false
 	}
 	return true
+}
+
+func resolveStartAction(t typeResolver, chain *binding, e *ast.BLangStartAction, expectedType semtypes.SemType) (semtypes.SemType, expressionEffect, bool) {
+	var callExpectedType semtypes.SemType
+	if !semtypes.IsZero(expectedType) {
+		futureExpectedType := semtypes.Intersect(expectedType, semtypes.Future)
+		if semtypes.IsEmpty(t.typeContext(), futureExpectedType) {
+			t.semanticError("start action requires a future expected type", e.GetPosition())
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		callExpectedType = semtypes.FutureEventualType(t.typeContext(), futureExpectedType)
+	}
+	callResult, ok := resolveActionOrExpression(t, chain, e.Call, callExpectedType)
+	if !ok {
+		return semtypes.SemType{}, expressionEffect{}, false
+	}
+	resultTy := semtypes.FutureContaining(t.typeEnv(), callResult.ty)
+	setExpectedType(e, resultTy)
+	return resultTy, callResult.effect, true
+}
+
+func resolveSingleWaitAction(t typeResolver, chain *binding, e *ast.BLangSingleWaitAction) (semtypes.SemType, expressionEffect, bool) {
+	futureResult, ok := resolveActionOrExpression(t, chain, e.FutureExpr, semtypes.Future)
+	if !ok {
+		return semtypes.SemType{}, expressionEffect{}, false
+	}
+	futureTy := futureResult.ty
+	if !semtypes.IsSubtype(t.typeContext(), futureTy, semtypes.Future) {
+		t.semanticError("wait action requires a future expression", e.FutureExpr.GetPosition())
+		return semtypes.SemType{}, expressionEffect{}, false
+	}
+	resultTy := semtypes.Union(semtypes.FutureEventualType(t.typeContext(), futureTy), semtypes.Error)
+	setExpectedType(e, resultTy)
+	return resultTy, futureResult.effect, true
+}
+
+func resolveAlternateWaitAction(t typeResolver, chain *binding, e *ast.BLangAlternateWaitAction) (semtypes.SemType, expressionEffect, bool) {
+	resultTy := semtypes.Error
+	for _, futureExpr := range e.FutureExprs {
+		futureResult, ok := resolveActionOrExpression(t, chain, futureExpr, semtypes.Future)
+		if !ok {
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		futureTy := futureResult.ty
+		if !semtypes.IsSubtype(t.typeContext(), futureTy, semtypes.Future) {
+			t.semanticError("wait action requires a future expression", futureExpr.GetPosition())
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		resultTy = semtypes.Union(resultTy, semtypes.FutureEventualType(t.typeContext(), futureTy))
+	}
+	setExpectedType(e, resultTy)
+	return resultTy, defaultExpressionEffect(chain), true
+}
+
+func resolveMultipleWaitAction(t typeResolver, chain *binding, e *ast.BLangMultipleWaitAction, expectedType semtypes.SemType) (semtypes.SemType, expressionEffect, bool) {
+	if len(e.FutureExprs) != len(e.FieldNames) {
+		t.internalError("multiple wait field and expression count mismatch", e.GetPosition())
+		return semtypes.SemType{}, expressionEffect{}, false
+	}
+	fields := make([]semtypes.Field, len(e.FutureExprs))
+	seen := make(map[string]struct{}, len(e.FieldNames))
+	for i, futureExpr := range e.FutureExprs {
+		fieldName := e.FieldNames[i]
+		if _, exists := seen[fieldName]; exists {
+			t.semanticError(fmt.Sprintf("duplicate field name '%s'", fieldName), futureExpr.GetPosition())
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		seen[fieldName] = struct{}{}
+		futureResult, ok := resolveActionOrExpression(t, chain, futureExpr, semtypes.Future)
+		if !ok {
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		futureTy := futureResult.ty
+		if !semtypes.IsSubtype(t.typeContext(), futureTy, semtypes.Future) {
+			t.semanticError("wait action requires a future expression", futureExpr.GetPosition())
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		fieldTy := semtypes.Union(semtypes.FutureEventualType(t.typeContext(), futureTy), semtypes.Error)
+		fields[i] = semtypes.FieldFrom(fieldName, fieldTy, false, false)
+	}
+
+	resultTy := createClosedRecordType(t.typeEnv(), fields, semtypes.Never)
+	if !semtypes.IsZero(expectedType) {
+		expectedMappingTy := semtypes.Intersect(expectedType, semtypes.Mapping)
+		if semtypes.IsEmpty(t.typeContext(), expectedMappingTy) || !semtypes.IsSubtype(t.typeContext(), resultTy, expectedMappingTy) {
+			t.semanticError("multiple wait result is incompatible with expected type", e.GetPosition())
+			return semtypes.SemType{}, expressionEffect{}, false
+		}
+		if semtypes.ToMappingAtomicType(t.typeContext(), expectedMappingTy) != nil {
+			resultTy = expectedMappingTy
+		}
+	}
+	setExpectedType(e, resultTy)
+	return resultTy, defaultExpressionEffect(chain), true
 }
 
 func resolveTrapExpr(t typeResolver, chain *binding, e *ast.BLangTrapExpr) (semtypes.SemType, expressionEffect, bool) {
@@ -7296,6 +7398,15 @@ func resolveBTypeInner(t typeResolver, btype ast.BType, depth int) (semtypes.Sem
 					return semtypes.SemType{}, false
 				}
 				return semtypes.TypedescContaining(t.typeEnv(), constraint), true
+			case ast.TypeKindFuture:
+				d := semtypes.NewFutureDefinition()
+				ty.Definition = &d
+				constraint, ok := resolveTypeDataPair(t, &ty.Constraint, depth+1)
+				if !ok {
+					ty.Definition = nil
+					return semtypes.SemType{}, false
+				}
+				return d.Define(t.typeEnv(), constraint), true
 			case ast.TypeKindXML:
 				constraint, ok := resolveTypeDataPair(t, &ty.Constraint, depth+1)
 				if !ok {
@@ -7327,7 +7438,9 @@ func resolveBTypeInner(t typeResolver, btype ast.BType, depth int) (semtypes.Sem
 			return semtypes.XML, true
 		case ast.TypeKindStream:
 			return semtypes.Stream, true
-		case ast.TypeKindTable, ast.TypeKindFuture:
+		case ast.TypeKindFuture:
+			return semtypes.Future, true
+		case ast.TypeKindTable:
 			t.unimplemented("unsupported builtin type kind: "+ty.TypeKind.String(), ty.GetPosition())
 			return semtypes.SemType{}, false
 		default:

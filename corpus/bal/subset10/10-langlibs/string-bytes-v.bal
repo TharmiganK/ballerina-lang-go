@@ -26,4 +26,10 @@ public function main() {
     byte[] invalid = [255, 254];
     string|error invalidStr = string:fromBytes(invalid);
     io:println(invalidStr is error); // @output true
+
+    // toBytes' result must stay a growable byte[]: a filling-set past its
+    // current length should extend it, zero-filling the gap.
+    byte[] grown = "hi".toBytes();
+    grown[4] = 65;
+    io:println(grown); // @output [104,105,0,0,65]
 }

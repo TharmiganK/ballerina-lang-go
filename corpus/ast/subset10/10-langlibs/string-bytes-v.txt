@@ -1,7 +1,6 @@
-(package
+(compilation-unit
+(package-id $anon . 0.0.0)
   (import-package ballerina io (as io))
-  (import-package ballerina lang string (as lang.string))
-  (import-package ballerina lang array (as lang.array))
   (function main () (
     (value-type null))
     (block-function-body
@@ -9,12 +8,12 @@
         (variable bytes (type
           (array-type
             (value-type byte) dimensions: 1 ([]))) (expr
-          (invocation lang.string toBytes (
-            (literal hi))))))
+          (invocation toBytes expr:
+            (literal hi) ()))))
       (expression-stmt
         (invocation io println (
-          (invocation lang.array length (
-            (simple-var-ref bytes))))))
+          (invocation length expr:
+            (simple-var-ref bytes) ()))))
       (var-def
         (variable back (type
           (union-type
@@ -43,4 +42,18 @@
         (invocation io println (
           (type-test-expr is
             (simple-var-ref invalidStr)
-            (error-type))))))))
+            (error-type)))))
+      (var-def
+        (variable grown (type
+          (array-type
+            (value-type byte) dimensions: 1 ([]))) (expr
+          (invocation toBytes expr:
+            (literal hi) ()))))
+      (assignment
+        (index-based-access
+          (simple-var-ref grown)
+          (literal 4))
+        (literal 65))
+      (expression-stmt
+        (invocation io println (
+          (simple-var-ref grown)))))))

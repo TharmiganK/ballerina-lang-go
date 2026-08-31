@@ -8392,11 +8392,12 @@ func monomorphizeArrayIndexOf(t typeResolver, sym *model.OpaqueFunctionSymbol, p
 		t.semanticError("missing container argument", pos)
 		return model.SymbolRef{}, chain, false
 	}
-	containerTy, effect, ok := resolveActionOrExpression(t, chain, containerExpr, semtypes.SemType{})
+	containerResult, ok := resolveActionOrExpression(t, chain, containerExpr, semtypes.SemType{})
 	if !ok {
 		return model.SymbolRef{}, chain, false
 	}
-	chain = effect.ifTrue
+	containerTy := containerResult.ty
+	chain = containerResult.effect.ifTrue
 	// startIndex defaults to 0 per spec (`indexOf(arr, val, int startIndex = 0)`).
 	// Opaque functions don't go through the general defaultable-param desugaring
 	// path (see padArgTypesForDefaults), so instead we monomorphize a 2- or
@@ -8441,11 +8442,12 @@ func monomorphizeArrayRemove(t typeResolver, sym *model.OpaqueFunctionSymbol, po
 		t.semanticError("missing container argument", pos)
 		return model.SymbolRef{}, chain, false
 	}
-	containerTy, effect, ok := resolveActionOrExpression(t, chain, containerExpr, semtypes.SemType{})
+	containerResult, ok := resolveActionOrExpression(t, chain, containerExpr, semtypes.SemType{})
 	if !ok {
 		return model.SymbolRef{}, chain, false
 	}
-	chain = effect.ifTrue
+	containerTy := containerResult.ty
+	chain = containerResult.effect.ifTrue
 	if sym.Lookup != nil {
 		if ref, ok := sym.Lookup(containerTy); ok {
 			return ref, chain, true

@@ -30,13 +30,23 @@ const (
 	moduleName = "lang.runtime"
 )
 
+func runtimeSleep(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
+	seconds, _ := args[0].(*decimal.Decimal)
+	dur := time.Duration(seconds.Float64() * float64(time.Second))
+	if dur <= 0 {
+		return nil, nil
+	}
+	// Yield before the actual wait so strands sharing this one's cooperative
+	// thread run while this strand sleeps, then wait for our turn to come
+	// back around once the timer fires.
+	continuation := ctx.Yield()
+	<-ctx.Env.Platform.Time.After(dur)
+	<-continuation
+	return nil, nil
+}
+
 func initRuntimeModule(rt *runtime.Runtime) {
-	runtime.RegisterExternFunction(rt, orgName, moduleName, "sleep",
-		func(_ *extern.Context, args []values.BalValue) (values.BalValue, error) {
-			seconds, _ := args[0].(*decimal.Decimal)
-			<-rt.Platform().Time.After(time.Duration(seconds.Float64() * float64(time.Second)))
-			return nil, nil
-		})
+	runtime.RegisterExternFunction(rt, orgName, moduleName, "sleep", runtimeSleep)
 }
 
 func init() {

@@ -17,6 +17,7 @@
 package langruntime
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ballerina-nutcracker/ballerina/decimal"
@@ -28,21 +29,33 @@ import (
 const (
 	orgName    = "ballerina"
 	moduleName = "lang.runtime"
+
+	// sleepPollInterval bounds how long we wait between yields, so a sleeping
+	// strand still checks back in periodically instead of spinning as fast as
+	// the scheduler will let it.
+	sleepPollInterval = 10 * time.Millisecond
 )
 
 func runtimeSleep(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
-	seconds, _ := args[0].(*decimal.Decimal)
-	dur := time.Duration(seconds.Float64() * float64(time.Second))
-	if dur <= 0 {
-		return nil, nil
+	seconds, ok := args[0].(*decimal.Decimal)
+	if !ok {
+		panic(fmt.Sprintf("internal error: unexpected seconds type %T", args[0]))
 	}
-	// Yield before the actual wait so strands sharing this one's cooperative
-	// thread run while this strand sleeps, then wait for our turn to come
-	// back around once the timer fires.
-	continuation := ctx.Yield()
-	<-ctx.Env.Platform.Time.After(dur)
-	<-continuation
-	return nil, nil
+	dur := time.Duration(seconds.Float64() * float64(time.Second))
+	deadline := ctx.Env.Platform.Time.MonotonicNow() + dur
+	// Wait out each interval before yielding, and always yield with a single
+	// immediate receive (`<-ctx.Yield()`) rather than holding the returned
+	// channel across other work, so strands sharing this one's cooperative
+	// thread get a turn roughly every sleepPollInterval while this strand
+	// sleeps.
+	for {
+		remaining := deadline - ctx.Env.Platform.Time.MonotonicNow()
+		if remaining <= 0 {
+			return nil, nil
+		}
+		<-ctx.Env.Platform.Time.After(min(remaining, sleepPollInterval))
+		<-ctx.Yield()
+	}
 }
 
 func initRuntimeModule(rt *runtime.Runtime) {

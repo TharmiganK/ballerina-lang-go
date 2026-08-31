@@ -116,9 +116,11 @@ func arrayIndexOf(_ *extern.Context, args []values.BalValue) (values.BalValue, e
 	val := args[1]
 	startIndex := int64(0)
 	if len(args) > 2 && args[2] != nil {
-		if si, ok := args[2].(int64); ok {
-			startIndex = si
+		si, ok := args[2].(int64)
+		if !ok {
+			panic(fmt.Sprintf("internal error: unexpected startIndex type %T", args[2]))
 		}
+		startIndex = si
 	}
 	if startIndex < 0 {
 		panic(values.NewErrorWithMessage(fmt.Sprintf("invalid array index: %d", startIndex)))

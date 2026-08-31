@@ -34,6 +34,17 @@ main() -> nil{
     %19 = println(%18) -> bb7;
   }
   bb7 {
+    %20 = ConstantLoad hi
+    %21 = toBytes(%20) -> bb8;
+  }
+  bb8 {
+    grown = %21;
+    %23 = ConstantLoad 65
+    %24 = ConstantLoad 4
+    grown[%24] = %23;
+    %25 = println(grown) -> bb9;
+  }
+  bb9 {
     return;
   }
 }

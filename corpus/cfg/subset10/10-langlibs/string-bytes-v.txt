@@ -39,5 +39,19 @@
         (type-test-expr is
           (simple-var-ref invalidStr)
           (error-type)))))
+    (var-def
+      (variable grown (type
+        (array-type
+          (value-type byte) dimensions: 1 ([]))) (expr
+        (invocation lang.string toBytes (
+          (literal hi))))))
+    (assignment
+      (index-based-access
+        (simple-var-ref grown)
+        (literal 4))
+      (literal 65))
+    (expression-stmt
+      (invocation io println (
+        (simple-var-ref grown))))
   )
 )

@@ -40,9 +40,9 @@ type OpaqueFunctionSymbol struct {
 	ID          int          // per-package opaque id; serialization handle and (with the package) selects the monomorphizer
 	SymbolSpace *SymbolSpace // space the monomorphized function is added to
 	// Params are the declared parameters, in order, so named arguments resolve
-	// the same way they do in jBallerina. They belong to the symbol rather than
-	// to a lookup keyed by function name, because the same name means different
-	// things in different packages (array:remove vs map:remove).
+	// the same way they do in jBallerina. They live on the symbol itself, which
+	// is already package- and id-scoped, rather than in a separate lookup that
+	// would need that same scoping duplicated.
 	Params []Param
 	// Monomorphization cache functions, if function it self don't support caching then function pointers are nil
 	Lookup          func(keys ...semtypes.SemType) (SymbolRef, bool)

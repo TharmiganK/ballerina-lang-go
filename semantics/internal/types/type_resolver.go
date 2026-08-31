@@ -8416,6 +8416,10 @@ func monomorphizeArrayRemove(t typeResolver, sym *model.OpaqueFunctionSymbol, po
 		t.semanticError("expect first argument to be a subtype of (any|error)[]", pos)
 		return model.SymbolRef{}, chain, false
 	}
+	if semtypes.IsSubtype(cx, containerTy, semtypes.ValReadonly) {
+		t.semanticError("cannot update 'readonly' value of type '"+semtypes.ToString(cx, containerTy)+"'", pos)
+		return model.SymbolRef{}, chain, false
+	}
 	elementType := semtypes.ListProj(cx, containerTy, semtypes.Int)
 	sig := model.TypedFunctionSignature{
 		ParamTypes: []semtypes.SemType{containerTy, semtypes.Int},

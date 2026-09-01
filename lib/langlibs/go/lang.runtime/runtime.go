@@ -29,11 +29,6 @@ import (
 const (
 	orgName    = "ballerina"
 	moduleName = "lang.runtime"
-
-	// sleepPollInterval bounds how long we wait between yields, so a sleeping
-	// strand still checks back in periodically instead of spinning as fast as
-	// the scheduler will let it.
-	sleepPollInterval = 10 * time.Millisecond
 )
 
 func runtimeSleep(ctx *extern.Context, args []values.BalValue) (values.BalValue, error) {
@@ -43,19 +38,14 @@ func runtimeSleep(ctx *extern.Context, args []values.BalValue) (values.BalValue,
 	}
 	dur := time.Duration(seconds.Float64() * float64(time.Second))
 	deadline := ctx.Env.Platform.Time.MonotonicNow() + dur
-	// Wait out each interval before yielding, and always yield with a single
-	// immediate receive (`<-ctx.Yield()`) rather than holding the returned
-	// channel across other work, so strands sharing this one's cooperative
-	// thread get a turn roughly every sleepPollInterval while this strand
-	// sleeps.
-	for {
-		remaining := deadline - ctx.Env.Platform.Time.MonotonicNow()
-		if remaining <= 0 {
-			return nil, nil
-		}
-		<-ctx.Env.Platform.Time.After(min(remaining, sleepPollInterval))
+	// Hand the thread back on every pass, the same way the wait actions poll
+	// (see waitAllFutures). Blocking on a timer between yields would hold this
+	// strand's turn for the whole timer, stalling every other strand sharing
+	// the thread.
+	for ctx.Env.Platform.Time.MonotonicNow() < deadline {
 		<-ctx.Yield()
 	}
+	return nil, nil
 }
 
 func initRuntimeModule(rt *runtime.Runtime) {

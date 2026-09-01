@@ -16,22 +16,11 @@
 
 import ballerina/io;
 
-// Parameter names are part of the public interface: these are the names
-// jBallerina declares, so the same call has to compile here.
+// Parameter names are part of the public interface, so these calls have to
+// compile here as they do in jBallerina. These langlib functions are declared
+// in .bal with real signatures, so named arguments resolve normally. The
+// opaque-symbol functions cannot do this yet — see langlib-named-args-fv.bal.
 public function main() {
-    int[] a = [1, 2, 3, 2];
-    io:println(a.indexOf(val = 2)); // @output 1
-    io:println(a.indexOf(2, startIndex = 2)); // @output 3
-    io:println(a.indexOf(val = 2, startIndex = 2)); // @output 3
-
-    int[] b = [10, 20, 30];
-    io:println(b.remove(index = 0)); // @output 10
-    io:println(b); // @output [20,30]
-
-    // map:remove keeps its own names; the two must not be confused.
-    map<int> m = {"a": 1, "b": 2};
-    io:println(m.remove(k = "a")); // @output 1
-
     io:println(int:fromString(s = "42")); // @output 42
     io:println("hello".substring(startIndex = 1, endIndex = 3)); // @output el
 }

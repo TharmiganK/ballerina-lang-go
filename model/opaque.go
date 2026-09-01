@@ -39,11 +39,6 @@ type OpaqueFunctionSymbol struct {
 	name        string
 	ID          int          // per-package opaque id; serialization handle and (with the package) selects the monomorphizer
 	SymbolSpace *SymbolSpace // space the monomorphized function is added to
-	// Params are the declared parameters, in order, so named arguments resolve
-	// the same way they do in jBallerina. They live on the symbol itself, which
-	// is already package- and id-scoped, rather than in a separate lookup that
-	// would need that same scoping duplicated.
-	Params []Param
 	// Monomorphization cache functions, if function it self don't support caching then function pointers are nil
 	Lookup          func(cacheKey semtypes.SemType, cacheKeyRest ...semtypes.SemType) (SymbolRef, bool)
 	Store           func(ref SymbolRef, cacheKey semtypes.SemType, cacheKeyRest ...semtypes.SemType)
@@ -63,8 +58,8 @@ const (
 	OpaqueFnXMLIterator = 4
 )
 
-func newOpaqueFunctionSymbol(name string, id int, isIsolatedParam func(int) bool, params ...Param) *OpaqueFunctionSymbol {
-	return &OpaqueFunctionSymbol{name: name, ID: id, IsIsolatedParam: isIsolatedParam, Params: params}
+func newOpaqueFunctionSymbol(name string, id int, isIsolatedParam func(int) bool) *OpaqueFunctionSymbol {
+	return &OpaqueFunctionSymbol{name: name, ID: id, IsIsolatedParam: isIsolatedParam}
 }
 
 func noIsolatedParams(int) bool { return false }
@@ -132,24 +127,15 @@ func OpaqueSymbols(pkg PackageIdentifier) []Symbol {
 		return langXMLOpaqueSymbols()
 	case "lang.array":
 		return []Symbol{
-			newOpaqueFunctionSymbol("push", OpaqueFnArrayPush, noIsolatedParams,
-				Param{Name: "arr"}, Param{Name: "vals", Flag: ParamFlagRestParam}),
-			newOpaqueFunctionSymbol("map", OpaqueFnArrayMap, func(index int) bool { return index == 1 },
-				Param{Name: "arr"}, Param{Name: "func"}),
-			// startIndex defaults to 0; the Go extern applies that default when
-			// the call site omits it, so no default expression is carried here.
-			newOpaqueFunctionSymbol("indexOf", OpaqueFnArrayIndexOf, noIsolatedParams,
-				Param{Name: "arr"}, Param{Name: "val"},
-				Param{Name: "startIndex", Flag: ParamFlagDefaultable}),
-			newOpaqueFunctionSymbol("remove", OpaqueFnArrayRemove, noIsolatedParams,
-				Param{Name: "arr"}, Param{Name: "index"}),
+			newOpaqueFunctionSymbol("push", OpaqueFnArrayPush, noIsolatedParams),
+			newOpaqueFunctionSymbol("map", OpaqueFnArrayMap, func(index int) bool { return index == 1 }),
+			newOpaqueFunctionSymbol("indexOf", OpaqueFnArrayIndexOf, noIsolatedParams),
+			newOpaqueFunctionSymbol("remove", OpaqueFnArrayRemove, noIsolatedParams),
 		}
 	case "lang.map":
 		return []Symbol{
-			newOpaqueFunctionSymbol("remove", OpaqueFnMapRemove, noIsolatedParams,
-				Param{Name: "m"}, Param{Name: "k"}),
-			newOpaqueFunctionSymbol("get", OpaqueFnMapGet, noIsolatedParams,
-				Param{Name: "m"}, Param{Name: "k"}),
+			newOpaqueFunctionSymbol("remove", OpaqueFnMapRemove, noIsolatedParams),
+			newOpaqueFunctionSymbol("get", OpaqueFnMapGet, noIsolatedParams),
 		}
 	default:
 		return nil

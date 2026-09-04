@@ -49,4 +49,19 @@ public function main() returns error? {
         io:println(list[1]); // @output two
     }
     io:println(unpackedNested["empty"]); // @output
+
+    // decimal values widen to float64, like int, since Struct only carries doubles.
+    map<anydata> withDecimal = {"d": 3.14d, "inner": {"x": 9.9d}, "list": [1.5d, 2]};
+    pbany:Any packedDecimal = check pbany:pack(withDecimal);
+    map<anydata> unpackedDecimal = check pbany:unpack(packedDecimal);
+    io:println(unpackedDecimal["d"]); // @output 3.14
+    anydata decimalInner = unpackedDecimal["inner"];
+    if decimalInner is map<anydata> {
+        io:println(decimalInner["x"]); // @output 9.9
+    }
+    anydata decimalList = unpackedDecimal["list"];
+    if decimalList is anydata[] {
+        io:println(decimalList[0]); // @output 1.5
+        io:println(decimalList[1]); // @output 2.0
+    }
 }

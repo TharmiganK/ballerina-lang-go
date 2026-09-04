@@ -5,10 +5,18 @@ linters:
   enable:
     - depguard
     - dupl
+    - exhaustive
     - iface
+    - iotamixing
+    - reassign
     - unparam
     - forbidigo
   settings:
+    reassign:
+      patterns:
+        - ".*"
+    exhaustive:
+      default-signifies-exhaustive: true
     forbidigo:
       forbid:
         - pattern: ^panic$

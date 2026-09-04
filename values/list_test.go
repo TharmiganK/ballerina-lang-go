@@ -27,6 +27,7 @@ import (
 // the backing array holding a strong reference to the removed value forever
 // (as long as the list itself is reachable).
 func TestListRemoveAtReleasesVacatedSlot(t *testing.T) {
+	t.Parallel()
 	removedVal := newList(int64(99))
 	l := newList(int64(1), int64(2), removedVal)
 	full := l.elems[:cap(l.elems)]
@@ -47,6 +48,7 @@ func TestListRemoveAtReleasesVacatedSlot(t *testing.T) {
 // before truncating, so previously-held values become unreachable through
 // the list's backing array.
 func TestListClearReleasesAllSlots(t *testing.T) {
+	t.Parallel()
 	a := newList(int64(1))
 	b := newList(int64(2))
 	l := newList(a, b)

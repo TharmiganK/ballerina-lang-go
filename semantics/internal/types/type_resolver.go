@@ -8201,10 +8201,11 @@ var (
 
 func init() {
 	arrayOpaqueMonomorphizers = []opaqueFnMonomorphizer{
-		model.OpaqueFnArrayPush:    monomorphizeArrayPush,
-		model.OpaqueFnArrayMap:     monomorphizeArrayMap,
-		model.OpaqueFnArrayIndexOf: monomorphizeArrayIndexOf,
-		model.OpaqueFnArrayRemove:  monomorphizeArrayRemove,
+		model.OpaqueFnArrayPush:      monomorphizeArrayPush,
+		model.OpaqueFnArrayMap:       monomorphizeArrayMap,
+		model.OpaqueFnArrayIndexOf:   monomorphizeArrayIndexOf,
+		model.OpaqueFnArrayRemove:    monomorphizeArrayRemove,
+		model.OpaqueFnArrayRemoveAll: monomorphizeArrayRemoveAll,
 	}
 	mapOpaqueMonomorphizers = []opaqueFnMonomorphizer{
 		model.OpaqueFnMapRemove: monomorphizeMapRemove,
@@ -8277,10 +8278,7 @@ func containerArgExpr(args []ast.BLangExpression, paramName string) (ast.BLangEx
 }
 
 // storeMonomorphizedOpaqueFn builds the monomorphic symbol for sig, adds it to
-// the opaque symbol's space, sets its type, and caches it under the cache keys
-// (the container type, plus any extra keys a monomorphizer needs to
-// disambiguate call sites that share a container type but resolve
-// differently, e.g. by arity).
+// the opaque symbol's space, sets its type, and caches it under the cache keys.
 func storeMonomorphizedOpaqueFn(t typeResolver, sym *model.OpaqueFunctionSymbol, polymorphicRef model.SymbolRef, sig model.TypedFunctionSignature, loc diagnostics.Location, cacheKey semtypes.SemType, cacheKeyRest ...semtypes.SemType) (model.SymbolRef, bool) {
 	mono := &monomorphicOpaqueFn{FunctionSymbol: model.NewFunctionSymbol(sym.Name(), sig, true, loc), poly: polymorphicRef}
 	mono.SetType(typeFromFunctionSignature(t, sig))
@@ -8430,6 +8428,41 @@ func monomorphizeArrayRemove(t typeResolver, sym *model.OpaqueFunctionSymbol, po
 	sig := model.TypedFunctionSignature{
 		ParamTypes: []semtypes.SemType{containerTy, semtypes.Int},
 		ReturnType: elementType,
+		Flags:      model.FuncSymbolFlagIsolated,
+	}
+	ref, ok := storeMonomorphizedOpaqueFn(t, sym, polymorphicRef, sig, pos, containerTy)
+	return ref, chain, ok
+}
+
+func monomorphizeArrayRemoveAll(t typeResolver, sym *model.OpaqueFunctionSymbol, polymorphicRef model.SymbolRef, chain *binding, args []ast.BLangExpression, _ semtypes.SemType, pos diagnostics.Location) (model.SymbolRef, *binding, bool) {
+	containerExpr, ok := containerArgExpr(args, "arr")
+	if !ok {
+		t.semanticError("missing container argument", pos)
+		return model.SymbolRef{}, chain, false
+	}
+	containerResult, ok := resolveActionOrExpression(t, chain, containerExpr, semtypes.SemType{})
+	if !ok {
+		return model.SymbolRef{}, chain, false
+	}
+	containerTy := containerResult.ty
+	chain = containerResult.effect.ifTrue
+	if sym.Lookup != nil {
+		if ref, ok := sym.Lookup(containerTy); ok {
+			return ref, chain, true
+		}
+	}
+	cx := t.typeContext()
+	if !semtypes.IsSubtype(cx, containerTy, semtypes.List) {
+		t.semanticError("expect first argument to be a subtype of (any|error)[]", pos)
+		return model.SymbolRef{}, chain, false
+	}
+	if semtypes.IsSubtype(cx, containerTy, semtypes.ValReadonly) {
+		t.semanticError("cannot update 'readonly' value of type '"+semtypes.ToString(cx, containerTy)+"'", pos)
+		return model.SymbolRef{}, chain, false
+	}
+	sig := model.TypedFunctionSignature{
+		ParamTypes: []semtypes.SemType{containerTy},
+		ReturnType: semtypes.Nil,
 		Flags:      model.FuncSymbolFlagIsolated,
 	}
 	ref, ok := storeMonomorphizedOpaqueFn(t, sym, polymorphicRef, sig, pos, containerTy)

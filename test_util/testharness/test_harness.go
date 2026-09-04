@@ -339,7 +339,6 @@ func (p *testPal) Platform() pal.Platform {
 		Time: pal.Time{
 			Now:          time.Now,
 			MonotonicNow: func() time.Duration { return time.Since(testProcessStart) },
-			After:        time.After,
 		},
 		HTTP: pal.HTTP{
 			NewClient: func(_ pal.ClientConfig) pal.HTTPClient {

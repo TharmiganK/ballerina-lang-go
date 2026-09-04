@@ -6922,7 +6922,8 @@ func lowerInvocationArgs(t typeResolver, args []ast.BLangExpression, fnRef model
 		if !ok {
 			return args, true
 		}
-		sig = model.NewUntypedFunctionSignature(opaqueFunctionParams(opaque.Name(), model.TypedFunctionSignature{}), opaque.Name() == "push")
+		pkg := t.compilerContext().SymbolPackage(fnRef).Package
+		sig = model.NewUntypedFunctionSignature(opaqueFunctionParams(pkg, opaque.Name(), model.TypedFunctionSignature{}), opaque.Name() == "push")
 	}
 	return lowerInvocationArgsInner(t, args, sig, fnRef, expectedType, pos)
 }
@@ -8286,7 +8287,8 @@ func storeMonomorphizedOpaqueFn(t typeResolver, sym *model.OpaqueFunctionSymbol,
 	idx := space.AppendSymbol(mono)
 	mono.name = fmt.Sprintf("%s$mono$%d", sym.Name(), idx)
 	ref := space.RefAt(idx)
-	handle := t.allocateFunctionSignature(opaqueFunctionParams(sym.Name(), sig), sym.Name() == "push")
+	pkg := t.compilerContext().SymbolPackage(polymorphicRef).Package
+	handle := t.allocateFunctionSignature(opaqueFunctionParams(pkg, sym.Name(), sig), sym.Name() == "push")
 	if !t.associateFunctionSignature(ref, handle) {
 		t.internalError("function signature already set", loc)
 		return model.SymbolRef{}, false
@@ -8302,17 +8304,25 @@ func storeMonomorphizedOpaqueFn(t typeResolver, sym *model.OpaqueFunctionSymbol,
 // defaultable parameters are not supported for them; the names here exist only
 // for the ones that already had them. Attaching real (untyped) signatures to
 // opaque symbols is the proper fix and is tracked separately.
-func opaqueFunctionParams(name string, sig model.TypedFunctionSignature) []model.Param {
-	switch name {
-	case "push":
-		return []model.Param{{Name: "arr"}, {Name: "vals", Flag: model.ParamFlagRestParam}}
-	case "map":
-		return []model.Param{{Name: "arr"}, {Name: "func"}}
-	case "remove", "get":
-		return []model.Param{{Name: "m"}, {Name: "k"}}
-	default:
-		return make([]model.Param, len(sig.ParamTypes))
+func opaqueFunctionParams(pkg, name string, sig model.TypedFunctionSignature) []model.Param {
+	switch pkg {
+	case "lang.array":
+		switch name {
+		case "push":
+			return []model.Param{{Name: "arr"}, {Name: "vals", Flag: model.ParamFlagRestParam}}
+		case "map":
+			return []model.Param{{Name: "arr"}, {Name: "func"}}
+		}
+	case "lang.map":
+		switch name {
+		case "remove", "get":
+			return []model.Param{{Name: "m"}, {Name: "k"}}
+		}
 	}
+	// Opaque symbols carry no signature of their own, so named arguments cannot
+	// resolve against them; leaving the names unset keeps the diagnostic honest
+	// instead of reporting another function's parameter names.
+	return make([]model.Param, len(sig.ParamTypes))
 }
 
 func monomorphizeArrayPush(t typeResolver, sym *model.OpaqueFunctionSymbol, polymorphicRef model.SymbolRef, chain *binding, args []ast.BLangExpression, _ semtypes.SemType, pos diagnostics.Location) (model.SymbolRef, *binding, bool) {

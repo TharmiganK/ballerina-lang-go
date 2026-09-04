@@ -20,11 +20,6 @@
 # + return - number of members in `arr`
 public isolated function length((any|error)[] arr) returns int = external;
 
-# Removes all members of an array.
-#
-# + arr - the array
-public isolated function removeAll((any|error)[] arr) = external;
-
 # Returns the lowercase hexadecimal encoding of an array of bytes.
 #
 # + arr - the array to be encoded

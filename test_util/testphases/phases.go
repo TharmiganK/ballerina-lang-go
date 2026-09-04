@@ -132,7 +132,6 @@ func loadBuiltinPublicSymbols(env *context.CompilerEnvironment) map[semantics.Pa
 		cu.SetPackageID(pkgID)
 		compilationUnits := []*ast.BLangCompilationUnit{cu}
 
-		// Pass accumulated stdlib symbols so packages that import other stdlibs (e.g. os→io, crypto→time) resolve correctly.
 		pkgScope, exported, importedSymbols := semantics.ResolveSymbols(
 			cx,
 			*pkgID,
@@ -144,7 +143,10 @@ func loadBuiltinPublicSymbols(env *context.CompilerEnvironment) map[semantics.Pa
 		if cx.HasErrors() {
 			continue
 		}
-		pkg := nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
+		pkg := nodebuilder.ToPackageFromCompilationUnits(cx, compilationUnits)
+		if cx.HasErrors() {
+			continue
+		}
 		pkg.PackageID = pkgID
 		pkg.Scope = pkgScope
 		pkg.Imports = nil
@@ -192,6 +194,9 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 	if err != nil {
 		return nil, fmt.Errorf("parsing failed: %w", err)
 	}
+	if cx.HasDiagnostics() {
+		return nil, fmt.Errorf("parsing failed with diagnostics")
+	}
 	if phase == PhaseParse {
 		return result, nil
 	}
@@ -202,7 +207,7 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 		return nil, fmt.Errorf("AST generation failed: compilation unit is nil")
 	}
 	if phase == PhaseAST {
-		result.Package = nodebuilder.ToPackageFromCompilationUnits([]*ast.BLangCompilationUnit{result.CompilationUnit})
+		result.Package = nodebuilder.ToPackageFromCompilationUnits(cx, []*ast.BLangCompilationUnit{result.CompilationUnit})
 		return result, nil
 	}
 
@@ -225,7 +230,7 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 		langlibs.PublicSymbols,
 		"",
 	)
-	result.Package = nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
+	result.Package = nodebuilder.ToPackageFromCompilationUnits(cx, compilationUnits)
 	result.Package.PackageID = pkgID
 	result.Package.Scope = pkgScope
 	if phase == PhaseSymbolResolution || cx.HasDiagnostics() {
@@ -270,5 +275,8 @@ func RunPipelineWithContent(env *context.CompilerEnvironment, cx *context.Compil
 
 	// Phase 10: BIR Generation
 	result.BIRPackage = birgen.GenBir(cx, result.Package)
+	if result.BIRPackage == nil {
+		return result, nil
+	}
 	return result, nil
 }

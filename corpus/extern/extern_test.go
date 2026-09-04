@@ -770,6 +770,7 @@ func compileSingleFileModule(
 	if err != nil {
 		t.Fatalf("parsing %s: %v", balPath, err)
 	}
+	assertNoDiagnostics(t, cx, "Parse")
 	cu := nodebuilder.GetCompilationUnit(cx, st)
 	pkgID := cx.NewPackageID(orgName, nameComps, model.DEFAULT_VERSION)
 	cu.SetPackageID(pkgID)
@@ -788,7 +789,8 @@ func compileSingleFileModule(
 		defaultOrg,
 	)
 	assertNoDiagnostics(t, cx, "ResolveSymbols")
-	pkg := nodebuilder.ToPackageFromCompilationUnits(compilationUnits)
+	pkg := nodebuilder.ToPackageFromCompilationUnits(cx, compilationUnits)
+	assertNoDiagnostics(t, cx, "ToPackageFromCompilationUnits")
 	pkg.PackageID = pkgID
 	pkg.Scope = pkgScope
 	pkg.Imports = nil
@@ -803,7 +805,13 @@ func compileSingleFileModule(
 	semantics.AnalyzeCFG(cx, pkg, cfg)
 	assertNoDiagnostics(t, cx, "AnalyzeCFG")
 	pkg = desugar.DesugarPackage(cx, pkg, importedSymbols)
-	return exported, birgen.GenBir(cx, pkg)
+	assertNoDiagnostics(t, cx, "DesugarPackage")
+	birPkg := birgen.GenBir(cx, pkg)
+	if birPkg == nil {
+		assertNoDiagnostics(t, cx, "GenBir")
+		t.Fatal("BIR generation failed without a diagnostic")
+	}
+	return exported, birPkg
 }
 
 func assertNoDiagnostics(t *testing.T, cx *context.CompilerContext, stage string) {

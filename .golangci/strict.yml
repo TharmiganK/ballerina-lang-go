@@ -7,8 +7,13 @@ linters:
     - dupl
     - exhaustive
     - iface
+    - iotamixing
+    - reassign
     - unparam
   settings:
+    reassign:
+      patterns:
+        - ".*"
     exhaustive:
       default-signifies-exhaustive: true
     depguard:

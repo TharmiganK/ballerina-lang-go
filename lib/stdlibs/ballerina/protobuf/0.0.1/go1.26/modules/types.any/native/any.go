@@ -173,10 +173,10 @@ func valueToWireMessage(message values.BalValue, suffix string) (proto.Message, 
 		return wrapperspb.Bytes(list.ToByteSlice()), nil
 	case "Timestamp":
 		list, _ := message.(*values.List)
-		return utcListToTimestamp(list), nil
+		return utcListToTimestamp(list)
 	case "Duration":
 		dec, _ := message.(*decimal.Decimal)
-		return secondsToDuration(dec), nil
+		return secondsToDuration(dec)
 	case "Struct":
 		m, _ := message.(*values.Map)
 		goMap, err := balAnydataToGo(m)
@@ -286,31 +286,32 @@ func wireMessageToValue(ctx *extern.Context, suffix string, raw []byte) (values.
 // Unix-timestamp-scale value carrying full nanosecond precision needs 19 significant digits
 // where float64 offers ~15-17. Rounding there pushes the fraction past the second boundary
 // and flips its sign, which google.protobuf.Duration forbids: for durations of a second or
-// more, a non-zero nanos must carry the same sign as seconds.
-func decimalToSecNano(sec *decimal.Decimal) (int64, int32) {
-	if sec == nil {
-		return 0, 0
-	}
+// more, a non-zero nanos must carry the same sign as seconds. Returns an error if the whole
+// seconds part does not fit in an int64, since google.protobuf.Duration/Timestamp both store
+// seconds as int64.
+func decimalToSecNano(sec *decimal.Decimal) (int64, int32, error) {
 	intSecDec := truncateTowardZero(sec)
-	intSec, _, _ := intSecDec.Int64()
+	intSec, ok, _ := intSecDec.Int64()
+	if !ok {
+		return 0, 0, fmt.Errorf("seconds value %s does not fit in an int64", sec.String())
+	}
 	fracDec, _ := sec.Sub(intSecDec)
 	nanosDec, _ := fracDec.Mul(nanosPerSec)
 	nanosInt, _, _ := nanosDec.Int64()
-	return intSec, int32(nanosInt)
+	return intSec, int32(nanosInt), nil
 }
 
 // truncateTowardZero discards sec's fractional part, so the result never exceeds sec
-// in magnitude and keeps sec's sign.
+// in magnitude and keeps sec's sign. Floor/Ceiling cannot fail here: they only report an
+// error on overflow, and a decimal128 value that is already integral (as any value at the
+// extremes of its representable exponent range necessarily is) never needs to grow past
+// that range to round to itself.
 func truncateTowardZero(sec *decimal.Decimal) *decimal.Decimal {
-	var out *decimal.Decimal
 	if sec.Cmp(decimalZero) < 0 {
-		out, _ = sec.Ceiling()
-	} else {
-		out, _ = sec.Floor()
+		out, _ := sec.Ceiling()
+		return out
 	}
-	if out == nil {
-		return decimalZero
-	}
+	out, _ := sec.Floor()
 	return out
 }
 
@@ -323,20 +324,26 @@ func secNanoToDecimal(sec int64, nanos int32) *decimal.Decimal {
 	return sum
 }
 
-func secondsToDuration(sec *decimal.Decimal) *durationpb.Duration {
-	s, n := decimalToSecNano(sec)
-	return &durationpb.Duration{Seconds: s, Nanos: n}
+func secondsToDuration(sec *decimal.Decimal) (*durationpb.Duration, error) {
+	s, n, err := decimalToSecNano(sec)
+	if err != nil {
+		return nil, err
+	}
+	return &durationpb.Duration{Seconds: s, Nanos: n}, nil
 }
 
 func durationToSecondsDecimal(d *durationpb.Duration) *decimal.Decimal {
 	return secNanoToDecimal(d.GetSeconds(), d.GetNanos())
 }
 
-func utcListToTimestamp(list *values.List) *timestamppb.Timestamp {
+func utcListToTimestamp(list *values.List) (*timestamppb.Timestamp, error) {
 	epochSec, _ := list.Get(0).(int64)
 	frac, _ := list.Get(1).(*decimal.Decimal)
-	_, nanos := decimalToSecNano(frac)
-	return &timestamppb.Timestamp{Seconds: epochSec, Nanos: nanos}
+	_, nanos, err := decimalToSecNano(frac)
+	if err != nil {
+		return nil, err
+	}
+	return &timestamppb.Timestamp{Seconds: epochSec, Nanos: nanos}, nil
 }
 
 func timestampToUtcList(ts *timestamppb.Timestamp) *values.List {

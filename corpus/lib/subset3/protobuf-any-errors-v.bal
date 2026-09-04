@@ -16,9 +16,16 @@
 // under the License.
 
 import ballerina/io;
+import ballerina/time;
 import ballerina/protobuf.types.'any as pbany;
 
 public function main() returns error? {
+    // A time:Seconds value whose whole-seconds part does not fit in an int64 cannot be
+    // packed: google.protobuf.Duration stores seconds as int64.
+    time:Seconds tooLarge = 1e6144;
+    pbany:Any|pbany:Error packedTooLarge = pbany:pack(tooLarge);
+    io:println(packedTooLarge is pbany:Error); // @output true
+
     // Type mismatch: a packed boolean cannot unpack as a string.
     pbany:Any packedBool = check pbany:pack(true);
     string|error mismatch = pbany:unpack(packedBool);
